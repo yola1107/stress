@@ -133,9 +133,13 @@ func (uc *UseCase) CancelTask(id string) error {
 	if !ok {
 		return fmt.Errorf("task not found")
 	}
+	// 先 Cancel 再 Release，避免任务仍在跑时成员被提前复用
+	if err := t.Cancel(); err != nil {
+		return err
+	}
 	uc.memberPool.Release(id)
 	uc.Schedule()
-	return t.Cancel()
+	return nil
 }
 
 // GetTask 按 ID 获取任务
@@ -151,16 +155,6 @@ func (uc *UseCase) ListTasks() []*task.Task {
 // GetMemberStats 玩家池统计
 func (uc *UseCase) GetMemberStats() (idle, allocated, total int) {
 	return uc.memberPool.Stats()
-}
-
-var (
-	closedChanOnce sync.Once
-	closedCh       chan struct{}
-)
-
-func closedChan() <-chan struct{} {
-	closedChanOnce.Do(func() { closedCh = make(chan struct{}); close(closedCh) })
-	return closedCh
 }
 
 // CleanTestEnvironment 清理 Redis site:* 并等订单表达到阈值后 truncate，超时 5 分钟，返回可读 channel

@@ -183,8 +183,9 @@ func loadOrderData(ctx context.Context, repo DataRepo, taskID string) (totalBet,
 	totalCnt = betCnt
 	if err != nil {
 		log.Warnf("[%s] GetDetailedOrderAmounts failed: %v", taskID, err)
-		// 降级：使用默认值
-		totalBet, totalWin, betCnt, bonusCnt, totalCnt = 0, 0, 0, 0, 0
+		totalBet, totalWin, betCnt, bonusCnt = 0, 0, 0, 0
+		// 降级：用 GetGameOrderCount 至少拿到订单总数
+		totalCnt, _ = repo.GetGameOrderCount(ctx)
 	}
 	return totalBet, totalWin, betCnt, bonusCnt, totalCnt, err
 }
