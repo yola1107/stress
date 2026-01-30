@@ -154,8 +154,10 @@ func (t *Task) GetStatus() v1.TaskStatus {
 
 func (t *Task) Context() context.Context { return t.ctx }
 
-func (t *Task) GetActiveMembers() int64  { return atomic.LoadInt64(&t.activeMembers) }
-func (t *Task) GetFailedRequests() int64 { return atomic.LoadInt64(&t.failedRequests) }
+func (t *Task) GetActiveMembers() int64    { return atomic.LoadInt64(&t.activeMembers) }
+func (t *Task) GetCompletedMembers() int64 { return atomic.LoadInt64(&t.completedMembers) }
+func (t *Task) GetFailedMembers() int64    { return atomic.LoadInt64(&t.failedMembers) }
+func (t *Task) GetFailedRequests() int64   { return atomic.LoadInt64(&t.failedRequests) }
 
 // isTerminalStatus 判断是否为终态（完成/失败/取消）
 func isTerminalStatus(status v1.TaskStatus) bool {

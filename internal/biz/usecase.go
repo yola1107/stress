@@ -23,6 +23,7 @@ type DataRepo interface {
 	CleanGameOrderTable(ctx context.Context) error
 	GetGameOrderCount(ctx context.Context) (int64, error)
 	GetOrderAmounts(ctx context.Context) (totalBet, totalWin int64, err error)
+	GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
 
 	NextTaskID(ctx context.Context, gameID int64) (string, error)
 }

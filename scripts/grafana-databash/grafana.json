@@ -19,9 +19,9 @@
   "links": [],
   "panels": [
     {
-      "id": 2,
+      "id": 1,
       "title": "进度 %",
-      "description": "当前任务完成进度 (Process/Target × 100)",
+      "description": "当前任务完成进度 (Process/Target × 100，Process=已完成局数)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "af9fyynz0zxfkc" },
@@ -56,7 +56,7 @@
       }
     },
     {
-      "id": 3,
+      "id": 2,
       "title": "QPS 实时",
       "description": "按任务 ID 的每秒完成局数",
       "type": "timeseries",
@@ -99,15 +99,15 @@
       }
     },
     {
-      "id": 1,
+      "id": 3,
       "title": "RTP %",
-      "description": "回报率 = (总赢 / 总下注) × 100，按任务筛选",
+      "description": "回报率 = (总赢 / 总下注) × 100",
       "type": "timeseries",
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 },
       "datasource": { "type": "prometheus", "uid": "af9fyynz0zxfkc" },
       "targets": [
         {
-          "expr": "(stress_task_total_win{task_id=\"$task_id\"} / stress_task_total_bet{task_id=\"$task_id\"}) * 100",
+          "expr": "stress_task_rtp_pct{task_id=\"$task_id\"}",
           "legendFormat": "RTP {{task_id}}",
           "refId": "A"
         }
@@ -119,8 +119,9 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": 0 },
-              { "color": "red", "value": 80 }
+              { "color": "red", "value": 0 },
+              { "color": "orange", "value": 90 },
+              { "color": "green", "value": 95 }
             ]
           },
           "custom": {
@@ -139,8 +140,7 @@
       "options": {
         "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" },
         "tooltip": { "mode": "single", "sort": "none" }
-      },
-      "transparent": false
+      }
     },
     {
       "id": 4,
@@ -302,6 +302,109 @@
         "graphMode": "area",
         "textMode": "auto"
       }
+    },
+    {
+      "id": 10,
+      "title": "任务配置信息",
+      "description": "任务的配置信息，包括游戏ID、用户数、执行次数、下注配置等",
+      "type": "table",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 22 },
+      "datasource": { "type": "prometheus", "uid": "af9fyynz0zxfkc" },
+      "targets": [
+        { "expr": "stress_task_config_game_id{task_id=\"$task_id\"}", "legendFormat": "游戏ID", "refId": "A" },
+        { "expr": "stress_task_config_member_count{task_id=\"$task_id\"}", "legendFormat": "用户数", "refId": "B" },
+        { "expr": "stress_task_config_times_per_member{task_id=\"$task_id\"}", "legendFormat": "每用户次数", "refId": "C" },
+        { "expr": "stress_task_config_total_target{task_id=\"$task_id\"}", "legendFormat": "总目标次数", "refId": "D" },
+        { "expr": "stress_task_config_bet_base_money{task_id=\"$task_id\"}", "legendFormat": "基础金额", "refId": "E" },
+        { "expr": "stress_task_config_bet_multiple{task_id=\"$task_id\"}", "legendFormat": "倍数", "refId": "F" },
+        { "expr": "stress_task_config_sign_required{task_id=\"$task_id\"}", "legendFormat": "需要签名", "refId": "G" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "游戏ID" }, "properties": [{ "id": "displayName", "value": "游戏 ID" }] },
+          { "matcher": { "id": "byName", "options": "用户数" }, "properties": [{ "id": "displayName", "value": "用户数" }] },
+          { "matcher": { "id": "byName", "options": "每用户次数" }, "properties": [{ "id": "displayName", "value": "每用户执行次数" }] },
+          { "matcher": { "id": "byName", "options": "总目标次数" }, "properties": [{ "id": "displayName", "value": "总目标次数" }] },
+          { "matcher": { "id": "byName", "options": "基础金额" }, "properties": [{ "id": "displayName", "value": "基础金额" }] },
+          { "matcher": { "id": "byName", "options": "倍数" }, "properties": [{ "id": "displayName", "value": "倍数" }] },
+          {
+            "matcher": { "id": "byName", "options": "需要签名" },
+            "properties": [
+              { "id": "displayName", "value": "需要签名" },
+              { "id": "mappings", "value": [{ "options": { "0": { "text": "否", "index": 0 }, "1": { "text": "是", "index": 1 } }, "type": "value" }] }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "footer": { "show": false, "reducer": ["sum"], "fields": "" } }
+    },
+    {
+      "id": 11,
+      "title": "RTP 详细 & 总下注/总赢",
+      "description": "RTP 百分比趋势、总下注额、总返奖数",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+      "datasource": { "type": "prometheus", "uid": "af9fyynz0zxfkc" },
+      "targets": [
+        { "expr": "stress_task_rtp_pct{task_id=\"$task_id\"}", "legendFormat": "RTP %", "refId": "A" },
+        { "expr": "stress_task_total_bet{task_id=\"$task_id\"} / 10000", "legendFormat": "总下注额", "refId": "B" },
+        { "expr": "stress_task_total_win{task_id=\"$task_id\"} / 10000", "legendFormat": "总返奖额", "refId": "C" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "auto",
+            "spanNulls": false
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "RTP %" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "custom.axisPlacement", "value": "right" }] },
+          { "matcher": { "id": "byName", "options": "总下注额" }, "properties": [{ "id": "unit", "value": "currencyCNY" }] },
+          { "matcher": { "id": "byName", "options": "总返奖额" }, "properties": [{ "id": "unit", "value": "currencyCNY" }] }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      }
+    },
+    {
+      "id": 12,
+      "title": "订单统计",
+      "description": "从数据库获取的详细订单统计",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 30 },
+      "datasource": { "type": "prometheus", "uid": "af9fyynz0zxfkc" },
+      "targets": [
+        { "expr": "stress_task_order_count{task_id=\"$task_id\"}", "legendFormat": "总订单数", "refId": "A" },
+        { "expr": "stress_task_bet_order_count{task_id=\"$task_id\"}", "legendFormat": "下注订单数", "refId": "B" },
+        { "expr": "stress_task_bonus_order_count{task_id=\"$task_id\"}", "legendFormat": "奖励订单数", "refId": "C" },
+        { "expr": "stress_task_total_bet{task_id=\"$task_id\"} / 10000", "legendFormat": "总下注金额", "refId": "D" },
+        { "expr": "stress_task_total_win{task_id=\"$task_id\"} / 10000", "legendFormat": "总赢取金额", "refId": "E" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "总订单数" }, "properties": [{ "id": "displayName", "value": "总订单数" }] },
+          { "matcher": { "id": "byName", "options": "下注订单数" }, "properties": [{ "id": "displayName", "value": "下注订单数" }] },
+          { "matcher": { "id": "byName", "options": "奖励订单数" }, "properties": [{ "id": "displayName", "value": "奖励订单数" }] },
+          { "matcher": { "id": "byName", "options": "总下注金额" }, "properties": [{ "id": "displayName", "value": "总下注金额" }, { "id": "unit", "value": "currencyCNY" }] },
+          { "matcher": { "id": "byName", "options": "总赢取金额" }, "properties": [{ "id": "displayName", "value": "总赢取金额" }, { "id": "unit", "value": "currencyCNY" }] }
+        ]
+      },
+      "options": { "showHeader": true, "footer": { "show": false, "reducer": ["sum"], "fields": "" } }
     }
   ],
   "preload": false,
@@ -315,8 +418,8 @@
         "label": "任务 ID",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "af9fyynz0zxfkc" },
-        "query": "stress_task_qps",
-        "regex": "/.*task_id=\"([^\"]+)\".*/",
+        "query": "label_values(stress_task_qps, task_id)",
+        "regex": "",
         "refresh": 2,
         "sort": 1,
         "multi": false,
@@ -333,5 +436,5 @@
   "timezone": "",
   "title": "stress-service",
   "uid": "3c18a991-b0d6-464d-9d97-22ef2060c693",
-  "version": 7
+  "version": 8
 }
