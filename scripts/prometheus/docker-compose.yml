@@ -81,6 +81,7 @@ services:
     networks:
       - monitoring
 
+  # kbudde/rabbitmq-exporter 仅支持 RabbitMQ 3，RabbitMQ 4 请使用原生 rabbitmq  job 采集
   rabbitmq-exporter:
     image: kbudde/rabbitmq-exporter:latest
     container_name: rabbitmq-exporter
@@ -89,7 +90,7 @@ services:
       RABBIT_URL: "http://admin:admin@192.168.10.83:15672"
       RABBIT_USER: "admin"
       RABBIT_PASSWORD: "admin"
-      PUBLISH_PORT: "9090"
+      # PUBLISH_PORT 默认 9419，需与端口映射一致
       RABBIT_CAPABILITIES: "bert,no_sort"
       OUTPUT_FORMAT: "JSON"
     ports:
