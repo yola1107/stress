@@ -73,30 +73,31 @@ func ReportTaskMetrics(ctx context.Context, t *task.Task, repo DataRepo) {
 	ticker := time.NewTicker(metricsReportInterval)
 	defer ticker.Stop()
 
-	taskID := t.GetID()
-	cfg := t.GetConfig()
+	snap := t.GetStats().StatsSnapshot()
+	taskID := snap.ID
 	gameID := "unknown"
-	if cfg != nil && cfg.GameId > 0 {
-		gameID = fmt.Sprintf("%d", cfg.GameId)
+	if snap.Config != nil && snap.Config.GameId > 0 {
+		gameID = fmt.Sprintf("%d", snap.Config.GameId)
 	}
 	labels := prometheus.Labels{labelTaskID: taskID, labelGameID: gameID}
 	cfgLabels := prometheus.Labels{labelTaskID: taskID}
 
 	var lastProcessMilestone int64
-	reportConfig(t, cfgLabels)
-	reportRuntime(ctx, t, repo, labels, taskID, &lastProcessMilestone)
+	reportConfig(snap, cfgLabels)
+	reportRuntime(ctx, repo, labels, snap, &lastProcessMilestone)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			reportRuntime(ctx, t, repo, labels, taskID, &lastProcessMilestone)
+			snap = t.GetStats().StatsSnapshot()
+			reportRuntime(ctx, repo, labels, snap, &lastProcessMilestone)
 		}
 	}
 }
 
-func reportConfig(t *task.Task, lbl prometheus.Labels) {
-	cfg := t.GetConfig()
+func reportConfig(snap task.StatsSnapshot, lbl prometheus.Labels) {
+	cfg := snap.Config
 	if cfg == nil {
 		return
 	}
@@ -120,9 +121,8 @@ func reportConfig(t *task.Task, lbl prometheus.Labels) {
 	set(gCfgBonusCnt, lbl, float64(len(cfg.BetBonus)))
 }
 
-func reportRuntime(ctx context.Context, t *task.Task, repo DataRepo, labels prometheus.Labels, taskID string, lastProcessMilestone *int64) {
-	snap := t.LoadProgressSnapshot()
-	totalBet, totalWin, betCnt, bonusCnt, totalCnt, _ := loadOrderData(ctx, repo, taskID)
+func reportRuntime(ctx context.Context, repo DataRepo, labels prometheus.Labels, snap task.StatsSnapshot, lastProcessMilestone *int64) {
+	totalBet, totalWin, betCnt, bonusCnt, totalCnt, _ := loadOrderData(ctx, repo, snap.ID)
 
 	rtp := 0.0
 	if totalBet > 0 {
@@ -133,7 +133,7 @@ func reportRuntime(ctx context.Context, t *task.Task, repo DataRepo, labels prom
 	process := snap.Process
 	for m := *lastProcessMilestone + rtpMilestoneStep; m <= process; m += rtpMilestoneStep {
 		milestoneLabels := prometheus.Labels{
-			labelTaskID: taskID,
+			labelTaskID: snap.ID,
 			labelGameID: labels[labelGameID],
 			"milestone": fmt.Sprintf("%d", m),
 			"total_bet": fmt.Sprintf("%d", totalBet),
@@ -151,7 +151,11 @@ func reportRuntime(ctx context.Context, t *task.Task, repo DataRepo, labels prom
 		}
 	}
 
-	elapsed := time.Since(t.GetCreatedAt()).Seconds()
+	end := time.Now()
+	if !snap.FinishedAt.IsZero() {
+		end = snap.FinishedAt
+	}
+	elapsed := end.Sub(snap.CreatedAt).Seconds()
 	qps := 0.0
 	if elapsed > 0 {
 		qps = float64(snap.Process) / elapsed
@@ -164,10 +168,10 @@ func reportRuntime(ctx context.Context, t *task.Task, repo DataRepo, labels prom
 
 	set(gProgressPct, labels, progressPct)
 	set(gQPS, labels, qps)
-	set(gActiveMembers, labels, float64(t.GetActiveMembers()))
-	set(gCompletedMembers, labels, float64(t.GetCompletedMembers()))
-	set(gFailedMembers, labels, float64(t.GetFailedMembers()))
-	set(gFailedRequests, labels, float64(t.GetFailedRequests()))
+	set(gActiveMembers, labels, float64(snap.ActiveMembers))
+	set(gCompletedMembers, labels, float64(snap.CompletedMembers))
+	set(gFailedMembers, labels, float64(snap.FailedMembers))
+	set(gFailedRequests, labels, float64(snap.FailedRequests))
 	set(gDurationSec, labels, elapsed)
 	set(gAvgRespTimeMs, labels, avgMs)
 	set(gTotalBet, labels, float64(totalBet))

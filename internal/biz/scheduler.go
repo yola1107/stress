@@ -53,34 +53,34 @@ func (uc *UseCase) Schedule() {
 // 4) 结束任务：t.Stop() 取消 task context、释放协程池
 // 5) 释放成员、置状态、清理环境、触发下一轮调度
 func (uc *UseCase) runTaskSessions(t *task.Task) {
-	meta := t.MetaSnapshot()
-	members := uc.memberPool.GetAllocated(meta.ID)
+	snap := t.GetStats().StatsSnapshot()
+	members := uc.memberPool.GetAllocated(snap.ID)
 	if len(members) == 0 {
 		return
 	}
 
-	g, _ := uc.GetGame(meta.Config.GameId)
+	g, _ := uc.GetGame(snap.Config.GameId)
 	sp := func(string) (string, bool) { return "", false }
 	checker := uc.gamePool.RequireProtobuf
 
 	// 执行阶段 context：仅在本任务“跑 session”期间有效，stopRun 后 Monitor/Prometheus 立即停
 	runCtx, stopRun := context.WithCancel(t.Context())
-	go t.Monitor(runCtx)
+	go t.GetStats().Monitor(runCtx)
 	go ReportTaskMetrics(runCtx, t, uc.repo)
 
 	var wg sync.WaitGroup
 	wg.Add(len(members))
 	for _, m := range members {
 		m := m
-		sess := user.NewSession(m.ID, m.Name, meta.Config.GameId, meta.ID, t, checker)
-		t.MarkMemberStart()
+		sess := user.NewSession(m.ID, m.Name, snap.Config.GameId, snap.ID, t, checker)
+		t.GetStats().MarkMemberStart()
 		if err := t.Submit(func() {
 			defer wg.Done()
-			defer t.MarkMemberDone(sess.IsFailed())
-			_ = sess.Execute(t.Context(), meta.Config, g, sp)
+			defer t.GetStats().MarkMemberDone(sess.IsFailed())
+			_ = sess.Execute(t.Context(), snap.Config, g, sp)
 		}); err != nil {
 			wg.Done()
-			t.MarkMemberDone(true)
+			t.GetStats().MarkMemberDone(true)
 		}
 	}
 	wg.Wait()
@@ -91,10 +91,10 @@ func (uc *UseCase) runTaskSessions(t *task.Task) {
 	t.Stop()
 
 	// 5) 释放成员、置完成态、清理环境、调度下一批
-	uc.memberPool.Release(meta.ID)
+	uc.memberPool.Release(snap.ID)
 	if t.GetStatus() == v1.TaskStatus_TASK_RUNNING {
 		t.SetStatus(v1.TaskStatus_TASK_COMPLETED)
-		<-uc.CleanTestEnvironment(meta)
+		<-uc.CleanTestEnvironment(snap.ID, snap.Step)
 	}
 	uc.Schedule()
 }
@@ -121,9 +121,12 @@ func (uc *UseCase) DeleteTask(id string) error {
 	if !ok {
 		return nil
 	}
-	uc.memberPool.Release(id)
+	t.Stop() // 先停止，触发 runTaskSessions 退出
+	// 仅当任务未在运行时释放成员；若 RUNNING，runTaskSessions 退出时会自行 Release
+	if t.GetStatus() != v1.TaskStatus_TASK_RUNNING {
+		uc.memberPool.Release(id)
+	}
 	uc.Schedule()
-	t.Stop()
 	return nil
 }
 
@@ -158,9 +161,8 @@ func (uc *UseCase) GetMemberStats() (idle, allocated, total int) {
 }
 
 // CleanTestEnvironment 清理 Redis site:* 并等订单表达到阈值后 truncate，超时 5 分钟，返回可读 channel
-func (uc *UseCase) CleanTestEnvironment(snap task.MetaSnapshot) <-chan struct{} {
+func (uc *UseCase) CleanTestEnvironment(taskID string, step int64) <-chan struct{} {
 	time.Sleep(time.Second)
-	taskID := snap.ID
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	done := make(chan struct{})
 	var wg sync.WaitGroup
@@ -173,7 +175,7 @@ func (uc *UseCase) CleanTestEnvironment(snap task.MetaSnapshot) <-chan struct{} 
 	}()
 	go func() {
 		defer wg.Done()
-		uc.waitOrderThenClean(ctx, taskID, snap.Step)
+		uc.waitOrderThenClean(ctx, taskID, step)
 	}()
 	go func() {
 		wg.Wait()

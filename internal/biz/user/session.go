@@ -171,7 +171,7 @@ func (s *Session) executeStep(ctx context.Context) error {
 				s.State = SessionStateBonusSelect
 			}
 			if s.task != nil {
-				s.task.AddBetOrder(duration, spinOver)
+				s.task.GetStats().AddBetOrder(duration, spinOver)
 			}
 			atomic.StoreInt32(&s.TryTimes, 0)
 		} else {
@@ -188,7 +188,7 @@ func (s *Session) executeStep(ctx context.Context) error {
 				s.State = SessionStateBetting
 			}
 			if s.task != nil {
-				s.task.AddBetBonus(duration)
+				s.task.GetStats().AddBetBonus(duration)
 			}
 			atomic.StoreInt32(&s.TryTimes, 0)
 		}
@@ -224,7 +224,7 @@ func (s *Session) handleError(err error, maxRetries int) bool {
 	s.UpdatedAt = time.Now()
 
 	if s.task != nil && s.LastError != errMsg {
-		s.task.AddError(errMsg)
+		s.task.GetStats().AddError(errMsg)
 	}
 	s.LastError = errMsg
 

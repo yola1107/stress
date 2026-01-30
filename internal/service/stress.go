@@ -274,14 +274,13 @@ func (s *StressService) fillTaskStatsFromSnapshot(snap *task.StatsSnapshot, task
 }
 
 func (s *StressService) buildTaskProto(t *task.Task) *v1.Task {
-	snap := t.StatsSnapshot()
-	meta := t.MetaSnapshot() // 一次性获取所有元数据字段
+	snap := t.GetStats().StatsSnapshot()
 	taskProto := &v1.Task{
-		TaskId:      meta.ID,
-		Description: meta.Description,
-		Status:      meta.Status,
+		TaskId:      snap.ID,
+		Description: snap.Description,
+		Status:      snap.Status,
 		Config:      snap.Config,
-		UserCount:   int32(meta.UserIDCount),
+		UserCount:   int32(snap.UserIDCount),
 		CreatedAt:   timestamppb.New(snap.CreatedAt),
 		UpdatedAt:   timestamppb.New(snap.CreatedAt),
 	}
