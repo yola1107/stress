@@ -38,7 +38,7 @@ biz/
 ## 数据流
 
 - **成员**：DataRepo.BatchUpsertMembers → MemberPool.AddIdle；Schedule 时 Allocate → runTaskSessions 用完后 Release。
-- **订单/RTP**：写入由下游 API 落库；biz 层通过 DataRepo.GetOrderAmounts/GetGameOrderCount 查库，供 Prometheus 与清理逻辑使用。
+- **订单/RTP**：写入由下游 API 落库；biz 层通过 DataRepo.GetDetailedOrderAmounts/GetGameOrderCount 查库，供 Prometheus 与清理逻辑使用。
 - **任务**：CreateTask → TaskPool.Add + Schedule；DequeuePending → 分配成员 → t.Start → runTaskSessions；结束时 CleanTestEnvironment、TaskPool 仍保留任务记录供 API 查询。
 
 ## Task 生命周期（runTaskSessions 内严格顺序）

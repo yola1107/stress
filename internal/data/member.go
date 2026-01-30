@@ -142,7 +142,3 @@ func (r *dataRepo) BatchUpsertMembers(ctx context.Context, members []member.Info
 
 	return session.Commit()
 }
-
-func (r *dataRepo) GetMemberCount(ctx context.Context) (int64, error) {
-	return r.data.db.Context(ctx).Table("member").Count()
-}

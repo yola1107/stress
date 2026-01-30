@@ -176,25 +176,6 @@ func (r *dataRepo) GetGameOrderCount(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-// GetOrderAmounts 查询 game_order 表总下注(amount)/总奖金(bonus_amount)（RTP 用）
-func (r *dataRepo) GetOrderAmounts(ctx context.Context) (totalBet, totalWin int64, err error) {
-	if r.data.order == nil {
-		return 0, 0, fmt.Errorf("order database not configured")
-	}
-	var result struct {
-		TotalBet int64 `xorm:"total_bet"`
-		TotalWin int64 `xorm:"total_win"`
-	}
-	// amount/bonus_amount 为 decimal(16,4)，*10000 转为整型与现有 RTP 计算一致
-	_, err = r.data.order.Context(ctx).SQL(`
-		SELECT COALESCE(ROUND(SUM(amount)*10000), 0) as total_bet, COALESCE(ROUND(SUM(bonus_amount)*10000), 0) as total_win FROM game_order
-	`).Get(&result)
-	if err != nil {
-		return 0, 0, fmt.Errorf("query order amounts: %w", err)
-	}
-	return result.TotalBet, result.TotalWin, nil
-}
-
 // GetDetailedOrderAmounts 查询详细的订单统计信息（总下注/总奖金/下注订单数/奖励订单数）
 func (r *dataRepo) GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error) {
 	if r.data.order == nil {

@@ -17,14 +17,11 @@ import (
 // DataRepo 数据层接口：成员/订单/清理/任务ID计数
 type DataRepo interface {
 	BatchUpsertMembers(ctx context.Context, members []member.Info) error
-	GetMemberCount(ctx context.Context) (int64, error)
 	CleanRedisBySite(ctx context.Context, site, merchant string) error
 	CleanRedisBySites(ctx context.Context, sites []string) error
 	CleanGameOrderTable(ctx context.Context) error
 	GetGameOrderCount(ctx context.Context) (int64, error)
-	GetOrderAmounts(ctx context.Context) (totalBet, totalWin int64, err error)
 	GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
-
 	NextTaskID(ctx context.Context, gameID int64) (string, error)
 }
 
