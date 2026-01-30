@@ -15,6 +15,12 @@ import (
 // 通用标签
 const labelTaskID, labelGameID = "task_id", "game_id"
 
+// 上报间隔（可通过常量调整，后续可接入 conf）
+const metricsReportInterval = 10 * time.Second
+
+// RTP 里程碑间隔：每 50 万次（snap.Process 已完成局数）标注一次
+const rtpMilestoneStep = int64(500000)
+
 // 任务进度与性能
 var (
 	gProgressPct      = newGauge("stress_task_progress_pct", "任务进度 (0-100)")
@@ -50,6 +56,12 @@ var (
 	gCfgBonusCnt  = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "stress_task_config_bonus_count", Help: "奖励配置数"}, []string{labelTaskID})
 )
 
+// RTP 里程碑：每 rtpMilestoneStep 次（Process）标注 (RTP, 总下注, 总回报)，供 Grafana 做分割线/标注
+var gRTPMilestone = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "stress_task_rtp_milestone",
+	Help: "RTP at 500k process milestones (for annotations)",
+}, []string{labelTaskID, labelGameID, "milestone", "total_bet", "total_win"})
+
 func newGauge(name, help string) *prometheus.GaugeVec {
 	return promauto.NewGaugeVec(prometheus.GaugeOpts{Name: name, Help: help}, []string{labelTaskID, labelGameID})
 }
@@ -58,7 +70,7 @@ func set(g *prometheus.GaugeVec, labels prometheus.Labels, v float64) { g.With(l
 
 // ReportTaskMetrics 启动指标上报，ctx 取消后退出
 func ReportTaskMetrics(ctx context.Context, t *task.Task, repo DataRepo) {
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(metricsReportInterval)
 	defer ticker.Stop()
 
 	taskID := t.GetID()
@@ -70,14 +82,15 @@ func ReportTaskMetrics(ctx context.Context, t *task.Task, repo DataRepo) {
 	labels := prometheus.Labels{labelTaskID: taskID, labelGameID: gameID}
 	cfgLabels := prometheus.Labels{labelTaskID: taskID}
 
+	var lastProcessMilestone int64
 	reportConfig(t, cfgLabels)
-	reportRuntime(ctx, t, repo, labels, taskID) // 立即上报一次，避免等待首个 tick
+	reportRuntime(ctx, t, repo, labels, taskID, &lastProcessMilestone)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			reportRuntime(ctx, t, repo, labels, taskID)
+			reportRuntime(ctx, t, repo, labels, taskID, &lastProcessMilestone)
 		}
 	}
 }
@@ -107,13 +120,27 @@ func reportConfig(t *task.Task, lbl prometheus.Labels) {
 	set(gCfgBonusCnt, lbl, float64(len(cfg.BetBonus)))
 }
 
-func reportRuntime(ctx context.Context, t *task.Task, repo DataRepo, labels prometheus.Labels, taskID string) {
+func reportRuntime(ctx context.Context, t *task.Task, repo DataRepo, labels prometheus.Labels, taskID string, lastProcessMilestone *int64) {
 	snap := t.LoadProgressSnapshot()
 	totalBet, totalWin, betCnt, bonusCnt, totalCnt, _ := loadOrderData(ctx, repo, taskID)
 
 	rtp := 0.0
 	if totalBet > 0 {
 		rtp = float64(totalWin) / float64(totalBet) * 100
+	}
+
+	// 每 rtpMilestoneStep 次（snap.Process 已完成局数）标注一次 RTP 里程碑
+	process := snap.Process
+	for m := *lastProcessMilestone + rtpMilestoneStep; m <= process; m += rtpMilestoneStep {
+		milestoneLabels := prometheus.Labels{
+			labelTaskID: taskID,
+			labelGameID: labels[labelGameID],
+			"milestone": fmt.Sprintf("%d", m),
+			"total_bet": fmt.Sprintf("%d", totalBet),
+			"total_win": fmt.Sprintf("%d", totalWin),
+		}
+		gRTPMilestone.With(milestoneLabels).Set(rtp)
+		*lastProcessMilestone = m
 	}
 
 	progressPct := 0.0
@@ -135,7 +162,6 @@ func reportRuntime(ctx context.Context, t *task.Task, repo DataRepo, labels prom
 		avgMs = float64(snap.TotalDuration) / float64(snap.Step) / 1e6
 	}
 
-	// 上报
 	set(gProgressPct, labels, progressPct)
 	set(gQPS, labels, qps)
 	set(gActiveMembers, labels, float64(t.GetActiveMembers()))

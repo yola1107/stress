@@ -9,6 +9,16 @@
         "iconColor": "rgba(0, 211, 255, 1)",
         "name": "Annotations & Alerts",
         "type": "dashboard"
+      },
+      {
+        "datasource": { "type": "prometheus", "uid": "af9fyynz0zxfkc" },
+        "enable": true,
+        "expr": "stress_task_rtp_milestone{task_id=\"$task_id\"}",
+        "iconColor": "orange",
+        "name": "RTP 里程碑 (每50万次)",
+        "tagKeys": "milestone,total_bet,total_win",
+        "textFormat": "RTP、总下注、总回报见标签",
+        "type": "dashboard"
       }
     ]
   },
@@ -305,10 +315,110 @@
     },
     {
       "id": 10,
+      "title": "已完成成员",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 22 },
+      "datasource": { "type": "prometheus", "uid": "af9fyynz0zxfkc" },
+      "targets": [{ "expr": "stress_task_completed_members{task_id=\"$task_id\"}", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["last"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" }
+    },
+    {
+      "id": 13,
+      "title": "失败成员",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 22 },
+      "datasource": { "type": "prometheus", "uid": "af9fyynz0zxfkc" },
+      "targets": [{ "expr": "stress_task_failed_members{task_id=\"$task_id\"}", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["last"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" }
+    },
+    {
+      "id": 14,
+      "title": "运行时长",
+      "description": "任务已运行秒数",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 22 },
+      "datasource": { "type": "prometheus", "uid": "af9fyynz0zxfkc" },
+      "targets": [{ "expr": "stress_task_duration_seconds{task_id=\"$task_id\"}", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["last"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" }
+    },
+    {
+      "id": 15,
+      "title": "平均响应",
+      "description": "毫秒",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 22 },
+      "datasource": { "type": "prometheus", "uid": "af9fyynz0zxfkc" },
+      "targets": [{ "expr": "stress_task_avg_response_time_ms{task_id=\"$task_id\"}", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["last"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" }
+    },
+    {
+      "id": 16,
+      "title": "任务列表 (24h)",
+      "description": "最近 24h 内有数据的任务，含进度%、RTP、总下注/总回报",
+      "type": "table",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 22 },
+      "datasource": { "type": "prometheus", "uid": "af9fyynz0zxfkc" },
+      "targets": [
+        { "expr": "last_over_time(stress_task_qps[24h])", "refId": "A", "format": "table", "instant": true },
+        { "expr": "last_over_time(stress_task_progress_pct[24h])", "refId": "B", "format": "table", "instant": true },
+        { "expr": "last_over_time(stress_task_rtp_pct[24h])", "refId": "C", "format": "table", "instant": true },
+        { "expr": "last_over_time(stress_task_total_bet[24h]) / 10000", "refId": "D", "format": "table", "instant": true },
+        { "expr": "last_over_time(stress_task_total_win[24h]) / 10000", "refId": "E", "format": "table", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto", "cellOptions": { "type": "auto" } } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Value #A" }, "properties": [{ "id": "displayName", "value": "QPS" }, { "id": "unit", "value": "reqps" }] },
+          { "matcher": { "id": "byName", "options": "Value #B" }, "properties": [{ "id": "displayName", "value": "进度 %" }, { "id": "unit", "value": "percent" }] },
+          { "matcher": { "id": "byName", "options": "Value #C" }, "properties": [{ "id": "displayName", "value": "RTP %" }, { "id": "unit", "value": "percent" }] },
+          { "matcher": { "id": "byName", "options": "Value #D" }, "properties": [{ "id": "displayName", "value": "总下注" }, { "id": "unit", "value": "currencyCNY" }] },
+          { "matcher": { "id": "byName", "options": "Value #E" }, "properties": [{ "id": "displayName", "value": "总回报" }, { "id": "unit", "value": "currencyCNY" }] }
+        ]
+      },
+      "options": { "showHeader": true }
+    },
+    {
+      "id": 17,
       "title": "任务配置信息",
       "description": "任务的配置信息，包括游戏ID、用户数、执行次数、下注配置等",
       "type": "table",
-      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 22 },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 27 },
       "datasource": { "type": "prometheus", "uid": "af9fyynz0zxfkc" },
       "targets": [
         { "expr": "stress_task_config_game_id{task_id=\"$task_id\"}", "legendFormat": "游戏ID", "refId": "A" },
@@ -346,7 +456,7 @@
       "title": "RTP 详细 & 总下注/总赢",
       "description": "RTP 百分比趋势、总下注额、总返奖数",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 27 },
       "datasource": { "type": "prometheus", "uid": "af9fyynz0zxfkc" },
       "targets": [
         { "expr": "stress_task_rtp_pct{task_id=\"$task_id\"}", "legendFormat": "RTP %", "refId": "A" },
@@ -383,7 +493,7 @@
       "title": "订单统计",
       "description": "从数据库获取的详细订单统计",
       "type": "table",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 30 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 35 },
       "datasource": { "type": "prometheus", "uid": "af9fyynz0zxfkc" },
       "targets": [
         { "expr": "stress_task_order_count{task_id=\"$task_id\"}", "legendFormat": "总订单数", "refId": "A" },
@@ -418,23 +528,24 @@
         "label": "任务 ID",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "af9fyynz0zxfkc" },
-        "query": "label_values(stress_task_qps, task_id)",
+        "query": "label_values(stress_task_qps[24h], task_id)",
         "regex": "",
         "refresh": 2,
-        "sort": 1,
+        "sort": 2,
         "multi": false,
         "includeAll": false,
         "current": {},
-        "hide": 0
+        "hide": 0,
+        "description": "最近 24h 内有数据的任务（配合每日清理，sort=desc 新任务在前）"
       }
     ]
   },
-  "time": { "from": "now-15m", "to": "now" },
+  "time": { "from": "now-1h", "to": "now" },
   "timepicker": {
     "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h"]
   },
   "timezone": "",
   "title": "stress-service",
   "uid": "3c18a991-b0d6-464d-9d97-22ef2060c693",
-  "version": 8
+  "version": 9
 }
