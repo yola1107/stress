@@ -25,10 +25,46 @@ scrape_configs:
     static_configs:
       - targets: ['mysql-exporter:9104']
 
-  - job_name: 'redis-exporter'
+  # Redis Cluster - 通过 redis_exporter 的 /scrape 端点采集 6 个节点指标
+  # 集群信息参考: scripts/redis-cluster (192.168.10.83:7000-7005, 密码 A12345!)
+  - job_name: 'redis_exporter_targets'
+    metrics_path: '/scrape'
     static_configs:
-      - targets: ['redis-exporter:9121']
+      - targets:
+        - "redis://:A12345!@192.168.10.83:7000"
+        - "redis://:A12345!@192.168.10.83:7001"
+        - "redis://:A12345!@192.168.10.83:7002"
+        - "redis://:A12345!@192.168.10.83:7003"
+        - "redis://:A12345!@192.168.10.83:7004"
+        - "redis://:A12345!@192.168.10.83:7005"
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: "redis-exporter:9121"
 
+  # redis_exporter 自身指标
+  - job_name: 'redis_exporter'
+    static_configs:
+      - targets:
+        - "redis-exporter:9121"
+
+  # RabbitMQ 集群 - 原生 Prometheus 插件 (rabbitmq_prometheus)
+  # 部署在 192.168.10.83，Grafana 10991 依赖 rabbitmq_identity_info 等指标
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets:
+        - "192.168.10.83:15692"  # rabbitmq1
+        - "192.168.10.83:15693"  # rabbitmq2
+        - "192.168.10.83:15694"  # rabbitmq3
+    relabel_configs:
+      # 为非 K8s 环境添加 namespace，使 Grafana 10991 变量可选
+      - target_label: namespace
+        replacement: "default"
+
+  # kbudde rabbitmq-exporter（Management API 指标，与原生插件互补）
   - job_name: 'rabbitmq-exporter'
     static_configs:
       - targets: ['rabbitmq-exporter:9419']
