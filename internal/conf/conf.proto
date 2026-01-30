@@ -1,0 +1,65 @@
+syntax = "proto3";
+package kratos.api;
+
+option go_package = "stress/internal/conf;conf";
+
+import "google/protobuf/duration.proto";
+
+message Bootstrap {
+    Server server = 1;
+    Data data     = 2;
+    Log log       = 3;
+    Launch launch = 4;
+}
+
+message Server {
+    message HTTP {
+        string network                   = 1;
+        string addr                      = 2;
+        google.protobuf.Duration timeout = 3;
+    }
+    message GRPC {
+        string network                   = 1;
+        string addr                      = 2;
+        google.protobuf.Duration timeout = 3;
+    }
+    HTTP http = 1;
+    GRPC grpc = 2;
+}
+
+message Data {
+    message Database {
+        string driver        = 1;
+        string source        = 2;
+        int32 max_idle_conns = 3;
+        int32 max_open_conns = 4;
+    }
+    message Redis {
+        string network                         = 1;
+        repeated string addr                   = 2;
+        string password                        = 3;
+        int32 db                               = 4;
+        google.protobuf.Duration read_timeout  = 5;
+        google.protobuf.Duration write_timeout = 6;
+    }
+    Database database       = 1;
+    Database order_database = 2;
+    Redis redis             = 3;
+}
+
+message Log {
+    int32 mode    = 1;
+    string level  = 2;
+    string app    = 3;
+    string prefix = 4;
+    string dir    = 5;
+    bool file     = 6;
+}
+
+message Launch {
+  repeated string sites   = 1;  // SITE 标识，用于清理 Redis/测试环境（如 egame50001）
+  bool auto_loads  = 2;
+  int32 interval_sec = 3;
+  int32 batch_load_size = 4;
+  int32 max_load_total = 5;
+}

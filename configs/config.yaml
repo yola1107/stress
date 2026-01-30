@@ -1,0 +1,66 @@
+
+server:
+  http:
+    addr: 0.0.0.0:8001
+    timeout: 1s
+  grpc:
+    addr: 0.0.0.0:9001
+    timeout: 1s
+log:
+  mode: 0 # 0为开发模式(控制台颜色输出)，1为生产模式(写入文件)
+  level: "debug"
+  app: "kratos-app"
+  dir: "./logs"
+  file: false
+
+data0:
+  database:
+    driver: mysql
+    source: root:123456@tcp(192.168.152.128:3306)/egame?parseTime=True&loc=Local
+    max_idle_conns: 50
+    max_open_conns: 200
+  order_database:
+    driver: mysql
+    source: root:123456@tcp(192.168.152.128:3306)/egame_order?parseTime=True&loc=Local
+    max_idle_conns: 50
+    max_open_conns: 200
+  redis:
+    addr:
+      - 192.168.152.128:6379
+    password: ""
+    read_timeout: 0.5s
+    write_timeout: 0.5s
+
+data:
+  database:
+    driver: mysql
+    source: root:Aa12345!@#@tcp(192.168.10.83:3306)/egame?parseTime=True&loc=Local
+    max_idle_conns: 50
+    max_open_conns: 200
+  order_database:
+    driver: mysql
+    source: root:Aa12345!@#@tcp(192.168.10.83:3306)/egame_order?parseTime=True&loc=Local
+    max_idle_conns: 50
+    max_open_conns: 200
+  redis:
+    addr:
+      - 192.168.10.83:7000
+      - 192.168.10.83:7001
+      - 192.168.10.83:7002
+      - 192.168.10.83:7003
+      - 192.168.10.83:7004
+      - 192.168.10.83:7005
+    password: "A12345!"
+    read_timeout: 0.5s
+    write_timeout: 0.5s
+
+launch:
+  sites:
+    - "egame50001"
+  auto_loads: true
+  interval_sec: 1
+  batch_load_size: 1000
+  max_load_total: 3000
+
+
+

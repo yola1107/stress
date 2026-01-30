@@ -1,0 +1,272 @@
+syntax = "proto3";
+
+package stress.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "validate/validate.proto";
+
+option go_package           = "stress/api/stress/v1;v1";
+option java_multiple_files  = true;
+option java_package         = "dev.kratos.api.stress.v1";
+option java_outer_classname = "StressProtoV1";
+
+// ############################################################################
+// # 枚举定义 (Enums)
+// ############################################################################
+
+// 任务状态枚举
+enum TaskStatus {
+    TASK_UNSPECIFIED = 0;
+    TASK_PENDING     = 1;  // 等待中
+    TASK_RUNNING     = 2;  // 运行中
+    TASK_COMPLETED   = 3;  // 已完成
+    TASK_FAILED      = 4;  // 已失败
+    TASK_CANCELLED   = 5;  // 已取消
+}
+
+// ############################################################################
+// # 服务定义 (Service)
+// ############################################################################
+
+service StressService {
+    // Sends a greeting
+    rpc PingReq(PingRequest) returns (PingReply) {
+        option (google.api.http) = {
+            get: "/stress/ping/{name}"
+        };
+    }
+
+    // --- 游戏相关 ---
+    // 获取游戏列表
+    rpc ListGames(ListGamesRequest) returns (ListGamesResponse) {
+        option (google.api.http) = {
+            get: "/stress/ListGames"
+        };
+    }
+
+    // 获取任务列表
+    rpc ListTasks(ListTasksRequest) returns (ListTasksResponse) {
+        option (google.api.http) = {
+            get: "/stress/ListTasks"
+        };
+    }
+
+    // 创建压测任务
+    rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse) {
+        option (google.api.http) = {
+            post: "/stress/CreateTask"
+            body: "*"
+        };
+    }
+
+    // 获取任务详情
+    rpc GetTask(TaskRequest) returns (GetTaskResponse) {
+        option (google.api.http) = {
+            get: "/stress/GetTask/{task_id}"
+        };
+    }
+
+    // 获取任务分配的用户ID列表（单独接口，控制 user_ids 体积）
+    rpc GetTaskUserIds(TaskRequest) returns (GetTaskUserIdsResponse) {
+        option (google.api.http) = {
+            get: "/stress/GetTaskUserIds/{task_id}/user_ids"
+        };
+    }
+
+    // 删除任务
+    rpc DeleteTask(TaskRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            delete: "/stress/DeleteTask/{task_id}"
+        };
+    }
+
+    // 取消任务
+    rpc CancelTask(TaskRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            post: "/stress/CancelTask/{task_id}"
+            body: "*"
+        };
+    }
+
+    // 获取任务进度
+    rpc GetTaskProgress(TaskRequest) returns (GetTaskProgressResponse) {
+        option (google.api.http) = {
+            get: "/stress/GetTaskProgress/{task_id}"
+        };
+    }
+
+    // 获取任务统计
+    rpc GetTaskStatistics(TaskRequest) returns (GetTaskStatisticsResponse) {
+        option (google.api.http) = {
+            get: "/stress/GetTaskStatistics/{task_id}"
+        };
+    }
+
+    // 获取系统统计
+    rpc GetSystemStatistics(GetSystemStatisticsRequest) returns (GetSystemStatisticsResponse) {
+        option (google.api.http) = {
+            get: "/stress/statistics"
+        };
+    }
+}
+
+// ############################################################################
+// # 请求/响应消息定义 (Request & Response)
+// ############################################################################
+
+// The request message containing the user's name.
+message PingRequest {
+    string name = 1;
+}
+
+// The response message containing the greetings
+message PingReply {
+    string message = 1;
+}
+
+// --- 游戏列表 ---
+message ListGamesRequest {
+}
+message ListGamesResponse {
+    repeated Game games = 1;  // 游戏列表
+    int32 total         = 2;  // 总数
+}
+
+// --- 创建任务 ---
+message CreateTaskRequest {
+    string description = 1;                                                  // 任务描述
+    TaskConfig config  = 2 [(validate.rules).message = { required: true }];  // 任务配置
+}
+message CreateTaskResponse {
+    Task task = 1;  // 创建后的任务信息
+}
+
+// --- 任务详情 ---
+message TaskRequest {
+    string task_id = 1 [(validate.rules).string = { min_len: 1 }];  // 任务ID
+}
+message GetTaskResponse {
+    Task task = 1;  // 任务详情
+}
+
+// --- 任务列表 ---
+message ListTasksRequest {
+    TaskStatus status = 1;  // 状态过滤
+    string filter     = 2;  // 其他过滤条件
+}
+message ListTasksResponse {
+    repeated Task tasks = 1;  // 任务列表
+    int32 total         = 2;  // 总数
+}
+
+// --- 任务用户ID ---
+message GetTaskUserIdsResponse {
+    repeated int64 user_ids = 1;  // 分配的用户ID列表
+    int32 total             = 2;  // 总数
+}
+
+// --- 任务进度统计 ---
+message GetTaskProgressResponse {
+    TaskProgress progress = 1;  // 任务进度
+}
+
+message GetTaskStatisticsResponse {
+    TaskStatistics statistics = 1;  // 任务统计
+}
+
+// --- 系统统计 ---
+message GetSystemStatisticsRequest {}
+message GetSystemStatisticsResponse {
+    SystemStatistics statistics = 1;  // 系统统计
+}
+
+// ############################################################################
+// # 基础模型定义 (Models)
+// ############################################################################
+
+// 游戏信息
+message Game {
+    int64 game_id      = 1;  // 游戏ID
+    string game_name   = 2;  // 游戏名称
+    string description = 3;  // 游戏描述
+    bool is_active     = 4;  // 是否激活
+}
+
+// 任务配置
+message TaskConfig {
+    int64 game_id                     = 1 [(validate.rules).int64 = { gt: 0 }];               // 游戏ID
+    int32 member_count                = 2 [(validate.rules).int32 = { gte: 1, lte: 10000 }];  // 用户数量
+    int32 times_per_member            = 3 [(validate.rules).int32 = { gte: 1, lte: 10000 }];  // 每个用户执行次数
+    BetOrderConfig bet_order          = 4;                                                    // 下注配置
+    repeated BetBonusConfig bet_bonus = 5;                                                    // 奖励配置
+    string api_url                    = 6 [(validate.rules).string = { min_len: 1 }];         // API地址
+    string launch_url                 = 7 [(validate.rules).string = { min_len: 1 }];         // 启动地址
+    bool sign_required                = 8;                                                    // 是否需要签名
+    string merchant                   = 9;                                                    // 商户名称
+}
+
+// 下注配置
+message BetOrderConfig {
+    double base_money = 1 [(validate.rules).double = { gt: 0 }];  // 基础金额
+    int64 multiple    = 2 [(validate.rules).int64 = { gt: 0 }];   // 倍数
+    int64 purchase    = 3 [(validate.rules).int64 = { gte: 0 }];  // 购买次数
+}
+
+// 奖励配置
+message BetBonusConfig {
+    int64 game_id                 = 1 [(validate.rules).int64 = { gt: 0 }];  // 游戏ID
+    int64 bonus_num               = 2;                                       // 指定奖励编号（0表示随机）
+    repeated int64 random_nums    = 3;                                       // 随机范围 [min, max]
+    repeated int64 bonus_sequence = 4;                                       // 奖励序列
+}
+
+// 任务完整信息
+message Task {
+    string task_id                       = 1;  // 任务ID
+    string description                   = 2;  // 任务描述
+    TaskStatus status                    = 3;  // 任务状态
+    TaskConfig config                    = 4;  // 任务配置
+    TaskProgress progress                = 5;  // 任务进度
+    TaskStatistics statistics            = 6;  // 任务统计
+    int32 user_count                     = 7;  // 分配到的用户数量
+    google.protobuf.Timestamp created_at = 8;  // 创建时间
+    google.protobuf.Timestamp updated_at = 9;  // 更新时间
+}
+
+// 任务进度
+message TaskProgress {
+    int32 total_members      = 1;  // 总用户数
+    int32 completed_members  = 2;  // 已完成用户数
+    int32 active_members     = 3;  // 活跃用户数
+    int32 failed_members     = 4;  // 失败用户数
+    int64 total_requests     = 5;  // 总请求数
+    int64 completed_requests = 6;  // 已完成请求数
+    int64 failed_requests    = 7;  // 失败请求数
+    double completion_rate   = 8;  // 完成率（0-1）
+}
+
+// 任务统计
+message TaskStatistics {
+    google.protobuf.Timestamp start_time = 1;  // 开始时间
+    google.protobuf.Timestamp end_time   = 2;  // 结束时间
+    int64 total_duration_ms              = 3;  // 总耗时（毫秒）
+    double avg_response_time_ms          = 4;  // 平均响应时间（毫秒）
+    double qps                           = 5;  // QPS
+    double success_rate                  = 6;  // 成功率
+    int64 total_bet_orders               = 7;  // 总下注次数
+    int64 total_bet_bonuses              = 8;  // 总奖励次数
+    map<string, int64> error_counts      = 9;  // 错误统计
+}
+
+// 系统统计
+message SystemStatistics {
+    int32 total_games                      = 1;  // 总游戏数
+    int32 active_games                     = 2;  // 活跃游戏数
+    int32 total_users                      = 3;  // 总用户数
+    int32 active_users                     = 4;  // 活跃用户数
+    int32 running_tasks                    = 5;  // 运行中任务数
+    int32 pending_tasks                    = 6;  // 等待中任务数
+    google.protobuf.Timestamp collected_at = 7;  // 收集时间
+}

@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  gitlab-runner-grpc03:
+    image: gitlab/gitlab-runner:latest
+    container_name: gitlab-runner-grpc03
+    restart: unless-stopped
+    volumes:
+      - ./runner-grpc03:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - gitlab-runner-network
+
+  gitlab-runner-logic03:
+    image: gitlab/gitlab-runner:latest
+    container_name: gitlab-runner-logic03
+    restart: unless-stopped
+    volumes:
+      - ./runner-logic03:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - gitlab-runner-network
+
+  gitlab-runner-egame:
+    image: gitlab/gitlab-runner:latest
+    container_name: gitlab-runner-egame
+    restart: unless-stopped
+    volumes:
+      - ./runner-egame:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - gitlab-runner-network
+
+  gitlab-runner-egame-tool:
+    image: gitlab/gitlab-runner:latest
+    container_name: gitlab-runner-egame-tool
+    restart: unless-stopped
+    volumes:
+      - ./runner-egame-tool:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - gitlab-runner-network
+
+networks:
+  gitlab-runner-network:
+    driver: bridge
