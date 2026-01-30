@@ -3,227 +3,136 @@ package biz
 import (
 	"context"
 	"fmt"
-	"sync"
-	"time"
 
 	v1 "stress/api/stress/v1"
+	"stress/internal/biz/game/base"
 	"stress/internal/biz/task"
-	"stress/internal/biz/user"
 )
 
-// Schedule 从待调度队列取任务、分配成员、启动压测
-func (uc *UseCase) Schedule() {
-	mp, tp := uc.memberPool, uc.taskPool
+// scheduleLoop 调度器主循环，阻塞等待任务变更信号
+func (uc *UseCase) scheduleLoop() {
 	for {
-		taskID, t, ok := tp.PeekPending()
+		select {
+		case <-uc.ctx.Done():
+			return
+		case <-uc.scheduleCh:
+			uc.doSchedule()
+		}
+	}
+}
+
+// doSchedule 执行实际调度逻辑
+func (uc *UseCase) doSchedule() {
+	for {
+		select {
+		case <-uc.ctx.Done():
+			return
+		default:
+		}
+
+		// 单线程，控制宿主机cpu+内存; 控制一个任务在跑
+		if uc.taskPool.HasRunningTasks() {
+			break
+		}
+
+		taskID, t, ok := uc.taskPool.PeekPending()
 		if !ok {
 			break
 		}
 		if t == nil || t.GetStatus() != v1.TaskStatus_TASK_PENDING || t.GetConfig() == nil {
-			tp.DropPendingHead()
+			uc.taskPool.DropPendingHead()
 			continue
 		}
 		config := t.GetConfig()
-		if !tp.DequeuePending(taskID) {
-			continue
-		}
-		allocated := mp.Allocate(taskID, int(config.MemberCount))
-		if allocated == nil {
-			tp.RequeueAtHead(taskID)
+		if !uc.memberPool.CanAllocate(int(config.MemberCount)) {
 			break
 		}
-		ids := make([]int64, len(allocated))
-		for i, m := range allocated {
-			ids[i] = m.ID
-		}
-		t.SetUserIDs(ids)
-		if err := t.Start(); err != nil {
-			t.SetUserIDs(nil)
-			mp.Release(taskID)
+		if !uc.taskPool.DequeuePending(taskID) {
 			continue
 		}
-		go uc.runTaskSessions(t)
+		allocated := uc.memberPool.Allocate(taskID, int(config.MemberCount))
+		if allocated == nil {
+			uc.taskPool.RequeueAtHead(taskID)
+			break
+		}
+		if !t.CompareAndSetStatus(v1.TaskStatus_TASK_PENDING, v1.TaskStatus_TASK_RUNNING) {
+			uc.memberPool.Release(taskID)
+			continue
+		}
+		go uc.runTask(t, allocated)
 	}
 }
 
-// runTaskSessions 执行单任务完整生命周期，顺序严格：
-// 1) 启动附属 goroutine（Monitor、ReportTaskMetrics），均绑定 runCtx
-// 2) 跑完所有 Session（wg.Wait）
-// 3) 结束附属：stopRun() 取消 runCtx → Monitor 与 ReportTaskMetrics 立即退出
-// 4) 结束任务：t.Stop() 取消 task context、释放协程池
-// 5) 释放成员、置状态、清理环境、触发下一轮调度
-func (uc *UseCase) runTaskSessions(t *task.Task) {
-	meta := t.MetaSnapshot()
-	members := uc.memberPool.GetAllocated(meta.ID)
-	if len(members) == 0 {
-		return
+// WakeScheduler 唤醒调度器（非阻塞）
+func (uc *UseCase) WakeScheduler() {
+	select {
+	case uc.scheduleCh <- struct{}{}:
+	default: // channel 已满，已有待处理信号
 	}
+}
 
-	g, _ := uc.GetGame(meta.Config.GameId)
-	sp := func(string) (string, bool) { return "", false }
-	checker := uc.gamePool.RequireProtobuf
-
-	// 执行阶段 context：仅在本任务“跑 session”期间有效，stopRun 后 Monitor/Prometheus 立即停
-	runCtx, stopRun := context.WithCancel(t.Context())
-	go t.Monitor(runCtx)
-	go ReportTaskMetrics(runCtx, t, uc.repo)
-
-	var wg sync.WaitGroup
-	wg.Add(len(members))
-	for _, m := range members {
-		m := m
-		sess := user.NewSession(m.ID, m.Name, meta.Config.GameId, meta.ID, t, checker)
-		t.MarkMemberStart()
-		if err := t.Submit(func() {
-			defer wg.Done()
-			defer t.MarkMemberDone(sess.IsFailed())
-			_ = sess.Execute(t.Context(), meta.Config, g, sp)
-		}); err != nil {
-			wg.Done()
-			t.MarkMemberDone(true)
-		}
+// runTask 执行任务，cleanup 后通过回调唤醒调度
+func (uc *UseCase) runTask(t *task.Task, allocated []task.MemberInfo) {
+	deps := &task.ExecDeps{
+		GetOrderCount:     uc.repo.GetGameOrderCount,
+		GetOrderAmounts:   uc.repo.GetDetailedOrderAmounts,
+		QueryOrderPoints:  uc.repo.QueryGameOrderPoints,
+		UploadBytes:       uc.repo.UploadBytes,
+		CleanRedisBySites: uc.repo.CleanRedisBySites,
+		CleanOrderTable:   uc.repo.CleanGameOrderTable,
+		ReleaseMembers:    uc.memberPool.Release,
+		Conf:              uc.conf,
+		Notify:            uc.notify,
+		Chart:             uc.chart,
+		OnComplete:        uc.WakeScheduler,
 	}
-	wg.Wait()
-
-	// 3) 结束附属：不再打进度、不再上报 Prometheus
-	stopRun()
-	// 4) 结束任务：取消 task ctx、释放 ants 池
-	t.Stop()
-
-	// 5) 释放成员、置完成态、清理环境、调度下一批
-	uc.memberPool.Release(meta.ID)
-	if t.GetStatus() == v1.TaskStatus_TASK_RUNNING {
-		t.SetStatus(v1.TaskStatus_TASK_COMPLETED)
-		<-uc.CleanTestEnvironment(meta)
-	}
-	uc.Schedule()
+	t.Execute(allocated, deps)
 }
 
 // CreateTask 创建并尝试运行
-func (uc *UseCase) CreateTask(ctx context.Context, description string, config *v1.TaskConfig) (*task.Task, error) {
-	taskID, err := uc.repo.NextTaskID(ctx, config.GameId)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate task ID: %w", err)
+func (uc *UseCase) CreateTask(ctx context.Context, g base.IGame, config *v1.TaskConfig) (*task.Task, error) {
+	if config.MemberCount > uc.conf.Member.MaxLoadTotal {
+		return nil, fmt.Errorf("member count %d exceeds limit %d", config.MemberCount, uc.conf.Member.MaxLoadTotal)
 	}
 
-	t, err := task.NewTask(taskID, description, config)
+	taskID, err := uc.repo.NextTaskID(ctx, config.GameId)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("generate task id: %w", err)
 	}
+
+	t, err := task.NewTask(uc.ctx, taskID, g, config, uc.log.Logger())
+	if err != nil {
+		return nil, fmt.Errorf("create task: %w", err)
+	}
+
 	uc.taskPool.Add(t)
-	uc.Schedule()
+	uc.WakeScheduler()
 	return t, nil
 }
 
-// DeleteTask 删除任务并释放成员
+// DeleteTask 删除任务（异步，不等待 Execute 退出）
 func (uc *UseCase) DeleteTask(id string) error {
 	t, ok := uc.taskPool.Remove(id)
 	if !ok {
 		return nil
 	}
-	uc.memberPool.Release(id)
-	uc.Schedule()
+
+	// 停止任务上下文，触发 Execute 退出
 	t.Stop()
+	// 成员由 Execute.cleanup 释放，避免重复释放导致的数据混乱
 	return nil
 }
 
-// CancelTask 取消任务并释放成员
+// CancelTask 取消任务（异步，不等待 Execute 退出）
 func (uc *UseCase) CancelTask(id string) error {
 	t, ok := uc.taskPool.Get(id)
 	if !ok {
-		return fmt.Errorf("task not found")
+		return fmt.Errorf("task %s not found", id)
 	}
-	uc.memberPool.Release(id)
-	uc.Schedule()
-	return t.Cancel()
-}
 
-// GetTask 按 ID 获取任务
-func (uc *UseCase) GetTask(id string) (*task.Task, bool) {
-	return uc.taskPool.Get(id)
-}
-
-// ListTasks 返回所有任务（已按创建时间倒序）
-func (uc *UseCase) ListTasks() []*task.Task {
-	return uc.taskPool.List()
-}
-
-// GetMemberStats 玩家池统计
-func (uc *UseCase) GetMemberStats() (idle, allocated, total int) {
-	return uc.memberPool.Stats()
-}
-
-var (
-	closedChanOnce sync.Once
-	closedCh       chan struct{}
-)
-
-func closedChan() <-chan struct{} {
-	closedChanOnce.Do(func() { closedCh = make(chan struct{}); close(closedCh) })
-	return closedCh
-}
-
-// CleanTestEnvironment 清理 Redis site:* 并等订单表达到阈值后 truncate，超时 5 分钟，返回可读 channel
-func (uc *UseCase) CleanTestEnvironment(snap task.MetaSnapshot) <-chan struct{} {
-	time.Sleep(time.Second)
-	taskID := snap.ID
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	done := make(chan struct{})
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		if err := uc.cleanupRedis(ctx); err != nil {
-			uc.log.Errorf("[%s] Redis cleanup: %v", taskID, err)
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		uc.waitOrderThenClean(ctx, taskID, snap.Step)
-	}()
-	go func() {
-		wg.Wait()
-		cancel()
-		uc.log.Infof("[%s] cleanup done", taskID)
-		close(done)
-	}()
-	return done
-}
-
-// cleanupRedis 统一的 Redis 清理逻辑
-func (uc *UseCase) cleanupRedis(ctx context.Context) error {
-	if uc.c == nil || len(uc.c.Sites) == 0 {
-		return nil
+	if err := t.Cancel(); err != nil {
+		return fmt.Errorf("cancel task: %w", err)
 	}
-	if err := uc.repo.CleanRedisBySites(ctx, uc.c.Sites); err != nil {
-		return err
-	}
-	uc.log.Info("Redis cleanup done")
+	// 成员由 Execute.cleanup 释放，避免重复释放导致的数据混乱
 	return nil
-}
-
-// waitOrderThenClean 每 5s 查订单数，>= threshold 时 truncate 并返回
-func (uc *UseCase) waitOrderThenClean(ctx context.Context, taskID string, threshold int64) {
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			count, err := uc.repo.GetGameOrderCount(ctx)
-			if err != nil {
-				uc.log.Errorf("[%s] get order count: %v", taskID, err)
-				continue
-			}
-			if count < threshold {
-				continue
-			}
-			uc.log.Infof("[%s] order table %d>=%d, truncating", taskID, count, threshold)
-			if err := uc.repo.CleanGameOrderTable(ctx); err != nil {
-				uc.log.Errorf("[%s] truncate: %v", taskID, err)
-			}
-			return
-		}
-	}
 }

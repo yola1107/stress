@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+option go_package = "stress/api/game/18922;jqt";
+
+import "game/common/common.proto";
+
+// 金钱兔游戏响应
+message Jqt_BetOrderResponse {
+    WinInfo winInfo = 1;
+}
+
+message WinInfo {
+    bool next = 1;
+}

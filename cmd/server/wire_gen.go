@@ -10,8 +10,10 @@ import (
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
 	"stress/internal/biz"
+	"stress/internal/biz/chart"
 	"stress/internal/conf"
 	"stress/internal/data"
+	"stress/internal/notify"
 	"stress/internal/server"
 	"stress/internal/service"
 )
@@ -23,7 +25,7 @@ import (
 // Injectors from wire.go:
 
 // wireApp init kratos application.
-func wireApp(confServer *conf.Server, confData *conf.Data, launch *conf.Launch, logger log.Logger) (*kratos.App, func(), error) {
+func wireApp(confServer *conf.Server, confData *conf.Data, stress *conf.Stress, logger log.Logger) (*kratos.App, func(), error) {
 	engine, cleanup, err := data.NewMysql(confData, logger)
 	if err != nil {
 		return nil, nil, err
@@ -33,15 +35,25 @@ func wireApp(confServer *conf.Server, confData *conf.Data, launch *conf.Launch, 
 		cleanup()
 		return nil, nil, err
 	}
-	dataData, cleanup3, err := data.NewData(confData, logger, engine, universalClient)
+	s3Bucket, cleanup3, err := data.NewS3Bucket(confData, logger)
 	if err != nil {
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	dataRepo := data.NewDataRepo(dataData, logger)
-	useCase, cleanup4, err := biz.NewUseCase(dataRepo, logger, launch)
+	dataData, cleanup4, err := data.NewData(confData, logger, engine, universalClient, s3Bucket)
 	if err != nil {
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	dataRepo := data.NewDataRepo(dataData, logger)
+	notifier := notify.NewFeishu(stress)
+	iGenerator := chart.NewGenerator(stress)
+	useCase, cleanup5, err := biz.NewUseCase(dataRepo, logger, stress, notifier, iGenerator)
+	if err != nil {
+		cleanup4()
 		cleanup3()
 		cleanup2()
 		cleanup()
@@ -52,6 +64,7 @@ func wireApp(confServer *conf.Server, confData *conf.Data, launch *conf.Launch, 
 	httpServer := server.NewHTTPServer(confServer, stressService, logger)
 	app := newApp(logger, grpcServer, httpServer)
 	return app, func() {
+		cleanup5()
 		cleanup4()
 		cleanup3()
 		cleanup2()

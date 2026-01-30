@@ -2,18 +2,18 @@ GOHOSTOS:=$(shell go env GOHOSTOS)
 GOPATH:=$(shell go env GOPATH)
 VERSION=$(shell git describe --tags --always)
 
-ifeq ($(GOHOSTOS), windows)
-	#the `find.exe` is different from `find` in bash/shell.
-	#to see https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/find.
-	#changed to use git-bash.exe to run find cli or other cli friendly, caused of every developer has a Git.
-	#Git_Bash= $(subst cmd\,bin\bash.exe,$(dir $(shell where git)))
-	Git_Bash=$(subst \,/,$(subst cmd\,bin\bash.exe,$(dir $(shell where git))))
-	INTERNAL_PROTO_FILES=$(shell $(Git_Bash) -c "find internal -name *.proto")
-	API_PROTO_FILES=$(shell $(Git_Bash) -c "find api -name *.proto")
-else
+#ifeq ($(GOHOSTOS), windows)
+#	#the `find.exe` is different from `find` in bash/shell.
+#	#to see https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/find.
+#	#changed to use git-bash.exe to run find cli or other cli friendly, caused of every developer has a Git.
+#	#Git_Bash= $(subst cmd\,bin\bash.exe,$(dir $(shell where git)))
+#	Git_Bash=$(subst \,/,$(subst cmd\,bin\bash.exe,$(dir $(shell where git))))
+#	INTERNAL_PROTO_FILES=$(shell $(Git_Bash) -c "find internal -name *.proto")
+#	API_PROTO_FILES=$(shell $(Git_Bash) -c "find api -name *.proto")
+#else
 	INTERNAL_PROTO_FILES=$(shell find internal -name *.proto)
 	API_PROTO_FILES=$(shell find api -name *.proto)
-endif
+#endif
 
 .PHONY: init
 # init env
@@ -75,14 +75,17 @@ all:
 HOST=192.168.10.72
 USER=aa
 PASS=ABC123
-REMOTE_PATH=/data/demo
+DIR=/data/demo
+
+SSH=sshpass -p '$(PASS)' ssh -o StrictHostKeyChecking=no $(USER)@$(HOST)
+SCP=sshpass -p '$(PASS)' scp -o StrictHostKeyChecking=no
 
 .PHONY: scp
 # deploy to remote server
 scp: build
-	sshpass -p $(PASS) ssh -o StrictHostKeyChecking=no $(USER)@$(HOST) mkdir -p $(REMOTE_PATH)/{bin,configs}
-	sshpass -p $(PASS) scp -o StrictHostKeyChecking=no -r bin/* $(USER)@$(HOST):$(REMOTE_PATH)/bin/
-	sshpass -p $(PASS) scp -o StrictHostKeyChecking=no -r configs/* $(USER)@$(HOST):$(REMOTE_PATH)/configs/
+	$(SSH) mkdir -p $(DIR)/{bin,configs}
+	$(SCP) -r bin/* $(USER)@$(HOST):$(DIR)/bin/
+	$(SCP) -r configs/* $(USER)@$(HOST):$(DIR)/configs/
 
 # show help
 help:

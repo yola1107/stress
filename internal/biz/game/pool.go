@@ -1,6 +1,7 @@
 package game
 
 import (
+	"context"
 	"sort"
 	"sync"
 
@@ -8,20 +9,35 @@ import (
 )
 
 type Pool struct {
-	mu   sync.RWMutex
-	byID map[int64]base.IGame
-	list []base.IGame
+	mu       sync.RWMutex
+	list     []base.IGame
+	registry map[int64]base.IGame
 }
 
-func NewPool() *Pool {
+type BetSizeFunc func(ctx context.Context, gameIDs []int64) (map[int64][]float64, error)
+
+func NewPool(fn BetSizeFunc) *Pool {
 	p := &Pool{
-		byID: make(map[int64]base.IGame),
-		list: make([]base.IGame, 0, len(gameInstances)),
+		registry: make(map[int64]base.IGame),
+		list:     make([]base.IGame, 0, len(registry)),
 	}
-	for _, g := range gameInstances {
-		p.byID[g.GameID()] = g
+	ids := make([]int64, 0, len(registry))
+	for id, g := range registry {
+		ids = append(ids, id)
+		p.registry[id] = g
 		p.list = append(p.list, g)
 	}
+
+	// 获取游戏的有效下注金额
+	m, err := fn(context.Background(), ids)
+	if err != nil {
+		panic(err)
+	}
+
+	for id, g := range p.registry {
+		g.SetBetSize(m[id])
+	}
+
 	sort.Slice(p.list, func(i, j int) bool {
 		return p.list[i].GameID() < p.list[j].GameID()
 	})
@@ -31,22 +47,13 @@ func NewPool() *Pool {
 func (p *Pool) Get(gameID int64) (base.IGame, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	g, ok := p.byID[gameID]
+	g, ok := p.registry[gameID]
 	return g, ok
 }
 
 func (p *Pool) List() []base.IGame {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	cpy := make([]base.IGame, len(p.list))
-	copy(cpy, p.list)
+	cpy := append([]base.IGame{}, p.list...)
 	return cpy
-}
-
-// RequireProtobuf 是否该游戏需要 protobuf 解析（由 IGame.GetProtobufConverter 决定）
-func (p *Pool) RequireProtobuf(gameID int64) bool {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	g, ok := p.byID[gameID]
-	return ok && g != nil && g.GetProtobufConverter() != nil
 }

@@ -1,9 +1,25 @@
 package member
 
-import "sync"
+import (
+	"context"
+	"strconv"
+	"sync"
+	"time"
 
-// DefaultMemberNamePrefix 默认成员名前缀（填充空闲池时生成名称用）
-const DefaultMemberNamePrefix = "gopgct"
+	"github.com/go-kratos/kratos/v2/log"
+)
+
+type LoaderConfig struct {
+	AutoLoads     bool
+	IntervalSec   int32
+	MaxLoadTotal  int32
+	BatchLoadSize int32
+	MemberPrefix  string
+}
+
+type Repo interface {
+	BatchUpsertMembers(ctx context.Context, members []Info) error
+}
 
 // Info MemberInfo 玩家信息
 type Info struct {
@@ -86,4 +102,59 @@ func (p *Pool) Stats() (idle, allocated, total int) {
 		allocatedCount += len(m)
 	}
 	return len(p.idle), allocatedCount, p.totalCount
+}
+
+func (p *Pool) StartAutoLoad(ctx context.Context, cfg LoaderConfig, repo Repo, logger log.Logger, onLoaded func()) {
+	if !cfg.AutoLoads {
+		return
+	}
+
+	logHelper := log.NewHelper(logger)
+	const (
+		memberNameOffset = 1000
+		memberBalance    = 10000
+	)
+
+	ticker := time.NewTicker(time.Duration(cfg.IntervalSec) * time.Second)
+	defer ticker.Stop()
+
+	var loaded int32
+	for loaded < cfg.MaxLoadTotal {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			n := cfg.BatchLoadSize
+			if rem := cfg.MaxLoadTotal - loaded; rem < n {
+				n = rem
+			}
+			if n <= 0 {
+				continue
+			}
+
+			batch := make([]Info, n)
+			for i := int32(0); i < n; i++ {
+				loaded++
+				batch[i] = Info{
+					Name:    cfg.MemberPrefix + strconv.FormatInt(int64(loaded+memberNameOffset), 10),
+					Balance: memberBalance,
+				}
+			}
+
+			if err := repo.BatchUpsertMembers(ctx, batch); err != nil {
+				logHelper.Errorf("BatchUpsertMembers: %v", err)
+				loaded -= n
+				continue
+			}
+
+			p.AddIdle(batch)
+			_, _, total := p.Stats()
+			logHelper.Infof("Loaded %d members, total: %d", len(batch), total)
+
+			if onLoaded != nil {
+				onLoaded()
+			}
+		}
+	}
+	logHelper.Info("Member loading completed")
 }

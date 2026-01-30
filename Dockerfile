@@ -1,24 +1,14 @@
-FROM golang:1.19 AS builder
-
-COPY . /src
-WORKDIR /src
-
-RUN GOPROXY=https://goproxy.cn make build
-
-FROM debian:stable-slim
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-		ca-certificates  \
-        netbase \
-        && rm -rf /var/lib/apt/lists/ \
-        && apt-get autoremove -y && apt-get autoclean -y
-
-COPY --from=builder /src/bin /app
+FROM 192.168.10.67/egame/alpine:3.16
 
 WORKDIR /app
 
-EXPOSE 8000
-EXPOSE 9000
-VOLUME /data/conf
+COPY --chmod=755 stress /app/stress
+COPY --chmod=644 configs/config.yaml /app/configs/config.yaml
 
-CMD ["./server", "-conf", "/data/conf"]
+RUN mkdir -p /app/log && chmod 755 /app/log
+
+EXPOSE 8001 9001
+
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD pgrep stress || exit 1
+
+CMD ["/app/stress", "-conf", "/app/configs"]

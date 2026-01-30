@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"time"
 
 	"stress/internal/conf"
 	"stress/pkg/zap"
@@ -27,6 +28,18 @@ var (
 
 func init() {
 	flag.StringVar(&flagconf, "conf", "../../configs", "config path, eg: -conf config.yaml")
+
+	time.Local = initLocation()
+}
+
+// initLocation 初始化时区，失败时使用UTC
+func initLocation() *time.Location {
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		log.Warnf("无法加载 Asia/Shanghai 时区，使用 UTC: %v", err)
+		return time.UTC
+	}
+	return loc
 }
 
 func newApp(logger log.Logger, gs *grpc.Server, hs *http.Server) *kratos.App {
@@ -73,7 +86,7 @@ func main() {
 	})
 	defer logger.Sync()
 
-	app, cleanup, err := wireApp(bc.Server, bc.Data, bc.Launch, logger)
+	app, cleanup, err := wireApp(bc.Server, bc.Data, bc.Stress, logger)
 	if err != nil {
 		panic(err)
 	}

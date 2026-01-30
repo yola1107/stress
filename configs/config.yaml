@@ -1,4 +1,3 @@
-
 server:
   http:
     addr: 0.0.0.0:8001
@@ -7,41 +6,23 @@ server:
     addr: 0.0.0.0:9001
     timeout: 1s
 log:
-  mode: 0 # 0为开发模式(控制台颜色输出)，1为生产模式(写入文件)
+  mode: 1 # 0为开发模式(控制台颜色输出)，1为生产模式(写入文件)
   level: "debug"
-  app: "kratos-app"
-  dir: "./logs"
+  app: "stress"
+  dir: "./log"
   file: false
-
-data0:
-  database:
-    driver: mysql
-    source: root:123456@tcp(192.168.152.128:3306)/egame?parseTime=True&loc=Local
-    max_idle_conns: 50
-    max_open_conns: 200
-  order_database:
-    driver: mysql
-    source: root:123456@tcp(192.168.152.128:3306)/egame_order?parseTime=True&loc=Local
-    max_idle_conns: 50
-    max_open_conns: 200
-  redis:
-    addr:
-      - 192.168.152.128:6379
-    password: ""
-    read_timeout: 0.5s
-    write_timeout: 0.5s
 
 data:
   database:
     driver: mysql
     source: root:Aa12345!@#@tcp(192.168.10.83:3306)/egame?parseTime=True&loc=Local
-    max_idle_conns: 50
-    max_open_conns: 200
+    max_idle_conns: 10
+    max_open_conns: 20
   order_database:
     driver: mysql
     source: root:Aa12345!@#@tcp(192.168.10.83:3306)/egame_order?parseTime=True&loc=Local
-    max_idle_conns: 50
-    max_open_conns: 200
+    max_idle_conns: 10
+    max_open_conns: 20
   redis:
     addr:
       - 192.168.10.83:7000
@@ -53,14 +34,35 @@ data:
     password: "A12345!"
     read_timeout: 0.5s
     write_timeout: 0.5s
+  s3:
+    region: "ap-northeast-1"
+    access_key_id: "YOUR_ACCESS_KEY"
+    secret_access_key: "YOUR_SECRET_KEY"
+    bucket: "your-bucket"
+    endpoint: "https://s3.amazonaws.com"  # 可选，不填则使用 AWS 默认
 
-launch:
-  sites:
-    - "egame50001"
-  auto_loads: true
-  interval_sec: 1
-  batch_load_size: 1000
-  max_load_total: 3000
+# 压测系统配置
+stress:
+  notify:
+    enabled: false
+    prefix: "[stress]"
+    webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/6223fc9e-58c6-4526-b463-140820b5e7c9"
+    signing_secret: "HOyyTFJVwq05KjGwFR5isc"
+  chart:
+    generate_local: false  # 是否生成本地文件（HTML/PNG图表）
+    upload_to_s3: true     # 是否上传到S3存储
+  member:
+    auto_loads: true
+    interval_sec: 1
+    batch_load_size: 3000
+    max_load_total: 3000
+    member_prefix: "gopgct"
+  launch:
+    sites: ["egame50001"]
+    merchant: "Jack23"
+    api_url: "http://192.168.10.72:8825"
+    launch_url: "http://192.168.10.72:8825"
+    sign_required: false
 
 
 

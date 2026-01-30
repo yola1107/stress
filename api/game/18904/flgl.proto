@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+option go_package = "stress/api/game/18904;flgl";
+
+import "game/common/common.proto";
+
+package flgl;
+
+// 中奖详情响应
+message WinDetailsResponse {
+    double baseBet                        = 1;   // 基础下注额
+    double betAmount                      = 2;   // 下注额
+    int64 multiplier                      = 3;   // 倍数
+    bool isFreeRound                      = 4;   // 本轮是否免费
+    double balance                        = 5;   // 余额
+    double currentBalance                 = 6;   // 当前余额
+    bool isFree                           = 7;   // 本次step是否在免费中
+    bool isRoundOver                      = 8;   // 本轮是否结束
+    bool isSpinOver                       = 9;   // spin是否结束
+    int64 review                          = 10;  // 特殊字段
+    int64 newFreeTimes                    = 11;  // 新增免费次数
+    int64 remainingFreeTimes              = 12;  // 剩余免费次数
+    int64 totalFreeTime                   = 13;  // 总免费次数
+    double curWin                         = 14;  // 当前Step赢
+    double roundWin                       = 15;  // 本局总赢
+    double totalWin                       = 16;  // 本局总赢
+    string orderSN                        = 17;  // 注单号
+    int64 extraLv                         = 18;  // 额外等级
+    repeated BetAmountInfo extraSpinCount = 19;  // 额外转盘次数
+    repeated GameInfo spinRespList        = 20;  // 游戏详情列表
+    repeated BetAmountInfo betFreeNum     = 21;  // 免费次数
+    repeated BetBonusNum addBonusNum      = 22;  // 奖金次数
+    GetFreeGridInfo getFreeGrid           = 23;  // 免费格子
+    double freeTotalWin                   = 24;  // 免费总赢
+}
+
+message GetFreeGridInfo {
+    common.Board grid              = 1;
+    repeated Bonus bonusMultiplier = 2;  // 圣甲虫列表
+}
+
+// 游戏详情
+message GameInfo {
+    common.Board symbolGrid        = 1;   // 符号网格
+    common.Board winGrid           = 2;   // 中奖符号网格
+    repeated WinResult winResults  = 3;   // 中奖结果列表
+    int32 extraMultiplier          = 4;   // 额外倍数
+    repeated Bonus bonusMultiplier = 5;   // 奖金倍数列表
+    Bonus promoteBonusMul          = 6;   // 每一局游戏变化以及变化之前的值
+    repeated Jp jpBonusIndex       = 7;   // JP奖池索引
+    bool isGetGrand                = 8;   // 是否获得大奖
+    double grandMoney              = 9;   // 大奖金额
+    repeated int64 promoteGrid     = 10;  //升级过的位置
+}
+
+// 中奖结果
+message WinResult {
+    int32 symbol                = 1;  // 符号
+    int32 symbolCount           = 2;  // 数量
+    int32 lineNumber            = 3;  // 中奖线编号
+    int32 baseLineMultiplier    = 4;  // 中奖线倍数
+    repeated int32 winPositions = 5;  // 中奖位置
+}
+
+// 奖金倍数
+message Bonus {
+    int32 pos         = 1;  // 位置
+    double multiplier = 2;  // 倍数
+    double money      = 3;  // 金额
+}
+
+// JP奖池
+message Jp {
+    int32 jpPos    = 1;  // JP位置
+    int32 jpId     = 2;  // JP ID
+    int32 jpType   = 3;  // JP类型
+    double jpMoney = 4;  // JP金额
+}
+
+// 下注金额信息
+message BetAmountInfo {
+    double k = 1;  // 下注金额
+    int32 v  = 2;  // 对应值（免费次数）
+}
+
+// 奖金次数
+message BetBonusNum {
+    double k = 1;  // 下注金额
+    int32 v  = 2;  // 对应值（奖金次数）
+}

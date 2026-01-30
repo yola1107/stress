@@ -1,0 +1,86 @@
+variables:
+  REPO_HARBOR: "192.168.10.67"
+  REPO_HARBOR_USER: "admin"
+  REPO_HARBOR_PASS: "P8jF3sH6vQ1yL5nT"
+  REPO_PATH: "egame"
+  REPO_PROJECT: "stress"
+  APP_BINARY: "stress"
+  CONTAINER_NAME: "stress-${CI_COMMIT_REF_SLUG}"
+  DEPLOY_HOST: "192.168.10.72"
+  DEPLOY_USER: "aa"
+  DEPLOY_PASSWORD: "ABC123"
+  APP_PATH: "/data/stress"
+  IMAGE_FULL: "${REPO_HARBOR}/${REPO_PATH}/${REPO_PROJECT}:${CI_COMMIT_REF_SLUG}"
+
+default:
+  interruptible: true   # 允许被新 pipeline 中断
+
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible  # 新提交时自动取消旧的可中断 job
+
+stages:
+  - build
+  - deploy
+
+build:
+  stage: build
+  tags:
+    - dzz-tools-runner
+  image: 192.168.10.67/egame/ci-tools:go1.24.5-podman
+  cache:
+    key:
+      files:
+        - go.sum
+    policy: pull
+    paths:
+      - .cache/go-mod
+  before_script:
+    - export GOCACHE=$(pwd)/.cache/go-build
+    - export GOMODCACHE=$(pwd)/.cache/go-mod
+    - export STORAGE_DRIVER=vfs
+  script:
+    - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.Version=${CI_COMMIT_SHORT_SHA}" -o ./$APP_BINARY ./cmd/server
+    - podman login --tls-verify=false -u "$REPO_HARBOR_USER" -p "$REPO_HARBOR_PASS" $REPO_HARBOR
+    - podman build --tls-verify=false -t $IMAGE_FULL .
+    - podman push --tls-verify=false $IMAGE_FULL
+    - rm -f ./$APP_BINARY
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+deploy:
+  stage: deploy
+  resource_group: "${REPO_PROJECT}-${CI_COMMIT_REF_SLUG}"
+  tags:
+    - dzz-tools-runner
+  image: 192.168.10.67/egame/alpine:3.16
+  script:
+    - |
+      sshpass -p "$DEPLOY_PASSWORD" ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_HOST "sudo -S <<< '$DEPLOY_PASSWORD' mkdir -p $APP_PATH/{configs,log} "
+      sshpass -p "$DEPLOY_PASSWORD" scp -o StrictHostKeyChecking=no configs/config.yaml $DEPLOY_USER@$DEPLOY_HOST:$APP_PATH/configs/
+      sshpass -p "$DEPLOY_PASSWORD" ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_HOST "
+        set -e
+        sudo -S <<< '$DEPLOY_PASSWORD' docker login -u '$REPO_HARBOR_USER' -p '$REPO_HARBOR_PASS' $REPO_HARBOR
+        sudo -S <<< '$DEPLOY_PASSWORD' docker pull $IMAGE_FULL
+
+        sudo -S <<< '$DEPLOY_PASSWORD' docker rm -f $CONTAINER_NAME 2>/dev/null || true
+        sudo -S <<< '$DEPLOY_PASSWORD' docker run -d \
+          --name $CONTAINER_NAME \
+          --restart=unless-stopped \
+          --ulimit nofile=1048576:1048576 \
+          -p 8001:8001 \
+          -p 9001:9001 \
+          -v $APP_PATH/configs:/app/configs \
+          -v $APP_PATH/log:/app/log \
+          -v /etc/localtime:/etc/localtime:ro \
+          -v /etc/timezone:/etc/timezone:ro \
+          -e TZ=Asia/Shanghai \
+          $IMAGE_FULL
+        sleep 3
+        sudo -S <<< '$DEPLOY_PASSWORD' docker ps --filter name=$CONTAINER_NAME
+        sudo -S <<< '$DEPLOY_PASSWORD' docker logs --tail 20 $CONTAINER_NAME
+      "
+  needs:
+    - job: build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'

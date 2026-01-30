@@ -1,0 +1,260 @@
+package data
+
+import (
+	"context"
+	"fmt"
+
+	"stress/internal/biz/task"
+
+	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/errgroup"
+)
+
+const (
+	scanCount  = 10000 // 每轮 SCAN 建议返回数量（Redis 可能多返回）
+	pipeBatch  = 1000  // 每批 Pipeline DEL 数量，平衡 RTT 与单次请求大小
+	excludeAmt = 0.01  // 默认排除金额（= base_money）
+)
+
+// pipeliner 用于 SCAN + Pipeline DEL（同一节点上批量删，减少 RTT）
+type pipeliner interface {
+	Scan(ctx context.Context, cursor uint64, match string, count int64) *redis.ScanCmd
+	Pipeline() redis.Pipeliner
+}
+
+// scanAndDelete 在单个 client 上 SCAN，用 Pipeline 分批 DEL，返回本节点删除数量
+func (r *dataRepo) scanAndDelete(ctx context.Context, pattern string, client pipeliner) (int, error) {
+	cursor := uint64(0)
+	totalDeleted := 0
+
+	for {
+		// 检查上下文取消
+		select {
+		case <-ctx.Done():
+			return totalDeleted, ctx.Err()
+		default:
+		}
+
+		keys, cursor, err := client.Scan(ctx, cursor, pattern, scanCount).Result()
+		if err != nil {
+			return totalDeleted, fmt.Errorf("scan failed: %w", err)
+		}
+
+		// 批量删除 keys
+		for i := 0; i < len(keys); i += pipeBatch {
+			select {
+			case <-ctx.Done():
+				return totalDeleted, ctx.Err()
+			default:
+			}
+
+			batch := keys[i:min(i+pipeBatch, len(keys))]
+			pipe := client.Pipeline()
+			for _, key := range batch {
+				pipe.Del(ctx, key)
+			}
+
+			cmds, err := pipe.Exec(ctx)
+			if err != nil {
+				return totalDeleted, fmt.Errorf("pipeline del: %w", err)
+			}
+
+			for _, cmd := range cmds {
+				if n, ok := cmd.(*redis.IntCmd); ok {
+					if v, err := n.Result(); err == nil {
+						totalDeleted += int(v)
+					}
+				}
+			}
+		}
+
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return totalDeleted, nil
+}
+
+// CleanRedisBySite 清理 Redis 中 site:* 的键 和 grpc:connect:members:{site} hash
+func (r *dataRepo) CleanRedisBySite(ctx context.Context, site string) error {
+	rdb := r.data.rdb
+	totalDeleted := 0
+
+	// 1. 清理 site:* 模式的 key
+	pattern := site + ":*"
+	var err error
+	switch client := rdb.(type) {
+	case *redis.ClusterClient:
+		// 集群模式：对每个 master 节点执行清理
+		err = client.ForEachMaster(ctx, func(ctx context.Context, node *redis.Client) error {
+			n, err := r.scanAndDelete(ctx, pattern, node)
+			totalDeleted += n
+			return err
+		})
+	case pipeliner:
+		// 单机/哨兵模式
+		totalDeleted, err = r.scanAndDelete(ctx, pattern, client)
+	default:
+		return fmt.Errorf("[Redis] unsupported redis client type: %T", rdb)
+	}
+
+	if err != nil {
+		return fmt.Errorf("[Redis] cleanup failed for pattern %s: %w", pattern, err)
+	}
+
+	// 2. 清理 grpc:connect:members:{site} hash key
+	grpcKey := fmt.Sprintf("grpc:connect:members:%s", site)
+	if delErr := rdb.Del(ctx, grpcKey).Err(); delErr != nil {
+		r.log.Warnf("[Redis] failed to delete %s: %v", grpcKey, delErr)
+	} else {
+		r.log.Infof("[Redis] Cleaned grpc:connect:members key for site: %s", site)
+	}
+
+	if totalDeleted > 0 {
+		r.log.Infof("[Redis] Cleaned %d keys for site: %s", totalDeleted, site)
+	}
+	return nil
+}
+
+// CleanRedisBySites 批量清理多个 sites 的 Redis 键
+func (r *dataRepo) CleanRedisBySites(ctx context.Context, sites []string) error {
+	if len(sites) == 0 {
+		return nil
+	}
+
+	// 使用 errgroup 进行并发控制
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(10) // 限制并发数量
+
+	for _, site := range sites {
+		site := site
+		g.Go(func() error {
+			return r.CleanRedisBySite(gctx, site)
+		})
+	}
+
+	return g.Wait()
+}
+
+// CleanGameOrderTable 清空 egame_order.game_order
+func (r *dataRepo) CleanGameOrderTable(ctx context.Context) error {
+	orderDB, err := r.orderEngine()
+	if err != nil {
+		return err
+	}
+
+	// 获取清理前的记录数
+	if count, err := r.GetGameOrderCount(ctx); err == nil && count > 0 {
+		r.log.Infof("[Mysql] Truncating game_order table with %d records", count)
+	}
+
+	// 执行 TRUNCATE TABLE
+	if _, err := orderDB.Context(ctx).Exec("TRUNCATE TABLE game_order"); err != nil {
+		return fmt.Errorf("[Mysql] failed to truncate game_order table: %w", err)
+	}
+
+	// 验证清理结果
+	if finalCount, err := r.GetGameOrderCount(ctx); err != nil {
+		r.log.Warnf("[Mysql] Failed to verify cleanup: %v", err)
+	} else if finalCount > 0 {
+		r.log.Warnf("[Mysql] Table still has %d records after truncate", finalCount)
+	} else {
+		r.log.Info("[Mysql] Game order table truncated successfully")
+	}
+
+	return nil
+}
+
+// GetGameOrderCount 获取 game_order 表记录数（全表，无过滤）
+func (r *dataRepo) GetGameOrderCount(ctx context.Context) (int64, error) {
+	orderDB, err := r.orderEngine()
+	if err != nil {
+		return 0, err
+	}
+
+	var count int64
+	_, err = orderDB.Context(ctx).SQL("SELECT COUNT(*) FROM game_order").Get(&count)
+	return count, err
+}
+
+// buildOrderWhere 构建与 statistics 一致的 WHERE 子句
+func buildOrderWhere(scope task.OrderScope) (string, []any) {
+	ex := scope.ExcludeAmt
+	if ex <= 0 {
+		ex = excludeAmt
+	}
+	where := "game_id = ? AND amount != ?"
+	args := []any{scope.GameID, ex}
+	if scope.Merchant != "" {
+		where, args = where+" AND merchant = ?", append(args, scope.Merchant)
+	}
+	if !scope.StartTime.IsZero() {
+		where, args = where+" AND created_at >= ?", append(args, scope.StartTime.Unix())
+	}
+	if !scope.EndTime.IsZero() {
+		where, args = where+" AND created_at <= ?", append(args, scope.EndTime.Unix())
+	}
+	return where, args
+}
+
+// GetOrderCountByScope 按范围统计订单数（与 statistics 口径一致）
+func (r *dataRepo) GetOrderCountByScope(ctx context.Context, scope task.OrderScope) (int64, error) {
+	orderDB, err := r.orderEngine()
+	if err != nil {
+		return 0, err
+	}
+	where, args := buildOrderWhere(scope)
+	var n int64
+	_, err = orderDB.Context(ctx).SQL("SELECT COUNT(*) FROM game_order WHERE "+where, args...).Get(&n)
+	return n, err
+}
+
+// DeleteOrdersByScope 按范围删除订单（与 statistics 口径一致）
+func (r *dataRepo) DeleteOrdersByScope(ctx context.Context, scope task.OrderScope) (int64, error) {
+	orderDB, err := r.orderEngine()
+	if err != nil {
+		return 0, err
+	}
+	where, args := buildOrderWhere(scope)
+	sql := "DELETE FROM game_order WHERE " + where
+	res, err := orderDB.DB().ExecContext(ctx, sql, args...)
+	if err != nil {
+		return 0, fmt.Errorf("delete orders: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n > 0 {
+		r.log.Infof("[Mysql] Deleted %d orders (game=%d)", n, scope.GameID)
+	}
+	return n, nil
+}
+
+// GetDetailedOrderAmounts 查询详细的订单统计信息（总下注/总奖金/下注订单数/奖励订单数）
+func (r *dataRepo) GetDetailedOrderAmounts(ctx context.Context, scope task.OrderScope) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error) {
+	orderDB, err := r.orderEngine()
+	if err != nil {
+		return 0, 0, 0, 0, err
+	}
+	var result struct {
+		TotalBet        int64 `xorm:"total_bet"`
+		TotalWin        int64 `xorm:"total_win"`
+		BetOrderCount   int64 `xorm:"bet_order_count"`
+		BonusOrderCount int64 `xorm:"bonus_order_count"`
+	}
+
+	where, args := buildOrderWhere(scope)
+
+	// amount/bonus_amount 为 decimal(16,4)，*10000 转为整型
+	// 通过 bonus_amount > 0 判断是否为奖励订单
+	_, err = orderDB.Context(ctx).SQL(`
+		SELECT
+			COALESCE(ROUND(SUM(amount)*10000), 0) as total_bet,
+			COALESCE(ROUND(SUM(bonus_amount)*10000), 0) as total_win,
+			COUNT(*) as bet_order_count,
+			COALESCE(SUM(CASE WHEN bonus_amount > 0 THEN 1 ELSE 0 END), 0) as bonus_order_count
+		FROM game_order WHERE `+where, args...).Get(&result)
+	if err != nil {
+		return 0, 0, 0, 0, fmt.Errorf("query detailed order amounts: %w", err)
+	}
+	return result.TotalBet, result.TotalWin, result.BetOrderCount, result.BonusOrderCount, nil
+}

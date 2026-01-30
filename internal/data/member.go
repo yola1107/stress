@@ -7,6 +7,7 @@ import (
 	"stress/internal/biz/member"
 )
 
+// Member 数据库实体
 type Member struct {
 	ID            int64   `xorm:"pk autoincr 'id'"`
 	MemberName    string  `xorm:"'member_name'"`
@@ -141,8 +142,4 @@ func (r *dataRepo) BatchUpsertMembers(ctx context.Context, members []member.Info
 	}
 
 	return session.Commit()
-}
-
-func (r *dataRepo) GetMemberCount(ctx context.Context) (int64, error) {
-	return r.data.db.Context(ctx).Table("member").Count()
 }

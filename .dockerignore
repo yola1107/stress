@@ -1,0 +1,29 @@
+# Version control
+.git/
+.gitignore
+
+# CI/CD
+.gitlab-ci.yml
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Build artifacts
+bin/
+logs/
+*.log
+*.test
+*.out
+
+# Development
+stats/
+docs/
+rtp_charts/
+
+# Keep essential files
+!stress
+!configs/
