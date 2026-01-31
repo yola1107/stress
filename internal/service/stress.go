@@ -78,11 +78,12 @@ func (s *StressService) CreateTask(ctx context.Context, in *v1.CreateTaskRequest
 	if in == nil || in.Config == nil {
 		return &v1.CreateTaskResponse{Code: errCodeCreateTask, Message: "req.Config is nil"}, nil
 	}
-	if _, ok := s.uc.GetGame(in.Config.GameId); !ok {
+	g, ok := s.uc.GetGame(in.Config.GameId)
+	if !ok {
 		s.log.Warnf("CreateTask game not found: %d", in.Config.GameId)
 		return &v1.CreateTaskResponse{Code: errCodeCreateTask, Message: fmt.Sprintf("game not found: %d", in.Config.GameId)}, nil
 	}
-	t, err := s.uc.CreateTask(ctx, in.Description, in.Config)
+	t, err := s.uc.CreateTask(ctx, g, in.Config)
 	if err != nil {
 		s.log.Errorf("CreateTask failed: %v", err)
 		return &v1.CreateTaskResponse{Code: errCodeCreateTask, Message: err.Error()}, nil

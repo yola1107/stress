@@ -23,41 +23,55 @@ import (
 	"stress/internal/biz/game/base"
 )
 
-var (
-	defaultHTTPOnce sync.Once
-	defaultHTTP     *http.Client
-	jsonBufferPool  = sync.Pool{
-		New: func() any {
-			return &bytes.Buffer{}
+const maxConnsCap = 5000
+
+// NoopSecretProvider 不提供 secret，用于压测（launch 不验签）
+var NoopSecretProvider base.SecretProvider = func(string) (string, bool) { return "", false }
+
+// NewHTTPClient 按任务人数创建 HTTP 客户端
+func NewHTTPClient(maxConns int) *http.Client {
+	if maxConns <= 0 {
+		maxConns = 100
+	}
+	if maxConns > maxConnsCap {
+		maxConns = maxConnsCap
+	}
+	return &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			Proxy:               http.ProxyFromEnvironment,
+			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+			MaxIdleConns:        maxConns,
+			MaxIdleConnsPerHost: maxConns,
+			MaxConnsPerHost:     maxConns,
+			IdleConnTimeout:     45 * time.Second,
+			DisableKeepAlives:   false,
+			TLSHandshakeTimeout: 5 * time.Second,
+			DialContext: (&net.Dialer{
+				Timeout:   10 * time.Second,
+				KeepAlive: 30 * time.Second,
+				DualStack: true,
+			}).DialContext,
+			ResponseHeaderTimeout: 10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
-)
+}
 
-func DefaultHTTPClient() *http.Client {
-	defaultHTTPOnce.Do(func() {
-		defaultHTTP = &http.Client{
-			Timeout: 30 * time.Second,
-			Transport: &http.Transport{
-				Proxy:               http.ProxyFromEnvironment,
-				TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
-				MaxIdleConns:        50000,            // 增加总空闲连接数，支持更高并发
-				MaxIdleConnsPerHost: 5000,             // 增加单个主机空闲连接数
-				MaxConnsPerHost:     0,                // 0表示不限制并发连接数
-				IdleConnTimeout:     90 * time.Second, // 延长空闲超时，减少重连
-				DisableKeepAlives:   false,
-				TLSHandshakeTimeout: 5 * time.Second, // 减少 TLS 握手超时
-				DialContext: (&net.Dialer{
-					Timeout:   10 * time.Second,
-					KeepAlive: 60 * time.Second,
-					DualStack: true,
-				}).DialContext,
-				// 不设置 TLSNextProto，使用 Go 默认行为：HTTPS 自动协商 HTTP/2，多路复用可提升 QPS
-				ResponseHeaderTimeout: 10 * time.Second,
-				ExpectContinueTimeout: 1 * time.Second,
-			},
-		}
-	})
-	return defaultHTTP
+var jsonBufferPool = sync.Pool{
+	New: func() any {
+		return &bytes.Buffer{}
+	},
+}
+
+type APIError struct {
+	Op   string
+	Code int
+	Msg  string
+}
+
+func (e *APIError) Error() string {
+	return fmt.Sprintf("%s error: %d %s", e.Op, e.Code, e.Msg)
 }
 
 type APIClient struct {
@@ -68,10 +82,8 @@ type APIClient struct {
 	protoConverterCache atomic.Value
 }
 
-func NewAPIClient(httpClient *http.Client, secretProvider base.SecretProvider, game base.IGame, protobufChecker func(gameID int64) bool) *APIClient {
-	if httpClient == nil {
-		httpClient = DefaultHTTPClient()
-	}
+func NewAPIClient(httpClient *http.Client, secretProvider base.SecretProvider,
+	game base.IGame, protobufChecker func(gameID int64) bool) *APIClient {
 	return &APIClient{
 		http:            httpClient,
 		secret:          secretProvider,
@@ -88,16 +100,6 @@ func (c *APIClient) requireProtobuf(gameID int64) bool {
 		return true
 	}
 	return false
-}
-
-type APIError struct {
-	Op   string
-	Code int
-	Msg  string
-}
-
-func (e *APIError) Error() string {
-	return fmt.Sprintf("%s error: %d %s", e.Op, e.Code, e.Msg)
 }
 
 type launchParams struct {

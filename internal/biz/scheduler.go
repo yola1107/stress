@@ -3,6 +3,7 @@ package biz
 import (
 	"context"
 	"fmt"
+	"stress/internal/biz/game/base"
 	"sync"
 	"time"
 
@@ -31,6 +32,9 @@ func (uc *UseCase) Schedule() {
 			continue
 		}
 		config := t.GetConfig()
+		if !mp.CanAllocate(int(config.MemberCount)) {
+			break
+		}
 		if !tp.DequeuePending(taskID) {
 			continue
 		}
@@ -39,13 +43,7 @@ func (uc *UseCase) Schedule() {
 			tp.RequeueAtHead(taskID)
 			break
 		}
-		ids := make([]int64, len(allocated))
-		for i, m := range allocated {
-			ids[i] = m.ID
-		}
-		t.SetUserIDs(ids)
 		if err := t.Start(); err != nil {
-			t.SetUserIDs(nil)
 			mp.Release(taskID)
 			continue
 		}
@@ -70,10 +68,16 @@ func (uc *UseCase) runTaskSessions(t *task.Task) {
 	}
 
 	g, _ := uc.GetGame(snap.Config.GameId)
-	sp := func(string) (string, bool) { return "", false }
 	checker := uc.gamePool.RequireProtobuf
 
-	// 执行阶段 context：仅在本任务“跑 session”期间有效，stopRun 后 Monitor/Prometheus 立即停
+	maxConns := 100
+	if snap.Config != nil && snap.Config.MemberCount > 0 {
+		maxConns = int(snap.Config.MemberCount)
+	}
+	httpClient := user.NewHTTPClient(maxConns)
+	client := user.NewAPIClient(httpClient, user.NoopSecretProvider, g, checker)
+	t.SetBonusConfig(getBonusConfigForGame(snap.Config, snap.Config.GameId))
+
 	runCtx, stopRun := context.WithCancel(t.Context())
 	go t.Monitor(runCtx)
 	go metrics.ReportTaskMetrics(runCtx, t, uc.repo)
@@ -82,12 +86,12 @@ func (uc *UseCase) runTaskSessions(t *task.Task) {
 	wg.Add(len(members))
 	for _, m := range members {
 		m := m
-		sess := user.NewSession(m.ID, m.Name, snap.Config.GameId, snap.ID, t, checker)
+		sess := user.NewSession(m.ID, m.Name, t)
 		t.MarkMemberStart()
 		if err := t.Submit(func() {
 			defer wg.Done()
 			defer t.MarkMemberDone(!sess.IsFailed())
-			_ = sess.Execute(t.Context(), snap.Config, g, sp)
+			_ = sess.Execute(t.Context(), client, user.NoopSecretProvider)
 		}); err != nil {
 			wg.Done()
 			t.MarkMemberDone(false)
@@ -99,6 +103,8 @@ func (uc *UseCase) runTaskSessions(t *task.Task) {
 	stopRun()
 	// 4) 结束任务：取消 task ctx、释放 ants 池
 	t.Stop()
+	// 立即释放 HTTP 空闲连接，不等待 GC
+	httpClient.CloseIdleConnections()
 
 	// 5) 释放成员、置完成态、清理环境、调度下一批
 	uc.memberPool.Release(snap.ID)
@@ -110,13 +116,13 @@ func (uc *UseCase) runTaskSessions(t *task.Task) {
 }
 
 // CreateTask 创建并尝试运行
-func (uc *UseCase) CreateTask(ctx context.Context, description string, config *v1.TaskConfig) (*task.Task, error) {
+func (uc *UseCase) CreateTask(ctx context.Context, g base.IGame, config *v1.TaskConfig) (*task.Task, error) {
 	taskID, err := uc.repo.NextTaskID(ctx, config.GameId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate task ID: %w", err)
 	}
 
-	t, err := task.NewTask(uc.ctx, taskID, description, config)
+	t, err := task.NewTask(uc.ctx, taskID, g, config)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +163,7 @@ func (uc *UseCase) CancelTask(id string) error {
 
 // CleanTestEnvironment 清理 Redis site:* 并等订单表达到阈值后 truncate，返回可读 channel
 func (uc *UseCase) CleanTestEnvironment(taskID string, step int64) <-chan struct{} {
-	time.Sleep(time.Second)
+	time.Sleep(cleanupStartDelay)
 	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	done := make(chan struct{})
 	var wg sync.WaitGroup
@@ -190,6 +196,18 @@ func (uc *UseCase) cleanupRedis(ctx context.Context) error {
 		return err
 	}
 	uc.log.Info("Redis cleanup done")
+	return nil
+}
+
+func getBonusConfigForGame(cfg *v1.TaskConfig, gameID int64) *v1.BetBonusConfig {
+	if cfg == nil {
+		return nil
+	}
+	for _, b := range cfg.BetBonus {
+		if b != nil && b.GameId == gameID {
+			return b
+		}
+	}
 	return nil
 }
 

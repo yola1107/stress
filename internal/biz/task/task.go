@@ -8,6 +8,7 @@ import (
 	"time"
 
 	v1 "stress/api/stress/v1"
+	"stress/internal/biz/game/base"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/panjf2000/ants/v2"
@@ -17,10 +18,12 @@ import (
 type Task struct {
 	mu        sync.RWMutex
 	id        string
-	status    v1.TaskStatus
-	config    *v1.TaskConfig
+	game      base.IGame
 	createdAt time.Time
-	userIDs   []int64
+
+	status      v1.TaskStatus
+	config      *v1.TaskConfig
+	bonusConfig *v1.BetBonusConfig
 
 	pool   *ants.Pool
 	ctx    context.Context
@@ -37,7 +40,7 @@ type Task struct {
 }
 
 // NewTask 创建任务，parent 取消时任务会收到信号（通常传 UseCase.ctx）
-func NewTask(parent context.Context, id, desc string, cfg *v1.TaskConfig) (*Task, error) {
+func NewTask(parent context.Context, id string, g base.IGame, cfg *v1.TaskConfig) (*Task, error) {
 	capacity := 1000
 	target := int64(0)
 	if cfg != nil {
@@ -62,6 +65,7 @@ func NewTask(parent context.Context, id, desc string, cfg *v1.TaskConfig) (*Task
 		config:    cfg,
 		createdAt: time.Now(),
 		pool:      pool,
+		game:      g,
 		ctx:       ctx,
 		cancel:    cancel,
 		target:    target,
@@ -80,6 +84,26 @@ func (t *Task) GetConfig() *v1.TaskConfig {
 	return t.config
 }
 
+func (t *Task) GetGame() base.IGame {
+	t.mu.RLock()
+	g := t.game
+	t.mu.RUnlock()
+	return g
+}
+
+func (t *Task) SetBonusConfig(cfg *v1.BetBonusConfig) {
+	t.mu.Lock()
+	t.bonusConfig = cfg
+	t.mu.Unlock()
+}
+
+func (t *Task) GetBonusConfig() *v1.BetBonusConfig {
+	t.mu.RLock()
+	c := t.bonusConfig
+	t.mu.RUnlock()
+	return c
+}
+
 func (t *Task) GetStatus() v1.TaskStatus {
 	t.mu.RLock()
 	s := t.status
@@ -91,18 +115,6 @@ func (t *Task) SetStatus(s v1.TaskStatus) {
 	t.mu.Lock()
 	t.status = s
 	t.mu.Unlock()
-}
-
-func (t *Task) SetUserIDs(ids []int64) {
-	t.mu.Lock()
-	t.userIDs = append([]int64(nil), ids...)
-	t.mu.Unlock()
-}
-
-func (t *Task) GetUserIDs() []int64 {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
-	return append([]int64(nil), t.userIDs...)
 }
 
 func (t *Task) Start() error {
@@ -119,9 +131,11 @@ func (t *Task) Start() error {
 
 func (t *Task) Cancel() error {
 	t.mu.Lock()
-	if t.status == v1.TaskStatus_TASK_COMPLETED || t.status == v1.TaskStatus_TASK_FAILED {
+	if t.status == v1.TaskStatus_TASK_COMPLETED ||
+		t.status == v1.TaskStatus_TASK_FAILED ||
+		t.status == v1.TaskStatus_TASK_CANCELLED {
 		t.mu.Unlock()
-		return fmt.Errorf("task already finished")
+		return fmt.Errorf("task already finished/cancelled")
 	}
 	t.status = v1.TaskStatus_TASK_CANCELLED
 	t.mu.Unlock()

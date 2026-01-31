@@ -51,12 +51,18 @@ func (p *Pool) List() []*Task {
 	return out
 }
 
-// Remove 移除任务
+// Remove 移除任务，同时从 pending 中移除
 func (p *Pool) Remove(id string) (*Task, bool) {
 	p.mu.Lock()
 	t, ok := p.tasks[id]
 	if ok {
 		delete(p.tasks, id)
+		for i, pid := range p.pending {
+			if pid == id {
+				p.pending = append(p.pending[:i], p.pending[i+1:]...)
+				break
+			}
+		}
 	}
 	p.mu.Unlock()
 	return t, ok

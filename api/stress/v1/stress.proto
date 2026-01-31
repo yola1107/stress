@@ -3,14 +3,11 @@ syntax = "proto3";
 package stress.v1;
 
 import "google/api/annotations.proto";
+import "validate/validate.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-import "validate/validate.proto";
 
 option go_package           = "stress/api/stress/v1;v1";
-//option java_multiple_files  = true;
-//option java_package         = "dev.kratos.api.stress.v1";
-//option java_outer_classname = "StressProtoV1";
 
 // 任务状态枚举
 enum TaskStatus {

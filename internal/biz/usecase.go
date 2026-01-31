@@ -19,18 +19,17 @@ import (
 const (
 	startupCleanTimeout  = 2 * time.Minute
 	memberLoaderInterval = 5 * time.Second
-	memberBatchSize      = 100
+	memberBatchSize      = 1000
 	memberInitialBalance = 10000
 	memberIDOffset       = 1000
 	cleanupTimeout       = 5 * time.Minute
 	cleanupRetryDelay    = 5 * time.Second
-	orderCountThreshold  = int64(500000)
+	cleanupStartDelay    = 1 * time.Second // 任务结束后等待 DB 落库再开始清理
 )
 
 // DataRepo 数据层接口：成员/订单/清理/任务ID计数
 type DataRepo interface {
 	BatchUpsertMembers(ctx context.Context, members []member.Info) error
-	CleanRedisBySite(ctx context.Context, site, merchant string) error
 	CleanRedisBySites(ctx context.Context, sites []string) error
 	CleanGameOrderTable(ctx context.Context) error
 	GetGameOrderCount(ctx context.Context) (int64, error)
@@ -138,7 +137,7 @@ func runMemberLoader(ctx context.Context, repo DataRepo, pool *member.Pool, logH
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			n := int(memberBatchSize)
+			n := memberBatchSize
 			if left := int(c.MaxLoadTotal - loaded); left < n {
 				n = left
 			}

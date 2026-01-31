@@ -1215,7 +1215,7 @@ var File_stress_v1_stress_proto protoreflect.FileDescriptor
 
 const file_stress_v1_stress_proto_rawDesc = "" +
 	"\n" +
-	"\x16stress/v1/stress.proto\x12\tstress.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17validate/validate.proto\"!\n" +
+	"\x16stress/v1/stress.proto\x12\tstress.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x17validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"!\n" +
 	"\vPingRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"%\n" +
 	"\tPingReply\x12\x18\n" +
