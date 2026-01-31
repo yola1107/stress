@@ -12,9 +12,10 @@ import (
 	"stress/internal/biz/task"
 )
 
+// Session 相关常量
 const (
-	delayMills        = 100 * time.Millisecond // 减少重试延迟，提升响应速度
-	defaultMaxRetries = 5                      // 减少最大重试次数，避免过多等待
+	delayMills        = 100 * time.Millisecond // 重试延迟
+	defaultMaxRetries = 5                      // 最大重试次数
 )
 
 type SessionState int32
@@ -171,7 +172,7 @@ func (s *Session) executeStep(ctx context.Context) error {
 				s.State = SessionStateBonusSelect
 			}
 			if s.task != nil {
-				s.task.GetStats().AddBetOrder(duration, spinOver)
+				s.task.AddBetOrder(duration, spinOver)
 			}
 			atomic.StoreInt32(&s.TryTimes, 0)
 		} else {
@@ -188,7 +189,7 @@ func (s *Session) executeStep(ctx context.Context) error {
 				s.State = SessionStateBetting
 			}
 			if s.task != nil {
-				s.task.GetStats().AddBetBonus(duration)
+				s.task.AddBetBonus(duration)
 			}
 			atomic.StoreInt32(&s.TryTimes, 0)
 		}
@@ -224,7 +225,7 @@ func (s *Session) handleError(err error, maxRetries int) bool {
 	s.UpdatedAt = time.Now()
 
 	if s.task != nil && s.LastError != errMsg {
-		s.task.GetStats().AddError(errMsg)
+		s.task.AddError(errMsg)
 	}
 	s.LastError = errMsg
 

@@ -13,37 +13,22 @@ log:
   dir: "./logs"
   file: false
 
-data0:
-  database:
-    driver: mysql
-    source: root:123456@tcp(192.168.152.128:3306)/egame?parseTime=True&loc=Local
-    max_idle_conns: 50
-    max_open_conns: 200
-  order_database:
-    driver: mysql
-    source: root:123456@tcp(192.168.152.128:3306)/egame_order?parseTime=True&loc=Local
-    max_idle_conns: 50
-    max_open_conns: 200
-  redis:
-    addr:
-      - 192.168.152.128:6379
-    password: ""
-    read_timeout: 0.5s
-    write_timeout: 0.5s
-
 data:
   database:
     driver: mysql
+#    source: root:123456@tcp(192.168.152.128:3306)/egame?parseTime=True&loc=Local
     source: root:Aa12345!@#@tcp(192.168.10.83:3306)/egame?parseTime=True&loc=Local
-    max_idle_conns: 50
-    max_open_conns: 200
+    max_idle_conns: 10
+    max_open_conns: 100
   order_database:
     driver: mysql
+#    source: root:123456@tcp(192.168.152.128:3306)/egame_order?parseTime=True&loc=Local
     source: root:Aa12345!@#@tcp(192.168.10.83:3306)/egame_order?parseTime=True&loc=Local
-    max_idle_conns: 50
-    max_open_conns: 200
+    max_idle_conns: 10
+    max_open_conns: 100
   redis:
     addr:
+#      - 192.168.152.128:6379
       - 192.168.10.83:7000
       - 192.168.10.83:7001
       - 192.168.10.83:7002
@@ -62,4 +47,8 @@ launch:
   batch_load_size: 1000
   max_load_total: 3000
 
+notify:
+  enabled: false      # 开关，false 时不发送飞书通知
+  prefix: "[stress]"  # 消息前缀，用于区分来源
+  webhook_url: ""     # 飞书 Webhook 地址
 

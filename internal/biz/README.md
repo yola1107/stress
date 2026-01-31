@@ -7,7 +7,7 @@ biz/
 ├── biz.go          # Wire ProviderSet
 ├── usecase.go      # UseCase 构造、DataRepo 接口、成员加载、Order 查询透传
 ├── scheduler.go    # 调度与任务生命周期（Schedule / CreateTask / DeleteTask / CleanTestEnvironment 等）
-├── metrics.go      # Prometheus 指标定义与 ReportTaskMetrics
+├── metrics/        # Prometheus 指标定义与 ReportTaskMetrics（抽离为子包）
 ├── game/           # 游戏抽象与注册
 │   ├── base/       # IGame 接口与默认实现
 │   ├── g18890/     # 具体游戏实现

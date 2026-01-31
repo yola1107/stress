@@ -7,6 +7,7 @@ import (
 	"time"
 
 	v1 "stress/api/stress/v1"
+	"stress/internal/biz/metrics"
 	"stress/internal/biz/task"
 	"stress/internal/biz/user"
 )
@@ -15,6 +16,12 @@ import (
 func (uc *UseCase) Schedule() {
 	mp, tp := uc.memberPool, uc.taskPool
 	for {
+		select {
+		case <-uc.ctx.Done():
+			return
+		default:
+		}
+
 		taskID, t, ok := tp.PeekPending()
 		if !ok {
 			break
@@ -53,9 +60,12 @@ func (uc *UseCase) Schedule() {
 // 4) 结束任务：t.Stop() 取消 task context、释放协程池
 // 5) 释放成员、置状态、清理环境、触发下一轮调度
 func (uc *UseCase) runTaskSessions(t *task.Task) {
-	snap := t.GetStats().StatsSnapshot()
+	snap := t.StatsSnapshot()
 	members := uc.memberPool.GetAllocated(snap.ID)
 	if len(members) == 0 {
+		t.Stop()
+		uc.memberPool.Release(snap.ID)
+		uc.Schedule()
 		return
 	}
 
@@ -65,22 +75,22 @@ func (uc *UseCase) runTaskSessions(t *task.Task) {
 
 	// 执行阶段 context：仅在本任务“跑 session”期间有效，stopRun 后 Monitor/Prometheus 立即停
 	runCtx, stopRun := context.WithCancel(t.Context())
-	go t.GetStats().Monitor(runCtx)
-	go ReportTaskMetrics(runCtx, t, uc.repo)
+	go t.Monitor(runCtx)
+	go metrics.ReportTaskMetrics(runCtx, t, uc.repo)
 
 	var wg sync.WaitGroup
 	wg.Add(len(members))
 	for _, m := range members {
 		m := m
 		sess := user.NewSession(m.ID, m.Name, snap.Config.GameId, snap.ID, t, checker)
-		t.GetStats().MarkMemberStart()
+		t.MarkMemberStart()
 		if err := t.Submit(func() {
 			defer wg.Done()
-			defer t.GetStats().MarkMemberDone(sess.IsFailed())
+			defer t.MarkMemberDone(!sess.IsFailed())
 			_ = sess.Execute(t.Context(), snap.Config, g, sp)
 		}); err != nil {
 			wg.Done()
-			t.GetStats().MarkMemberDone(true)
+			t.MarkMemberDone(false)
 		}
 	}
 	wg.Wait()
@@ -106,7 +116,7 @@ func (uc *UseCase) CreateTask(ctx context.Context, description string, config *v
 		return nil, fmt.Errorf("failed to generate task ID: %w", err)
 	}
 
-	t, err := task.NewTask(taskID, description, config)
+	t, err := task.NewTask(uc.ctx, taskID, description, config)
 	if err != nil {
 		return nil, err
 	}
@@ -145,25 +155,10 @@ func (uc *UseCase) CancelTask(id string) error {
 	return nil
 }
 
-// GetTask 按 ID 获取任务
-func (uc *UseCase) GetTask(id string) (*task.Task, bool) {
-	return uc.taskPool.Get(id)
-}
-
-// ListTasks 返回所有任务（已按创建时间倒序）
-func (uc *UseCase) ListTasks() []*task.Task {
-	return uc.taskPool.List()
-}
-
-// GetMemberStats 玩家池统计
-func (uc *UseCase) GetMemberStats() (idle, allocated, total int) {
-	return uc.memberPool.Stats()
-}
-
-// CleanTestEnvironment 清理 Redis site:* 并等订单表达到阈值后 truncate，超时 5 分钟，返回可读 channel
+// CleanTestEnvironment 清理 Redis site:* 并等订单表达到阈值后 truncate，返回可读 channel
 func (uc *UseCase) CleanTestEnvironment(taskID string, step int64) <-chan struct{} {
 	time.Sleep(time.Second)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	done := make(chan struct{})
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -198,9 +193,9 @@ func (uc *UseCase) cleanupRedis(ctx context.Context) error {
 	return nil
 }
 
-// waitOrderThenClean 每 5s 查订单数，>= threshold 时 truncate 并返回
+// waitOrderThenClean 每隔一段时间查订单数，>= threshold 时 truncate 并返回
 func (uc *UseCase) waitOrderThenClean(ctx context.Context, taskID string, threshold int64) {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(cleanupRetryDelay)
 	defer ticker.Stop()
 	for {
 		select {

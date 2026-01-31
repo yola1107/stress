@@ -18,12 +18,10 @@ services:
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+P 1048576 +Q 65536"
     volumes:
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
-      - ./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
       - ./rabbitmq/.erlang.cookie:/var/lib/rabbitmq/.erlang.cookie
       - ./data/rabbitmq1:/var/lib/rabbitmq
     ports:
       - "15672:15672"   # 管理界面端口
-      - "15692:15692"   # Prometheus 指标端口 (rabbitmq_prometheus)
     sysctls:
       - net.core.somaxconn=65535
     ulimits:
@@ -44,8 +42,6 @@ services:
     image: rabbitmq:4.2.1-management
     container_name: rabbitmq2
     hostname: rabbitmq2
-    ports:
-      - "15693:15692"   # Prometheus 指标端口
     environment:
       RABBITMQ_NODENAME: rabbit@rabbitmq2
       RABBITMQ_ERLANG_COOKIE: "RABBITMQ_CLUSTER_COOKIE"
@@ -55,7 +51,6 @@ services:
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+P 1048576 +Q 65536"
     volumes:
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
-      - ./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
       - ./rabbitmq/.erlang.cookie:/var/lib/rabbitmq/.erlang.cookie
       - ./data/rabbitmq2:/var/lib/rabbitmq
     sysctls:
@@ -78,8 +73,6 @@ services:
     image: rabbitmq:4.2.1-management
     container_name: rabbitmq3
     hostname: rabbitmq3
-    ports:
-      - "15694:15692"   # Prometheus 指标端口
     environment:
       RABBITMQ_NODENAME: rabbit@rabbitmq3
       RABBITMQ_ERLANG_COOKIE: "RABBITMQ_CLUSTER_COOKIE"
@@ -89,7 +82,6 @@ services:
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+P 1048576 +Q 65536"
     volumes:
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
-      - ./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
       - ./rabbitmq/.erlang.cookie:/var/lib/rabbitmq/.erlang.cookie
       - ./data/rabbitmq3:/var/lib/rabbitmq
     sysctls:
