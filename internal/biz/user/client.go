@@ -33,7 +33,7 @@ var jsonBufferPool = sync.Pool{
 
 const maxConnsCap = 10000
 
-// NoopSecretProvider 不提供 secret，用于压测（launch 不验签）
+// NoopSecretProvider 不提供 secret，用于压测
 var NoopSecretProvider base.SecretProvider = func(string) (string, bool) { return "", false }
 
 // NewHTTPClient 按任务人数创建 HTTP 客户端

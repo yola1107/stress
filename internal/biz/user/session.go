@@ -230,8 +230,10 @@ func (s *Session) handleError(err error, maxRetries int) bool {
 }
 
 func (s *Session) sleepOrCancel(duration time.Duration) bool {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
 	select {
-	case <-time.After(duration):
+	case <-timer.C:
 		return true
 	case <-s.task.Context().Done():
 		s.State = SessionStateFailed
