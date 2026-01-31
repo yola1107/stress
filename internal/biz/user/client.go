@@ -23,7 +23,15 @@ import (
 	"stress/internal/biz/game/base"
 )
 
-const maxConnsCap = 5000
+var jsonAPI = jsoniter.ConfigFastest
+
+var jsonBufferPool = sync.Pool{
+	New: func() any {
+		return &bytes.Buffer{}
+	},
+}
+
+const maxConnsCap = 10000
 
 // NoopSecretProvider 不提供 secret，用于压测（launch 不验签）
 var NoopSecretProvider base.SecretProvider = func(string) (string, bool) { return "", false }
@@ -46,6 +54,7 @@ func NewHTTPClient(maxConns int) *http.Client {
 			MaxConnsPerHost:     maxConns,
 			IdleConnTimeout:     45 * time.Second,
 			DisableKeepAlives:   false,
+			ForceAttemptHTTP2:   true, // ++
 			TLSHandshakeTimeout: 5 * time.Second,
 			DialContext: (&net.Dialer{
 				Timeout:   10 * time.Second,
@@ -56,12 +65,6 @@ func NewHTTPClient(maxConns int) *http.Client {
 			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
-}
-
-var jsonBufferPool = sync.Pool{
-	New: func() any {
-		return &bytes.Buffer{}
-	},
 }
 
 type APIError struct {
@@ -133,7 +136,7 @@ func (c *APIClient) request(ctx context.Context, method, apiURL string, body any
 			jsonBufferPool.Put(buf)
 		}()
 
-		encoder := jsoniter.NewEncoder(buf)
+		encoder := jsonAPI.NewEncoder(buf)
 		if err := encoder.Encode(body); err != nil {
 			return nil, err
 		}
@@ -175,7 +178,7 @@ func (c *APIClient) request(ctx context.Context, method, apiURL string, body any
 	}
 
 	var res apiResponse
-	if err := jsoniter.NewDecoder(resp.Body).Decode(&res); err != nil {
+	if err := jsonAPI.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -203,8 +206,7 @@ func (c *APIClient) Launch(ctx context.Context, cfg *v1.TaskConfig, member strin
 	var data struct {
 		LaunchUrl string `json:"launchUrl"`
 	}
-	decoder := jsoniter.NewDecoder(bytes.NewReader(res.Data))
-	_ = decoder.Decode(&data)
+	_ = jsonAPI.Unmarshal(res.Data, &data)
 
 	path, _ := url.QueryUnescape(data.LaunchUrl)
 	parsed, err := url.Parse(path)
@@ -232,9 +234,7 @@ func (c *APIClient) Login(ctx context.Context, cfg *v1.TaskConfig, token string)
 		Token    string         `json:"token"`
 		FreeData map[string]any `json:"freeData"`
 	}
-	decoder := jsoniter.NewDecoder(bytes.NewReader(res.Data))
-	_ = decoder.Decode(&data)
-
+	_ = jsonAPI.Unmarshal(res.Data, &data)
 	return strings.ReplaceAll(data.Token, " ", "+"), data.FreeData, nil
 }
 
@@ -342,8 +342,7 @@ func (c *APIClient) BetOrder(ctx context.Context, cfg *v1.TaskConfig, token stri
 	}
 
 	var data map[string]any
-	decoder := jsoniter.NewDecoder(bytes.NewReader(res.Data))
-	_ = decoder.Decode(&data)
+	_ = jsonAPI.Unmarshal(res.Data, &data)
 	return data, nil
 }
 
@@ -364,8 +363,7 @@ func (c *APIClient) BetBonus(ctx context.Context, cfg *v1.TaskConfig, token stri
 	}
 
 	var data map[string]any
-	decoder := jsoniter.NewDecoder(bytes.NewReader(res.Data))
-	_ = decoder.Decode(&data)
+	_ = jsonAPI.Unmarshal(res.Data, &data)
 	result := &BetBonusResult{Data: data}
 	if c.game != nil {
 		if bi := c.game.AsBonusInterface(); bi != nil {

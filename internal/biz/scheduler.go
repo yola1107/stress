@@ -3,11 +3,11 @@ package biz
 import (
 	"context"
 	"fmt"
-	"stress/internal/biz/game/base"
 	"sync"
 	"time"
 
 	v1 "stress/api/stress/v1"
+	"stress/internal/biz/game/base"
 	"stress/internal/biz/metrics"
 	"stress/internal/biz/task"
 	"stress/internal/biz/user"
