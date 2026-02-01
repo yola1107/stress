@@ -74,7 +74,7 @@ func (uc *UseCase) runTaskSessions(t *task.Task) {
 	checker := uc.gamePool.RequireProtobuf
 
 	maxConns := 100
-	if cfg != nil && cfg.MemberCount > 0 {
+	if cfg.MemberCount > 0 {
 		maxConns = int(cfg.MemberCount)
 	}
 	httpClient := user.NewHTTPClient(maxConns)
@@ -113,22 +113,9 @@ func (uc *UseCase) runTaskSessions(t *task.Task) {
 	uc.memberPool.Release(taskID)
 	if t.GetStatus() == v1.TaskStatus_TASK_RUNNING {
 		t.SetStatus(v1.TaskStatus_TASK_COMPLETED)
-		scope := buildOrderScopeFromTask(t)
-		uc.finishTaskCleanup(taskID, scope, t.GetStep(), t)
+		uc.processTaskFinish(taskID, t)
 	}
 	uc.Schedule()
-}
-
-// sendTaskCompletionNotify 任务结束后发送飞书通知
-func (uc *UseCase) sendTaskCompletionNotify(ctx context.Context, t *task.Task) {
-	if uc.notify == nil {
-		return
-	}
-	report := stats.BuildReport(ctx, uc.repo, t, time.Now())
-	msg := notify.BuildTaskCompletionMessage(report)
-	if err := uc.notify.Send(ctx, msg); err != nil {
-		uc.log.Warnf("[%s] notify task completion: %v", t.GetID(), err)
-	}
 }
 
 // CreateTask 创建并尝试运行
@@ -177,8 +164,11 @@ func (uc *UseCase) CancelTask(id string) error {
 	return nil
 }
 
-// finishTaskCleanup 等待订单落库 → 飞书通知 → 清理环境（阻塞）
-func (uc *UseCase) finishTaskCleanup(taskID string, scope OrderScope, threshold int64, t *task.Task) {
+// processTaskFinish 等待订单落库 → 飞书通知 → 清理环境（阻塞）
+func (uc *UseCase) processTaskFinish(taskID string, t *task.Task) {
+	threshold := t.GetStep()
+	scope := buildOrderScopeFromTask(t)
+
 	time.Sleep(cleanupRetryDelay)
 	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
@@ -197,11 +187,19 @@ func (uc *UseCase) finishTaskCleanup(taskID string, scope OrderScope, threshold 
 		uc.log.Warnf("[%s] wait orders timeout", taskID)
 	}
 
-	uc.sendTaskCompletionNotify(context.Background(), t)
+	//uc.sendTaskCompletionNotify(context.Background(), t)
+	if uc.notify != nil {
+		report := stats.BuildReport(ctx, uc.repo, t, time.Now())
+		msg := notify.BuildTaskCompletionMessage(report)
+		if err := uc.notify.Send(ctx, msg); err != nil {
+			uc.log.Warnf("[%s] notify task completion: %v", t.GetID(), err)
+		}
+	}
 
 	if err := uc.repo.CleanRedisBySites(ctx, uc.c.Sites); err != nil {
 		uc.log.Errorf("[%s] Redis cleanup: %v", taskID, err)
 	}
+
 	if _, err := uc.repo.DeleteOrdersByScope(ctx, scope); err != nil {
 		uc.log.Errorf("[%s] delete orders: %v", taskID, err)
 	}
