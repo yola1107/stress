@@ -27,38 +27,33 @@ func (uc *UseCase) Schedule() {
 
 		taskID, t, ok := tp.PeekPending()
 		if !ok {
-			break
+			break // 无任务，退出循环
 		}
 		if t == nil || t.GetStatus() != v1.TaskStatus_TASK_PENDING || t.GetConfig() == nil {
-			tp.DropPendingHead()
+			tp.DropPendingHead() // 无效任务，丢弃
 			continue
 		}
 		config := t.GetConfig()
 		if !mp.CanAllocate(int(config.MemberCount)) {
-			break
+			break // 无足够成员，等待
 		}
 		if !tp.DequeuePending(taskID) {
-			continue
+			continue // 获取失败，可能被其他goroutine处理
 		}
 		allocated := mp.Allocate(taskID, int(config.MemberCount))
 		if allocated == nil {
-			tp.RequeueAtHead(taskID)
+			tp.RequeueAtHead(taskID) // 分配失败，重新入队
 			break
 		}
 		if err := t.Start(); err != nil {
-			mp.Release(taskID)
+			mp.Release(taskID) // 启动失败，释放成员
 			continue
 		}
 		go uc.runTaskSessions(t)
 	}
 }
 
-// runTaskSessions 执行单任务完整生命周期，顺序严格：
-// 1) 启动附属 goroutine（Monitor、ReportTaskMetrics），均绑定 runCtx
-// 2) 跑完所有 Session（wg.Wait）
-// 3) 结束附属：stopRun() 取消 runCtx → Monitor 与 ReportTaskMetrics 立即退出
-// 4) 结束任务：t.Stop() 取消 task context、释放协程池
-// 5) 释放成员、置状态、清理环境、触发下一轮调度
+// runTaskSessions 执行单任务完整生命周期
 func (uc *UseCase) runTaskSessions(t *task.Task) {
 	taskID := t.GetID()
 	cfg := t.GetConfig()
@@ -73,15 +68,15 @@ func (uc *UseCase) runTaskSessions(t *task.Task) {
 	g, _ := uc.GetGame(cfg.GameId)
 	checker := uc.gamePool.RequireProtobuf
 
-	maxConns := 100
-	if cfg.MemberCount > 0 {
-		maxConns = int(cfg.MemberCount)
-	}
-	httpClient := user.NewHTTPClient(maxConns)
+	httpClient := user.NewHTTPClient(int(cfg.MemberCount))
+	defer httpClient.CloseIdleConnections() // 确保HTTP连接被释放
+
 	client := user.NewAPIClient(httpClient, user.NoopSecretProvider, g, checker)
 	t.SetBonusConfig(getBonusConfigForGame(cfg))
 
 	runCtx, stopRun := context.WithCancel(t.Context())
+	defer stopRun()
+
 	go t.Monitor(runCtx)
 	go metrics.ReportTaskMetrics(runCtx, t, uc.repo)
 
@@ -102,14 +97,8 @@ func (uc *UseCase) runTaskSessions(t *task.Task) {
 	}
 	wg.Wait()
 
-	// 3) 结束附属：不再打进度、不再上报 Prometheus
-	stopRun()
-	// 4) 结束任务：取消 task ctx、释放 ants 池
 	t.Stop()
-	// 立即释放 HTTP 空闲连接，不等待 GC
-	httpClient.CloseIdleConnections()
 
-	// 5) 释放成员、置完成态、等待订单落库→通知飞书→清理环境、调度下一批
 	uc.memberPool.Release(taskID)
 	if t.GetStatus() == v1.TaskStatus_TASK_RUNNING {
 		t.SetStatus(v1.TaskStatus_TASK_COMPLETED)
@@ -166,12 +155,25 @@ func (uc *UseCase) CancelTask(id string) error {
 
 // processTaskFinish 等待订单落库 → 飞书通知 → 清理环境（阻塞）
 func (uc *UseCase) processTaskFinish(taskID string, t *task.Task) {
+	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
+	defer cancel()
+
 	threshold := t.GetStep()
 	scope := buildOrderScopeFromTask(t)
 
+	// === 阶段1: 等待订单落库 ===
+	uc.waitForOrdersToComplete(ctx, taskID, threshold, scope)
+
+	// === 阶段2: 发送任务完成通知 ===
+	uc.sendTaskCompletionNotification(ctx, taskID, t)
+
+	// === 阶段3: 执行环境清理 ===
+	uc.performEnvironmentCleanup(ctx, taskID, scope)
+}
+
+// waitForOrdersToComplete 等待订单数据完全落库
+func (uc *UseCase) waitForOrdersToComplete(ctx context.Context, taskID string, threshold int64, scope OrderScope) {
 	time.Sleep(cleanupRetryDelay)
-	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
-	defer cancel()
 
 	for ctx.Err() == nil {
 		n, err := uc.repo.GetOrderCountByScope(ctx, scope)
@@ -186,25 +188,34 @@ func (uc *UseCase) processTaskFinish(taskID string, t *task.Task) {
 	if ctx.Err() != nil {
 		uc.log.Warnf("[%s] wait orders timeout", taskID)
 	}
+}
 
-	//uc.sendTaskCompletionNotify(context.Background(), t)
-	if uc.notify != nil {
-		report := stats.BuildReport(ctx, uc.repo, t, time.Now())
-		msg := notify.BuildTaskCompletionMessage(report)
-		if err := uc.notify.Send(ctx, msg); err != nil {
-			uc.log.Warnf("[%s] notify task completion: %v", t.GetID(), err)
-		}
+// sendTaskCompletionNotification 发送任务完成通知
+func (uc *UseCase) sendTaskCompletionNotification(ctx context.Context, taskID string, t *task.Task) {
+	if uc.notify == nil {
+		return
 	}
 
+	report := stats.BuildReport(ctx, uc.repo, t, time.Now())
+	msg := notify.BuildTaskCompletionMessage(report)
+	if err := uc.notify.Send(ctx, msg); err != nil {
+		uc.log.Warnf("[%s] notify task completion: %v", t.GetID(), err)
+	}
+}
+
+// performEnvironmentCleanup 执行环境清理工作
+func (uc *UseCase) performEnvironmentCleanup(ctx context.Context, taskID string, scope OrderScope) {
+	// 清理Redis缓存
 	if err := uc.repo.CleanRedisBySites(ctx, uc.c.Sites); err != nil {
 		uc.log.Errorf("[%s] Redis cleanup: %v", taskID, err)
 	}
 
+	// 删除测试订单数据
 	if _, err := uc.repo.DeleteOrdersByScope(ctx, scope); err != nil {
 		uc.log.Errorf("[%s] delete orders: %v", taskID, err)
 	}
 
-	uc.log.Infof("[%s] cleanup done and finished", taskID)
+	uc.log.Infof("[%s] task finished", taskID)
 }
 
 // buildOrderScopeFromTask 从任务构建订单范围
