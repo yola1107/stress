@@ -40,3 +40,7 @@ bin/
 /.bin/
 /.idea/
 /stats/
+/docs/
+/rtp_charts/
+/internal/biz/stats/statistics/rtp_charts/
+/internal/biz/stats/statistics2/rtp_charts/

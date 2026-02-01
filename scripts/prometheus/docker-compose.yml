@@ -69,19 +69,13 @@ services:
     image: oliver006/redis_exporter:latest
     container_name: redis-exporter
     restart: unless-stopped
-#    command:
-#      - '--redis.addr=redis://192.168.10.83:7000,redis://192.168.10.83:7001,redis://192.168.10.83:7002,redis://192.168.10.83:7003,redis://192.168.10.83:7004,redis://192.168.10.83:7005'
-
-    # 使用 multi-target /scrape 模式时需设置 redis.addr 为空，避免 /metrics 时连接默认实例
-    # 目标由 prometheus relabel 通过 ?target=redis://:A12345!@host:port 传入
     command:
-      - '--redis.addr='
+      - '--redis.addr=redis://192.168.10.83:7000,redis://192.168.10.83:7001,redis://192.168.10.83:7002,redis://192.168.10.83:7003,redis://192.168.10.83:7004,redis://192.168.10.83:7005'
     ports:
       - "9121:9121"
     networks:
       - monitoring
 
-  # kbudde/rabbitmq-exporter 仅支持 RabbitMQ 3，RabbitMQ 4 请使用原生 rabbitmq  job 采集
   rabbitmq-exporter:
     image: kbudde/rabbitmq-exporter:latest
     container_name: rabbitmq-exporter
@@ -90,7 +84,7 @@ services:
       RABBIT_URL: "http://admin:admin@192.168.10.83:15672"
       RABBIT_USER: "admin"
       RABBIT_PASSWORD: "admin"
-      # PUBLISH_PORT 默认 9419，需与端口映射一致
+      PUBLISH_PORT: "9090"
       RABBIT_CAPABILITIES: "bert,no_sort"
       OUTPUT_FORMAT: "JSON"
     ports:

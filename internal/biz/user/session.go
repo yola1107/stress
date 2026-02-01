@@ -12,9 +12,10 @@ import (
 	"stress/internal/biz/task"
 )
 
+// Session 相关常量
 const (
-	delayMills        = 100 * time.Millisecond // 减少重试延迟，提升响应速度
-	defaultMaxRetries = 5                      // 减少最大重试次数，避免过多等待
+	delayMills        = 100 * time.Millisecond // 重试延迟
+	defaultMaxRetries = 5                      // 最大重试次数
 )
 
 type SessionState int32
@@ -32,69 +33,44 @@ const (
 type Session struct {
 	UserID     int64
 	MemberName string
-	GameID     int64
-	TaskID     string
 
 	State SessionState
 	Token string
 
-	Process  int32
-	Target   int32
-	TryTimes int32
-
-	BonusSequence []int64
+	Process    int32
+	TryTimes   int32
+	bonusIndex int64
 
 	LastError string
-	CreatedAt time.Time
-	UpdatedAt time.Time
 
-	Config          *v1.TaskConfig
-	Game            base.IGame
-	Client          *APIClient
-	protobufChecker func(gameID int64) bool
-	task            *task.Task
-
-	bonusIndex       int64
-	bonusConfigCache atomic.Value
+	Client *APIClient
+	task   *task.Task
 }
 
-func NewSession(userID int64, memberName string, gameID int64, taskID string, task *task.Task, protobufChecker func(gameID int64) bool) *Session {
-	now := time.Now()
+func NewSession(userID int64, memberName string, task *task.Task) *Session {
 	return &Session{
-		UserID:           userID,
-		MemberName:       memberName,
-		GameID:           gameID,
-		TaskID:           taskID,
-		State:            SessionStateIdle,
-		Token:            "",
-		Process:          0,
-		Target:           0,
-		TryTimes:         0,
-		BonusSequence:    nil,
-		LastError:        "",
-		CreatedAt:        now,
-		UpdatedAt:        now,
-		Config:           nil,
-		Game:             nil,
-		Client:           nil,
-		protobufChecker:  protobufChecker,
-		task:             task,
-		bonusIndex:       0,
-		bonusConfigCache: atomic.Value{},
+		UserID:     userID,
+		MemberName: memberName,
+		State:      SessionStateIdle,
+		Token:      "",
+		Process:    0,
+		TryTimes:   0,
+		LastError:  "",
+		Client:     nil,
+		task:       task,
+		bonusIndex: 0,
 	}
 }
 
-func (s *Session) Execute(ctx context.Context, cfg *v1.TaskConfig, game base.IGame, secretProvider base.SecretProvider) error {
+func (s *Session) Execute(ctx context.Context, client *APIClient, _ base.SecretProvider) error {
+	cfg := s.task.GetConfig()
 	if cfg == nil {
 		return fmt.Errorf("task config is nil")
 	}
-	s.Config = cfg
-	s.Game = game
-	s.Client = NewAPIClient(DefaultHTTPClient(), secretProvider, game, s.protobufChecker)
-
-	if atomic.LoadInt32(&s.Target) == 0 && cfg.TimesPerMember > 0 {
-		atomic.StoreInt32(&s.Target, cfg.TimesPerMember)
-	}
+	s.Client = client
+	target := cfg.TimesPerMember
+	game := s.task.GetGame()
+	bonusCfg := s.task.GetBonusConfig()
 
 	maxRetries := defaultMaxRetries
 	for {
@@ -109,7 +85,7 @@ func (s *Session) Execute(ctx context.Context, cfg *v1.TaskConfig, game base.IGa
 		default:
 		}
 
-		if err := s.executeStep(ctx); err != nil {
+		if err := s.executeStep(ctx, cfg, target, game, bonusCfg); err != nil {
 			if !s.handleError(err, maxRetries) {
 				return err
 			}
@@ -125,15 +101,14 @@ func (s *Session) Execute(ctx context.Context, cfg *v1.TaskConfig, game base.IGa
 	return nil
 }
 
-func (s *Session) executeStep(ctx context.Context) error {
+func (s *Session) executeStep(ctx context.Context, cfg *v1.TaskConfig, target int32, game base.IGame, bonusCfg *v1.BetBonusConfig) error {
 	atomic.AddInt32(&s.TryTimes, 1)
-	defer func() { s.UpdatedAt = time.Now() }()
 
 	var err error
 	switch s.State {
 	case SessionStateIdle, SessionStateLaunching:
 		var token string
-		token, err = s.Client.Launch(ctx, s.Config, s.MemberName)
+		token, err = s.Client.Launch(ctx, cfg, s.MemberName)
 		if err == nil {
 			s.Token = token
 			s.State = SessionStateLoggingIn
@@ -145,11 +120,11 @@ func (s *Session) executeStep(ctx context.Context) error {
 	case SessionStateLoggingIn:
 		var token string
 		var freeData map[string]any
-		token, freeData, err = s.Client.Login(ctx, s.Config, s.Token)
+		token, freeData, err = s.Client.Login(ctx, cfg, s.Token)
 		if err == nil {
 			s.Token = token
 			s.State = SessionStateBetting
-			if s.checkNeedBonus(freeData) {
+			if s.checkNeedBonus(freeData, game, bonusCfg) {
 				s.State = SessionStateBonusSelect
 			}
 			atomic.StoreInt32(&s.TryTimes, 0)
@@ -158,20 +133,18 @@ func (s *Session) executeStep(ctx context.Context) error {
 	case SessionStateBetting:
 		start := time.Now()
 		var data map[string]any
-		data, err = s.Client.BetOrder(ctx, s.Config, s.Token)
+		data, err = s.Client.BetOrder(ctx, cfg, s.Token)
 		if err == nil {
 			duration := time.Since(start)
-			spinOver := s.checkSpinOver(data)
-			if spinOver {
-				if atomic.AddInt32(&s.Process, 1) >= atomic.LoadInt32(&s.Target) {
-					s.State = SessionStateCompleted
-				}
+			spinOver := s.checkSpinOver(data, game)
+			if spinOver && atomic.AddInt32(&s.Process, 1) >= target {
+				s.State = SessionStateCompleted
 			}
-			if s.checkNeedBonus(data) {
+			if s.checkNeedBonus(data, game, bonusCfg) {
 				s.State = SessionStateBonusSelect
 			}
 			if s.task != nil {
-				s.task.GetStats().AddBetOrder(duration, spinOver)
+				s.task.AddBetOrder(duration, spinOver)
 			}
 			atomic.StoreInt32(&s.TryTimes, 0)
 		} else {
@@ -181,14 +154,14 @@ func (s *Session) executeStep(ctx context.Context) error {
 	case SessionStateBonusSelect:
 		start := time.Now()
 		var res *BetBonusResult
-		res, err = s.Client.BetBonus(ctx, s.Config, s.Token, s.pickBonusNum())
+		res, err = s.Client.BetBonus(ctx, cfg, s.Token, s.pickBonusNum(bonusCfg))
 		if err == nil {
 			duration := time.Since(start)
 			if !res.NeedContinue {
 				s.State = SessionStateBetting
 			}
 			if s.task != nil {
-				s.task.GetStats().AddBetBonus(duration)
+				s.task.AddBetBonus(duration)
 			}
 			atomic.StoreInt32(&s.TryTimes, 0)
 		}
@@ -221,10 +194,9 @@ func (s *Session) handleBetOrderError(err error) error {
 
 func (s *Session) handleError(err error, maxRetries int) bool {
 	errMsg := err.Error()
-	s.UpdatedAt = time.Now()
 
 	if s.task != nil && s.LastError != errMsg {
-		s.task.GetStats().AddError(errMsg)
+		s.task.AddError(errMsg)
 	}
 	s.LastError = errMsg
 
@@ -258,8 +230,10 @@ func (s *Session) handleError(err error, maxRetries int) bool {
 }
 
 func (s *Session) sleepOrCancel(duration time.Duration) bool {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
 	select {
-	case <-time.After(duration):
+	case <-timer.C:
 		return true
 	case <-s.task.Context().Done():
 		s.State = SessionStateFailed
@@ -267,10 +241,9 @@ func (s *Session) sleepOrCancel(duration time.Duration) bool {
 	}
 }
 
-func (s *Session) pickBonusNum() int64 {
-	bonusCfg := s.getCachedBonusConfig()
+func (s *Session) pickBonusNum(bonusCfg *v1.BetBonusConfig) int64 {
 	if bonusCfg == nil {
-		return s.getNextBonus()
+		return s.getNextBonus(nil)
 	}
 	if bonusCfg.BonusNum > 0 {
 		return bonusCfg.BonusNum
@@ -279,57 +252,33 @@ func (s *Session) pickBonusNum() int64 {
 		return bonusCfg.RandomNums[0] + rand.Int64N(bonusCfg.RandomNums[1]-bonusCfg.RandomNums[0]+1)
 	}
 	if len(bonusCfg.BonusSequence) > 0 {
-		if len(s.BonusSequence) == 0 {
-			s.BonusSequence = append([]int64{}, bonusCfg.BonusSequence...)
-		}
-		return s.getNextBonus()
+		return s.getNextBonus(bonusCfg)
 	}
 	return 1
 }
 
-func (s *Session) getNextBonus() int64 {
-	if len(s.BonusSequence) == 0 {
+func (s *Session) getNextBonus(bonusCfg *v1.BetBonusConfig) int64 {
+	if bonusCfg == nil || len(bonusCfg.BonusSequence) == 0 {
 		return 1
 	}
+	seq := bonusCfg.BonusSequence
 	newIndex := atomic.AddInt64(&s.bonusIndex, 1)
-	idx := int(newIndex) % len(s.BonusSequence)
-	return s.BonusSequence[idx]
+	idx := int(newIndex) % len(seq)
+	return seq[idx]
 }
 
-func (s *Session) getCachedBonusConfig() *v1.BetBonusConfig {
-	if cached := s.bonusConfigCache.Load(); cached != nil {
-		if config, ok := cached.(*v1.BetBonusConfig); ok {
-			return config
-		}
-	}
-
-	if s.Config == nil {
-		return nil
-	}
-
-	for _, b := range s.Config.BetBonus {
-		if b != nil && b.GameId == s.GameID {
-			s.bonusConfigCache.Store(b)
-			return b
-		}
-	}
-
-	s.bonusConfigCache.Store((*v1.BetBonusConfig)(nil))
-	return nil
-}
-
-func (s *Session) checkSpinOver(data map[string]any) bool {
-	if s.Game != nil {
-		return s.Game.IsSpinOver(data)
+func (s *Session) checkSpinOver(data map[string]any, game base.IGame) bool {
+	if game != nil {
+		return game.IsSpinOver(data)
 	}
 	return isSpinOver(data)
 }
 
-func (s *Session) checkNeedBonus(data map[string]any) bool {
-	if s.Game != nil && s.Game.NeedBetBonus(data) {
+func (s *Session) checkNeedBonus(data map[string]any, game base.IGame, bonusCfg *v1.BetBonusConfig) bool {
+	if game != nil && game.NeedBetBonus(data) {
 		return true
 	}
-	if s.getCachedBonusConfig() == nil {
+	if bonusCfg == nil {
 		return false
 	}
 	return needBetBonus(data)

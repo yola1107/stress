@@ -263,6 +263,103 @@ func (x *ListGamesResponse) GetTotal() int32 {
 	return 0
 }
 
+// --- 任务列表 ---
+type ListTasksRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        TaskStatus             `protobuf:"varint,1,opt,name=status,proto3,enum=stress.v1.TaskStatus" json:"status,omitempty"` // 状态过滤
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTasksRequest) Reset() {
+	*x = ListTasksRequest{}
+	mi := &file_stress_v1_stress_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTasksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTasksRequest) ProtoMessage() {}
+
+func (x *ListTasksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_stress_v1_stress_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTasksRequest.ProtoReflect.Descriptor instead.
+func (*ListTasksRequest) Descriptor() ([]byte, []int) {
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ListTasksRequest) GetStatus() TaskStatus {
+	if x != nil {
+		return x.Status
+	}
+	return TaskStatus_TASK_UNSPECIFIED
+}
+
+type ListTasksResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tasks         []*Task                `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`  // 任务列表
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"` // 总数
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTasksResponse) Reset() {
+	*x = ListTasksResponse{}
+	mi := &file_stress_v1_stress_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTasksResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTasksResponse) ProtoMessage() {}
+
+func (x *ListTasksResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_stress_v1_stress_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTasksResponse.ProtoReflect.Descriptor instead.
+func (*ListTasksResponse) Descriptor() ([]byte, []int) {
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ListTasksResponse) GetTasks() []*Task {
+	if x != nil {
+		return x.Tasks
+	}
+	return nil
+}
+
+func (x *ListTasksResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
 // --- 创建任务 ---
 type CreateTaskRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -274,7 +371,7 @@ type CreateTaskRequest struct {
 
 func (x *CreateTaskRequest) Reset() {
 	*x = CreateTaskRequest{}
-	mi := &file_stress_v1_stress_proto_msgTypes[4]
+	mi := &file_stress_v1_stress_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -286,7 +383,7 @@ func (x *CreateTaskRequest) String() string {
 func (*CreateTaskRequest) ProtoMessage() {}
 
 func (x *CreateTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[4]
+	mi := &file_stress_v1_stress_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -299,7 +396,7 @@ func (x *CreateTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTaskRequest.ProtoReflect.Descriptor instead.
 func (*CreateTaskRequest) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{4}
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CreateTaskRequest) GetDescription() string {
@@ -318,14 +415,16 @@ func (x *CreateTaskRequest) GetConfig() *TaskConfig {
 
 type CreateTaskResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Task          *Task                  `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"` // 创建后的任务信息
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Task          *Task                  `protobuf:"bytes,3,opt,name=task,proto3" json:"task,omitempty"` // 创建后的任务信息
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateTaskResponse) Reset() {
 	*x = CreateTaskResponse{}
-	mi := &file_stress_v1_stress_proto_msgTypes[5]
+	mi := &file_stress_v1_stress_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -337,7 +436,7 @@ func (x *CreateTaskResponse) String() string {
 func (*CreateTaskResponse) ProtoMessage() {}
 
 func (x *CreateTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[5]
+	mi := &file_stress_v1_stress_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -350,7 +449,21 @@ func (x *CreateTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTaskResponse.ProtoReflect.Descriptor instead.
 func (*CreateTaskResponse) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{5}
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *CreateTaskResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *CreateTaskResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 func (x *CreateTaskResponse) GetTask() *Task {
@@ -361,28 +474,28 @@ func (x *CreateTaskResponse) GetTask() *Task {
 }
 
 // --- 任务详情 ---
-type TaskRequest struct {
+type TaskInfoRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"` // 任务ID
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *TaskRequest) Reset() {
-	*x = TaskRequest{}
-	mi := &file_stress_v1_stress_proto_msgTypes[6]
+func (x *TaskInfoRequest) Reset() {
+	*x = TaskInfoRequest{}
+	mi := &file_stress_v1_stress_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *TaskRequest) String() string {
+func (x *TaskInfoRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TaskRequest) ProtoMessage() {}
+func (*TaskInfoRequest) ProtoMessage() {}
 
-func (x *TaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[6]
+func (x *TaskInfoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_stress_v1_stress_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -393,40 +506,42 @@ func (x *TaskRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TaskRequest.ProtoReflect.Descriptor instead.
-func (*TaskRequest) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{6}
+// Deprecated: Use TaskInfoRequest.ProtoReflect.Descriptor instead.
+func (*TaskInfoRequest) Descriptor() ([]byte, []int) {
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *TaskRequest) GetTaskId() string {
+func (x *TaskInfoRequest) GetTaskId() string {
 	if x != nil {
 		return x.TaskId
 	}
 	return ""
 }
 
-type GetTaskResponse struct {
+type TaskInfoResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Task          *Task                  `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"` // 任务详情
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Task          *Task                  `protobuf:"bytes,3,opt,name=task,proto3" json:"task,omitempty"` // 任务详情
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetTaskResponse) Reset() {
-	*x = GetTaskResponse{}
-	mi := &file_stress_v1_stress_proto_msgTypes[7]
+func (x *TaskInfoResponse) Reset() {
+	*x = TaskInfoResponse{}
+	mi := &file_stress_v1_stress_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetTaskResponse) String() string {
+func (x *TaskInfoResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetTaskResponse) ProtoMessage() {}
+func (*TaskInfoResponse) ProtoMessage() {}
 
-func (x *GetTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[7]
+func (x *TaskInfoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_stress_v1_stress_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -437,42 +552,55 @@ func (x *GetTaskResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetTaskResponse.ProtoReflect.Descriptor instead.
-func (*GetTaskResponse) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{7}
+// Deprecated: Use TaskInfoResponse.ProtoReflect.Descriptor instead.
+func (*TaskInfoResponse) Descriptor() ([]byte, []int) {
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *GetTaskResponse) GetTask() *Task {
+func (x *TaskInfoResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *TaskInfoResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *TaskInfoResponse) GetTask() *Task {
 	if x != nil {
 		return x.Task
 	}
 	return nil
 }
 
-// --- 任务列表 ---
-type ListTasksRequest struct {
+// --- 取消任务 ---
+type CancelTaskRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Status        TaskStatus             `protobuf:"varint,1,opt,name=status,proto3,enum=stress.v1.TaskStatus" json:"status,omitempty"` // 状态过滤
-	Filter        string                 `protobuf:"bytes,2,opt,name=filter,proto3" json:"filter,omitempty"`                            // 其他过滤条件
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"` // 任务ID
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListTasksRequest) Reset() {
-	*x = ListTasksRequest{}
-	mi := &file_stress_v1_stress_proto_msgTypes[8]
+func (x *CancelTaskRequest) Reset() {
+	*x = CancelTaskRequest{}
+	mi := &file_stress_v1_stress_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ListTasksRequest) String() string {
+func (x *CancelTaskRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ListTasksRequest) ProtoMessage() {}
+func (*CancelTaskRequest) ProtoMessage() {}
 
-func (x *ListTasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[8]
+func (x *CancelTaskRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_stress_v1_stress_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -483,152 +611,40 @@ func (x *ListTasksRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListTasksRequest.ProtoReflect.Descriptor instead.
-func (*ListTasksRequest) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{8}
+// Deprecated: Use CancelTaskRequest.ProtoReflect.Descriptor instead.
+func (*CancelTaskRequest) Descriptor() ([]byte, []int) {
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{10}
 }
 
-func (x *ListTasksRequest) GetStatus() TaskStatus {
+func (x *CancelTaskRequest) GetTaskId() string {
 	if x != nil {
-		return x.Status
-	}
-	return TaskStatus_TASK_UNSPECIFIED
-}
-
-func (x *ListTasksRequest) GetFilter() string {
-	if x != nil {
-		return x.Filter
+		return x.TaskId
 	}
 	return ""
 }
 
-type ListTasksResponse struct {
+type CancelTaskResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Tasks         []*Task                `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`  // 任务列表
-	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"` // 总数
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListTasksResponse) Reset() {
-	*x = ListTasksResponse{}
-	mi := &file_stress_v1_stress_proto_msgTypes[9]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListTasksResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListTasksResponse) ProtoMessage() {}
-
-func (x *ListTasksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[9]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListTasksResponse.ProtoReflect.Descriptor instead.
-func (*ListTasksResponse) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *ListTasksResponse) GetTasks() []*Task {
-	if x != nil {
-		return x.Tasks
-	}
-	return nil
-}
-
-func (x *ListTasksResponse) GetTotal() int32 {
-	if x != nil {
-		return x.Total
-	}
-	return 0
-}
-
-// --- 任务用户ID ---
-type GetTaskUserIdsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserIds       []int64                `protobuf:"varint,1,rep,packed,name=user_ids,json=userIds,proto3" json:"user_ids,omitempty"` // 分配的用户ID列表
-	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`                           // 总数
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetTaskUserIdsResponse) Reset() {
-	*x = GetTaskUserIdsResponse{}
-	mi := &file_stress_v1_stress_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTaskUserIdsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTaskUserIdsResponse) ProtoMessage() {}
-
-func (x *GetTaskUserIdsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTaskUserIdsResponse.ProtoReflect.Descriptor instead.
-func (*GetTaskUserIdsResponse) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *GetTaskUserIdsResponse) GetUserIds() []int64 {
-	if x != nil {
-		return x.UserIds
-	}
-	return nil
-}
-
-func (x *GetTaskUserIdsResponse) GetTotal() int32 {
-	if x != nil {
-		return x.Total
-	}
-	return 0
-}
-
-// --- 任务进度统计 ---
-type GetTaskProgressResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Progress      *TaskProgress          `protobuf:"bytes,1,opt,name=progress,proto3" json:"progress,omitempty"` // 任务进度
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetTaskProgressResponse) Reset() {
-	*x = GetTaskProgressResponse{}
+func (x *CancelTaskResponse) Reset() {
+	*x = CancelTaskResponse{}
 	mi := &file_stress_v1_stress_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetTaskProgressResponse) String() string {
+func (x *CancelTaskResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetTaskProgressResponse) ProtoMessage() {}
+func (*CancelTaskResponse) ProtoMessage() {}
 
-func (x *GetTaskProgressResponse) ProtoReflect() protoreflect.Message {
+func (x *CancelTaskResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_stress_v1_stress_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -640,39 +656,47 @@ func (x *GetTaskProgressResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetTaskProgressResponse.ProtoReflect.Descriptor instead.
-func (*GetTaskProgressResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use CancelTaskResponse.ProtoReflect.Descriptor instead.
+func (*CancelTaskResponse) Descriptor() ([]byte, []int) {
 	return file_stress_v1_stress_proto_rawDescGZIP(), []int{11}
 }
 
-func (x *GetTaskProgressResponse) GetProgress() *TaskProgress {
+func (x *CancelTaskResponse) GetCode() int32 {
 	if x != nil {
-		return x.Progress
+		return x.Code
 	}
-	return nil
+	return 0
 }
 
-type GetTaskStatisticsResponse struct {
+func (x *CancelTaskResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// --- 删除任务 ---
+type DeleteTaskRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Statistics    *TaskStatistics        `protobuf:"bytes,1,opt,name=statistics,proto3" json:"statistics,omitempty"` // 任务统计
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"` // 任务ID
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetTaskStatisticsResponse) Reset() {
-	*x = GetTaskStatisticsResponse{}
+func (x *DeleteTaskRequest) Reset() {
+	*x = DeleteTaskRequest{}
 	mi := &file_stress_v1_stress_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetTaskStatisticsResponse) String() string {
+func (x *DeleteTaskRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetTaskStatisticsResponse) ProtoMessage() {}
+func (*DeleteTaskRequest) ProtoMessage() {}
 
-func (x *GetTaskStatisticsResponse) ProtoReflect() protoreflect.Message {
+func (x *DeleteTaskRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_stress_v1_stress_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -684,39 +708,40 @@ func (x *GetTaskStatisticsResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetTaskStatisticsResponse.ProtoReflect.Descriptor instead.
-func (*GetTaskStatisticsResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use DeleteTaskRequest.ProtoReflect.Descriptor instead.
+func (*DeleteTaskRequest) Descriptor() ([]byte, []int) {
 	return file_stress_v1_stress_proto_rawDescGZIP(), []int{12}
 }
 
-func (x *GetTaskStatisticsResponse) GetStatistics() *TaskStatistics {
+func (x *DeleteTaskRequest) GetTaskId() string {
 	if x != nil {
-		return x.Statistics
+		return x.TaskId
 	}
-	return nil
+	return ""
 }
 
-// --- 系统统计 ---
-type GetSystemStatisticsRequest struct {
+// --- 删除任务 ---
+type RecordRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"` // 任务ID
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetSystemStatisticsRequest) Reset() {
-	*x = GetSystemStatisticsRequest{}
+func (x *RecordRequest) Reset() {
+	*x = RecordRequest{}
 	mi := &file_stress_v1_stress_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetSystemStatisticsRequest) String() string {
+func (x *RecordRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetSystemStatisticsRequest) ProtoMessage() {}
+func (*RecordRequest) ProtoMessage() {}
 
-func (x *GetSystemStatisticsRequest) ProtoReflect() protoreflect.Message {
+func (x *RecordRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_stress_v1_stress_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -728,32 +753,41 @@ func (x *GetSystemStatisticsRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetSystemStatisticsRequest.ProtoReflect.Descriptor instead.
-func (*GetSystemStatisticsRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use RecordRequest.ProtoReflect.Descriptor instead.
+func (*RecordRequest) Descriptor() ([]byte, []int) {
 	return file_stress_v1_stress_proto_rawDescGZIP(), []int{13}
 }
 
-type GetSystemStatisticsResponse struct {
+func (x *RecordRequest) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+type RecordResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Statistics    *SystemStatistics      `protobuf:"bytes,1,opt,name=statistics,proto3" json:"statistics,omitempty"` // 系统统计
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`      // 状态码
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"` // 提示信息
+	Url           string                 `protobuf:"bytes,3,opt,name=url,proto3" json:"url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetSystemStatisticsResponse) Reset() {
-	*x = GetSystemStatisticsResponse{}
+func (x *RecordResponse) Reset() {
+	*x = RecordResponse{}
 	mi := &file_stress_v1_stress_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetSystemStatisticsResponse) String() string {
+func (x *RecordResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetSystemStatisticsResponse) ProtoMessage() {}
+func (*RecordResponse) ProtoMessage() {}
 
-func (x *GetSystemStatisticsResponse) ProtoReflect() protoreflect.Message {
+func (x *RecordResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_stress_v1_stress_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -765,25 +799,38 @@ func (x *GetSystemStatisticsResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetSystemStatisticsResponse.ProtoReflect.Descriptor instead.
-func (*GetSystemStatisticsResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use RecordResponse.ProtoReflect.Descriptor instead.
+func (*RecordResponse) Descriptor() ([]byte, []int) {
 	return file_stress_v1_stress_proto_rawDescGZIP(), []int{14}
 }
 
-func (x *GetSystemStatisticsResponse) GetStatistics() *SystemStatistics {
+func (x *RecordResponse) GetCode() int32 {
 	if x != nil {
-		return x.Statistics
+		return x.Code
 	}
-	return nil
+	return 0
+}
+
+func (x *RecordResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *RecordResponse) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
 }
 
 // 游戏信息
 type Game struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	GameId        int64                  `protobuf:"varint,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`       // 游戏ID
-	GameName      string                 `protobuf:"bytes,2,opt,name=game_name,json=gameName,proto3" json:"game_name,omitempty"`  // 游戏名称
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`            // 游戏描述
-	IsActive      bool                   `protobuf:"varint,4,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"` // 是否激活
+	GameId        int64                  `protobuf:"varint,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`      // 游戏ID
+	GameName      string                 `protobuf:"bytes,2,opt,name=game_name,json=gameName,proto3" json:"game_name,omitempty"` // 游戏名称
+	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`           // 游戏描述
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -837,13 +884,6 @@ func (x *Game) GetDescription() string {
 		return x.Description
 	}
 	return ""
-}
-
-func (x *Game) GetIsActive() bool {
-	if x != nil {
-		return x.IsActive
-	}
-	return false
 }
 
 // 任务配置
@@ -1087,14 +1127,12 @@ func (x *BetBonusConfig) GetBonusSequence() []int64 {
 
 // 任务完整信息
 type Task struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`              // 任务ID
-	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`                  // 任务描述
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	TaskId string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"` // 任务ID
+	// string description                   = 2;  // 任务描述
 	Status        TaskStatus             `protobuf:"varint,3,opt,name=status,proto3,enum=stress.v1.TaskStatus" json:"status,omitempty"` // 任务状态
 	Config        *TaskConfig            `protobuf:"bytes,4,opt,name=config,proto3" json:"config,omitempty"`                            // 任务配置
-	Progress      *TaskProgress          `protobuf:"bytes,5,opt,name=progress,proto3" json:"progress,omitempty"`                        // 任务进度
-	Statistics    *TaskStatistics        `protobuf:"bytes,6,opt,name=statistics,proto3" json:"statistics,omitempty"`                    // 任务统计
-	UserCount     int32                  `protobuf:"varint,7,opt,name=user_count,json=userCount,proto3" json:"user_count,omitempty"`    // 分配到的用户数量
+	RecordUrl     string                 `protobuf:"bytes,5,opt,name=record_url,json=recordUrl,proto3" json:"record_url,omitempty"`     // 任务结果地址
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`     // 创建时间
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`     // 更新时间
 	unknownFields protoimpl.UnknownFields
@@ -1138,13 +1176,6 @@ func (x *Task) GetTaskId() string {
 	return ""
 }
 
-func (x *Task) GetDescription() string {
-	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
 func (x *Task) GetStatus() TaskStatus {
 	if x != nil {
 		return x.Status
@@ -1159,25 +1190,11 @@ func (x *Task) GetConfig() *TaskConfig {
 	return nil
 }
 
-func (x *Task) GetProgress() *TaskProgress {
+func (x *Task) GetRecordUrl() string {
 	if x != nil {
-		return x.Progress
+		return x.RecordUrl
 	}
-	return nil
-}
-
-func (x *Task) GetStatistics() *TaskStatistics {
-	if x != nil {
-		return x.Statistics
-	}
-	return nil
-}
-
-func (x *Task) GetUserCount() int32 {
-	if x != nil {
-		return x.UserCount
-	}
-	return 0
+	return ""
 }
 
 func (x *Task) GetCreatedAt() *timestamppb.Timestamp {
@@ -1194,35 +1211,44 @@ func (x *Task) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-// 任务进度
-type TaskProgress struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	TotalMembers      int32                  `protobuf:"varint,1,opt,name=total_members,json=totalMembers,proto3" json:"total_members,omitempty"`                // 总用户数
-	CompletedMembers  int32                  `protobuf:"varint,2,opt,name=completed_members,json=completedMembers,proto3" json:"completed_members,omitempty"`    // 已完成用户数
-	ActiveMembers     int32                  `protobuf:"varint,3,opt,name=active_members,json=activeMembers,proto3" json:"active_members,omitempty"`             // 活跃用户数
-	FailedMembers     int32                  `protobuf:"varint,4,opt,name=failed_members,json=failedMembers,proto3" json:"failed_members,omitempty"`             // 失败用户数
-	TotalRequests     int64                  `protobuf:"varint,5,opt,name=total_requests,json=totalRequests,proto3" json:"total_requests,omitempty"`             // 总请求数
-	CompletedRequests int64                  `protobuf:"varint,6,opt,name=completed_requests,json=completedRequests,proto3" json:"completed_requests,omitempty"` // 已完成请求数
-	FailedRequests    int64                  `protobuf:"varint,7,opt,name=failed_requests,json=failedRequests,proto3" json:"failed_requests,omitempty"`          // 失败请求数
-	CompletionRate    float64                `protobuf:"fixed64,8,opt,name=completion_rate,json=completionRate,proto3" json:"completion_rate,omitempty"`         // 完成率（0-1）
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+// 任务完成/统计报告（供 Prometheus、飞书通知、API 统一复用）
+type TaskCompletionReport struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`                        // 任务ID
+	GameId        int64                  `protobuf:"varint,2,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`                       // 游戏ID
+	Process       int64                  `protobuf:"varint,3,opt,name=process,proto3" json:"process,omitempty"`                                   // 已完成局数
+	Target        int64                  `protobuf:"varint,4,opt,name=target,proto3" json:"target,omitempty"`                                     // 目标局数
+	Step          int64                  `protobuf:"varint,5,opt,name=step,proto3" json:"step,omitempty"`                                         // 总步数
+	Duration      string                 `protobuf:"bytes,6,opt,name=duration,proto3" json:"duration,omitempty"`                                  // 耗时（格式化，如 1.5h）
+	Qps           float64                `protobuf:"fixed64,7,opt,name=qps,proto3" json:"qps,omitempty"`                                          // QPS
+	AvgLatency    string                 `protobuf:"bytes,8,opt,name=avg_latency,json=avgLatency,proto3" json:"avg_latency,omitempty"`            // 平均延迟（格式化，如 12.34ms）
+	OrderCount    int64                  `protobuf:"varint,9,opt,name=order_count,json=orderCount,proto3" json:"order_count,omitempty"`           // 订单数
+	TotalBet      int64                  `protobuf:"varint,10,opt,name=total_bet,json=totalBet,proto3" json:"total_bet,omitempty"`                // 总下注（×1e4）
+	TotalWin      int64                  `protobuf:"varint,11,opt,name=total_win,json=totalWin,proto3" json:"total_win,omitempty"`                // 总赢（×1e4）
+	RtpPct        float64                `protobuf:"fixed64,12,opt,name=rtp_pct,json=rtpPct,proto3" json:"rtp_pct,omitempty"`                     // RTP %
+	ActiveMembers int64                  `protobuf:"varint,13,opt,name=active_members,json=activeMembers,proto3" json:"active_members,omitempty"` // 活跃成员数（运行中）
+	Completed     int64                  `protobuf:"varint,14,opt,name=completed,proto3" json:"completed,omitempty"`                              // 完成成员数
+	Failed        int64                  `protobuf:"varint,15,opt,name=failed,proto3" json:"failed,omitempty"`                                    // 失败成员数
+	FailedReqs    int64                  `protobuf:"varint,16,opt,name=failed_reqs,json=failedReqs,proto3" json:"failed_reqs,omitempty"`          // 失败请求数
+	ProgressPct   float64                `protobuf:"fixed64,17,opt,name=progress_pct,json=progressPct,proto3" json:"progress_pct,omitempty"`      // 进度 % (process/target*100, 上限 100)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *TaskProgress) Reset() {
-	*x = TaskProgress{}
+func (x *TaskCompletionReport) Reset() {
+	*x = TaskCompletionReport{}
 	mi := &file_stress_v1_stress_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *TaskProgress) String() string {
+func (x *TaskCompletionReport) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TaskProgress) ProtoMessage() {}
+func (*TaskCompletionReport) ProtoMessage() {}
 
-func (x *TaskProgress) ProtoReflect() protoreflect.Message {
+func (x *TaskCompletionReport) ProtoReflect() protoreflect.Message {
 	mi := &file_stress_v1_stress_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1234,274 +1260,135 @@ func (x *TaskProgress) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TaskProgress.ProtoReflect.Descriptor instead.
-func (*TaskProgress) Descriptor() ([]byte, []int) {
+// Deprecated: Use TaskCompletionReport.ProtoReflect.Descriptor instead.
+func (*TaskCompletionReport) Descriptor() ([]byte, []int) {
 	return file_stress_v1_stress_proto_rawDescGZIP(), []int{20}
 }
 
-func (x *TaskProgress) GetTotalMembers() int32 {
+func (x *TaskCompletionReport) GetTaskId() string {
 	if x != nil {
-		return x.TotalMembers
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *TaskCompletionReport) GetGameId() int64 {
+	if x != nil {
+		return x.GameId
 	}
 	return 0
 }
 
-func (x *TaskProgress) GetCompletedMembers() int32 {
+func (x *TaskCompletionReport) GetProcess() int64 {
 	if x != nil {
-		return x.CompletedMembers
+		return x.Process
 	}
 	return 0
 }
 
-func (x *TaskProgress) GetActiveMembers() int32 {
+func (x *TaskCompletionReport) GetTarget() int64 {
 	if x != nil {
-		return x.ActiveMembers
+		return x.Target
 	}
 	return 0
 }
 
-func (x *TaskProgress) GetFailedMembers() int32 {
+func (x *TaskCompletionReport) GetStep() int64 {
 	if x != nil {
-		return x.FailedMembers
+		return x.Step
 	}
 	return 0
 }
 
-func (x *TaskProgress) GetTotalRequests() int64 {
+func (x *TaskCompletionReport) GetDuration() string {
 	if x != nil {
-		return x.TotalRequests
+		return x.Duration
 	}
-	return 0
+	return ""
 }
 
-func (x *TaskProgress) GetCompletedRequests() int64 {
-	if x != nil {
-		return x.CompletedRequests
-	}
-	return 0
-}
-
-func (x *TaskProgress) GetFailedRequests() int64 {
-	if x != nil {
-		return x.FailedRequests
-	}
-	return 0
-}
-
-func (x *TaskProgress) GetCompletionRate() float64 {
-	if x != nil {
-		return x.CompletionRate
-	}
-	return 0
-}
-
-// 任务统计
-type TaskStatistics struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	StartTime         *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`                                                                                  // 开始时间
-	EndTime           *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`                                                                                        // 结束时间
-	TotalDurationMs   int64                  `protobuf:"varint,3,opt,name=total_duration_ms,json=totalDurationMs,proto3" json:"total_duration_ms,omitempty"`                                                             // 总耗时（毫秒）
-	AvgResponseTimeMs float64                `protobuf:"fixed64,4,opt,name=avg_response_time_ms,json=avgResponseTimeMs,proto3" json:"avg_response_time_ms,omitempty"`                                                    // 平均响应时间（毫秒）
-	Qps               float64                `protobuf:"fixed64,5,opt,name=qps,proto3" json:"qps,omitempty"`                                                                                                             // QPS
-	SuccessRate       float64                `protobuf:"fixed64,6,opt,name=success_rate,json=successRate,proto3" json:"success_rate,omitempty"`                                                                          // 成功率
-	TotalBetOrders    int64                  `protobuf:"varint,7,opt,name=total_bet_orders,json=totalBetOrders,proto3" json:"total_bet_orders,omitempty"`                                                                // 总下注次数
-	TotalBetBonuses   int64                  `protobuf:"varint,8,opt,name=total_bet_bonuses,json=totalBetBonuses,proto3" json:"total_bet_bonuses,omitempty"`                                                             // 总奖励次数
-	ErrorCounts       map[string]int64       `protobuf:"bytes,9,rep,name=error_counts,json=errorCounts,proto3" json:"error_counts,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"` // 错误统计
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
-}
-
-func (x *TaskStatistics) Reset() {
-	*x = TaskStatistics{}
-	mi := &file_stress_v1_stress_proto_msgTypes[21]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TaskStatistics) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TaskStatistics) ProtoMessage() {}
-
-func (x *TaskStatistics) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[21]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TaskStatistics.ProtoReflect.Descriptor instead.
-func (*TaskStatistics) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{21}
-}
-
-func (x *TaskStatistics) GetStartTime() *timestamppb.Timestamp {
-	if x != nil {
-		return x.StartTime
-	}
-	return nil
-}
-
-func (x *TaskStatistics) GetEndTime() *timestamppb.Timestamp {
-	if x != nil {
-		return x.EndTime
-	}
-	return nil
-}
-
-func (x *TaskStatistics) GetTotalDurationMs() int64 {
-	if x != nil {
-		return x.TotalDurationMs
-	}
-	return 0
-}
-
-func (x *TaskStatistics) GetAvgResponseTimeMs() float64 {
-	if x != nil {
-		return x.AvgResponseTimeMs
-	}
-	return 0
-}
-
-func (x *TaskStatistics) GetQps() float64 {
+func (x *TaskCompletionReport) GetQps() float64 {
 	if x != nil {
 		return x.Qps
 	}
 	return 0
 }
 
-func (x *TaskStatistics) GetSuccessRate() float64 {
+func (x *TaskCompletionReport) GetAvgLatency() string {
 	if x != nil {
-		return x.SuccessRate
+		return x.AvgLatency
+	}
+	return ""
+}
+
+func (x *TaskCompletionReport) GetOrderCount() int64 {
+	if x != nil {
+		return x.OrderCount
 	}
 	return 0
 }
 
-func (x *TaskStatistics) GetTotalBetOrders() int64 {
+func (x *TaskCompletionReport) GetTotalBet() int64 {
 	if x != nil {
-		return x.TotalBetOrders
+		return x.TotalBet
 	}
 	return 0
 }
 
-func (x *TaskStatistics) GetTotalBetBonuses() int64 {
+func (x *TaskCompletionReport) GetTotalWin() int64 {
 	if x != nil {
-		return x.TotalBetBonuses
+		return x.TotalWin
 	}
 	return 0
 }
 
-func (x *TaskStatistics) GetErrorCounts() map[string]int64 {
+func (x *TaskCompletionReport) GetRtpPct() float64 {
 	if x != nil {
-		return x.ErrorCounts
-	}
-	return nil
-}
-
-// 系统统计
-type SystemStatistics struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TotalGames    int32                  `protobuf:"varint,1,opt,name=total_games,json=totalGames,proto3" json:"total_games,omitempty"`       // 总游戏数
-	ActiveGames   int32                  `protobuf:"varint,2,opt,name=active_games,json=activeGames,proto3" json:"active_games,omitempty"`    // 活跃游戏数
-	TotalUsers    int32                  `protobuf:"varint,3,opt,name=total_users,json=totalUsers,proto3" json:"total_users,omitempty"`       // 总用户数
-	ActiveUsers   int32                  `protobuf:"varint,4,opt,name=active_users,json=activeUsers,proto3" json:"active_users,omitempty"`    // 活跃用户数
-	RunningTasks  int32                  `protobuf:"varint,5,opt,name=running_tasks,json=runningTasks,proto3" json:"running_tasks,omitempty"` // 运行中任务数
-	PendingTasks  int32                  `protobuf:"varint,6,opt,name=pending_tasks,json=pendingTasks,proto3" json:"pending_tasks,omitempty"` // 等待中任务数
-	CollectedAt   *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=collected_at,json=collectedAt,proto3" json:"collected_at,omitempty"`     // 收集时间
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SystemStatistics) Reset() {
-	*x = SystemStatistics{}
-	mi := &file_stress_v1_stress_proto_msgTypes[22]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SystemStatistics) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SystemStatistics) ProtoMessage() {}
-
-func (x *SystemStatistics) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[22]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SystemStatistics.ProtoReflect.Descriptor instead.
-func (*SystemStatistics) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{22}
-}
-
-func (x *SystemStatistics) GetTotalGames() int32 {
-	if x != nil {
-		return x.TotalGames
+		return x.RtpPct
 	}
 	return 0
 }
 
-func (x *SystemStatistics) GetActiveGames() int32 {
+func (x *TaskCompletionReport) GetActiveMembers() int64 {
 	if x != nil {
-		return x.ActiveGames
+		return x.ActiveMembers
 	}
 	return 0
 }
 
-func (x *SystemStatistics) GetTotalUsers() int32 {
+func (x *TaskCompletionReport) GetCompleted() int64 {
 	if x != nil {
-		return x.TotalUsers
+		return x.Completed
 	}
 	return 0
 }
 
-func (x *SystemStatistics) GetActiveUsers() int32 {
+func (x *TaskCompletionReport) GetFailed() int64 {
 	if x != nil {
-		return x.ActiveUsers
+		return x.Failed
 	}
 	return 0
 }
 
-func (x *SystemStatistics) GetRunningTasks() int32 {
+func (x *TaskCompletionReport) GetFailedReqs() int64 {
 	if x != nil {
-		return x.RunningTasks
+		return x.FailedReqs
 	}
 	return 0
 }
 
-func (x *SystemStatistics) GetPendingTasks() int32 {
+func (x *TaskCompletionReport) GetProgressPct() float64 {
 	if x != nil {
-		return x.PendingTasks
+		return x.ProgressPct
 	}
 	return 0
-}
-
-func (x *SystemStatistics) GetCollectedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.CollectedAt
-	}
-	return nil
 }
 
 var File_stress_v1_stress_proto protoreflect.FileDescriptor
 
 const file_stress_v1_stress_proto_rawDesc = "" +
 	"\n" +
-	"\x16stress/v1/stress.proto\x12\tstress.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17validate/validate.proto\"!\n" +
+	"\x16stress/v1/stress.proto\x12\tstress.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x17validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"!\n" +
 	"\vPingRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"%\n" +
 	"\tPingReply\x12\x18\n" +
@@ -1509,41 +1396,42 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\x10ListGamesRequest\"P\n" +
 	"\x11ListGamesResponse\x12%\n" +
 	"\x05games\x18\x01 \x03(\v2\x0f.stress.v1.GameR\x05games\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"A\n" +
+	"\x10ListTasksRequest\x12-\n" +
+	"\x06status\x18\x01 \x01(\x0e2\x15.stress.v1.TaskStatusR\x06status\"P\n" +
+	"\x11ListTasksResponse\x12%\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x0f.stress.v1.TaskR\x05tasks\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"n\n" +
 	"\x11CreateTaskRequest\x12 \n" +
 	"\vdescription\x18\x01 \x01(\tR\vdescription\x127\n" +
-	"\x06config\x18\x02 \x01(\v2\x15.stress.v1.TaskConfigB\b\xfaB\x05\x8a\x01\x02\x10\x01R\x06config\"9\n" +
-	"\x12CreateTaskResponse\x12#\n" +
-	"\x04task\x18\x01 \x01(\v2\x0f.stress.v1.TaskR\x04task\"/\n" +
-	"\vTaskRequest\x12 \n" +
-	"\atask_id\x18\x01 \x01(\tB\a\xfaB\x04r\x02\x10\x01R\x06taskId\"6\n" +
-	"\x0fGetTaskResponse\x12#\n" +
-	"\x04task\x18\x01 \x01(\v2\x0f.stress.v1.TaskR\x04task\"Y\n" +
-	"\x10ListTasksRequest\x12-\n" +
-	"\x06status\x18\x01 \x01(\x0e2\x15.stress.v1.TaskStatusR\x06status\x12\x16\n" +
-	"\x06filter\x18\x02 \x01(\tR\x06filter\"P\n" +
-	"\x11ListTasksResponse\x12%\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x0f.stress.v1.TaskR\x05tasks\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"I\n" +
-	"\x16GetTaskUserIdsResponse\x12\x19\n" +
-	"\buser_ids\x18\x01 \x03(\x03R\auserIds\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"N\n" +
-	"\x17GetTaskProgressResponse\x123\n" +
-	"\bprogress\x18\x01 \x01(\v2\x17.stress.v1.TaskProgressR\bprogress\"V\n" +
-	"\x19GetTaskStatisticsResponse\x129\n" +
-	"\n" +
-	"statistics\x18\x01 \x01(\v2\x19.stress.v1.TaskStatisticsR\n" +
-	"statistics\"\x1c\n" +
-	"\x1aGetSystemStatisticsRequest\"Z\n" +
-	"\x1bGetSystemStatisticsResponse\x12;\n" +
-	"\n" +
-	"statistics\x18\x01 \x01(\v2\x1b.stress.v1.SystemStatisticsR\n" +
-	"statistics\"{\n" +
+	"\x06config\x18\x02 \x01(\v2\x15.stress.v1.TaskConfigB\b\xfaB\x05\x8a\x01\x02\x10\x01R\x06config\"g\n" +
+	"\x12CreateTaskResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12#\n" +
+	"\x04task\x18\x03 \x01(\v2\x0f.stress.v1.TaskR\x04task\"3\n" +
+	"\x0fTaskInfoRequest\x12 \n" +
+	"\atask_id\x18\x01 \x01(\tB\a\xfaB\x04r\x02\x10\x01R\x06taskId\"e\n" +
+	"\x10TaskInfoResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12#\n" +
+	"\x04task\x18\x03 \x01(\v2\x0f.stress.v1.TaskR\x04task\"5\n" +
+	"\x11CancelTaskRequest\x12 \n" +
+	"\atask_id\x18\x01 \x01(\tB\a\xfaB\x04r\x02\x10\x01R\x06taskId\"B\n" +
+	"\x12CancelTaskResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"5\n" +
+	"\x11DeleteTaskRequest\x12 \n" +
+	"\atask_id\x18\x01 \x01(\tB\a\xfaB\x04r\x02\x10\x01R\x06taskId\"1\n" +
+	"\rRecordRequest\x12 \n" +
+	"\atask_id\x18\x01 \x01(\tB\a\xfaB\x04r\x02\x10\x01R\x06taskId\"P\n" +
+	"\x0eRecordResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x10\n" +
+	"\x03url\x18\x03 \x01(\tR\x03url\"^\n" +
 	"\x04Game\x12\x17\n" +
 	"\agame_id\x18\x01 \x01(\x03R\x06gameId\x12\x1b\n" +
 	"\tgame_name\x18\x02 \x01(\tR\bgameName\x12 \n" +
-	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1b\n" +
-	"\tis_active\x18\x04 \x01(\bR\bisActive\"\x8e\x03\n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\"\x8e\x03\n" +
 	"\n" +
 	"TaskConfig\x12 \n" +
 	"\agame_id\x18\x01 \x01(\x03B\a\xfaB\x04\"\x02 \x00R\x06gameId\x12-\n" +
@@ -1568,55 +1456,39 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\tbonus_num\x18\x02 \x01(\x03R\bbonusNum\x12\x1f\n" +
 	"\vrandom_nums\x18\x03 \x03(\x03R\n" +
 	"randomNums\x12%\n" +
-	"\x0ebonus_sequence\x18\x04 \x03(\x03R\rbonusSequence\"\xa4\x03\n" +
+	"\x0ebonus_sequence\x18\x04 \x03(\x03R\rbonusSequence\"\x92\x02\n" +
 	"\x04Task\x12\x17\n" +
-	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12 \n" +
-	"\vdescription\x18\x02 \x01(\tR\vdescription\x12-\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12-\n" +
 	"\x06status\x18\x03 \x01(\x0e2\x15.stress.v1.TaskStatusR\x06status\x12-\n" +
-	"\x06config\x18\x04 \x01(\v2\x15.stress.v1.TaskConfigR\x06config\x123\n" +
-	"\bprogress\x18\x05 \x01(\v2\x17.stress.v1.TaskProgressR\bprogress\x129\n" +
+	"\x06config\x18\x04 \x01(\v2\x15.stress.v1.TaskConfigR\x06config\x12\x1d\n" +
 	"\n" +
-	"statistics\x18\x06 \x01(\v2\x19.stress.v1.TaskStatisticsR\n" +
-	"statistics\x12\x1d\n" +
-	"\n" +
-	"user_count\x18\a \x01(\x05R\tuserCount\x129\n" +
+	"record_url\x18\x05 \x01(\tR\trecordUrl\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xd6\x02\n" +
-	"\fTaskProgress\x12#\n" +
-	"\rtotal_members\x18\x01 \x01(\x05R\ftotalMembers\x12+\n" +
-	"\x11completed_members\x18\x02 \x01(\x05R\x10completedMembers\x12%\n" +
-	"\x0eactive_members\x18\x03 \x01(\x05R\ractiveMembers\x12%\n" +
-	"\x0efailed_members\x18\x04 \x01(\x05R\rfailedMembers\x12%\n" +
-	"\x0etotal_requests\x18\x05 \x01(\x03R\rtotalRequests\x12-\n" +
-	"\x12completed_requests\x18\x06 \x01(\x03R\x11completedRequests\x12'\n" +
-	"\x0ffailed_requests\x18\a \x01(\x03R\x0efailedRequests\x12'\n" +
-	"\x0fcompletion_rate\x18\b \x01(\x01R\x0ecompletionRate\"\xf9\x03\n" +
-	"\x0eTaskStatistics\x129\n" +
-	"\n" +
-	"start_time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\tstartTime\x125\n" +
-	"\bend_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\aendTime\x12*\n" +
-	"\x11total_duration_ms\x18\x03 \x01(\x03R\x0ftotalDurationMs\x12/\n" +
-	"\x14avg_response_time_ms\x18\x04 \x01(\x01R\x11avgResponseTimeMs\x12\x10\n" +
-	"\x03qps\x18\x05 \x01(\x01R\x03qps\x12!\n" +
-	"\fsuccess_rate\x18\x06 \x01(\x01R\vsuccessRate\x12(\n" +
-	"\x10total_bet_orders\x18\a \x01(\x03R\x0etotalBetOrders\x12*\n" +
-	"\x11total_bet_bonuses\x18\b \x01(\x03R\x0ftotalBetBonuses\x12M\n" +
-	"\ferror_counts\x18\t \x03(\v2*.stress.v1.TaskStatistics.ErrorCountsEntryR\verrorCounts\x1a>\n" +
-	"\x10ErrorCountsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\"\xa3\x02\n" +
-	"\x10SystemStatistics\x12\x1f\n" +
-	"\vtotal_games\x18\x01 \x01(\x05R\n" +
-	"totalGames\x12!\n" +
-	"\factive_games\x18\x02 \x01(\x05R\vactiveGames\x12\x1f\n" +
-	"\vtotal_users\x18\x03 \x01(\x05R\n" +
-	"totalUsers\x12!\n" +
-	"\factive_users\x18\x04 \x01(\x05R\vactiveUsers\x12#\n" +
-	"\rrunning_tasks\x18\x05 \x01(\x05R\frunningTasks\x12#\n" +
-	"\rpending_tasks\x18\x06 \x01(\x05R\fpendingTasks\x12=\n" +
-	"\fcollected_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\vcollectedAt*\x7f\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xf2\x03\n" +
+	"\x14TaskCompletionReport\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x17\n" +
+	"\agame_id\x18\x02 \x01(\x03R\x06gameId\x12\x18\n" +
+	"\aprocess\x18\x03 \x01(\x03R\aprocess\x12\x16\n" +
+	"\x06target\x18\x04 \x01(\x03R\x06target\x12\x12\n" +
+	"\x04step\x18\x05 \x01(\x03R\x04step\x12\x1a\n" +
+	"\bduration\x18\x06 \x01(\tR\bduration\x12\x10\n" +
+	"\x03qps\x18\a \x01(\x01R\x03qps\x12\x1f\n" +
+	"\vavg_latency\x18\b \x01(\tR\n" +
+	"avgLatency\x12\x1f\n" +
+	"\vorder_count\x18\t \x01(\x03R\n" +
+	"orderCount\x12\x1b\n" +
+	"\ttotal_bet\x18\n" +
+	" \x01(\x03R\btotalBet\x12\x1b\n" +
+	"\ttotal_win\x18\v \x01(\x03R\btotalWin\x12\x17\n" +
+	"\artp_pct\x18\f \x01(\x01R\x06rtpPct\x12%\n" +
+	"\x0eactive_members\x18\r \x01(\x03R\ractiveMembers\x12\x1c\n" +
+	"\tcompleted\x18\x0e \x01(\x03R\tcompleted\x12\x16\n" +
+	"\x06failed\x18\x0f \x01(\x03R\x06failed\x12\x1f\n" +
+	"\vfailed_reqs\x18\x10 \x01(\x03R\n" +
+	"failedReqs\x12!\n" +
+	"\fprogress_pct\x18\x11 \x01(\x01R\vprogressPct*\x7f\n" +
 	"\n" +
 	"TaskStatus\x12\x14\n" +
 	"\x10TASK_UNSPECIFIED\x10\x00\x12\x10\n" +
@@ -1624,23 +1496,19 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\fTASK_RUNNING\x10\x02\x12\x12\n" +
 	"\x0eTASK_COMPLETED\x10\x03\x12\x0f\n" +
 	"\vTASK_FAILED\x10\x04\x12\x12\n" +
-	"\x0eTASK_CANCELLED\x10\x052\xbf\t\n" +
+	"\x0eTASK_CANCELLED\x10\x052\xc7\x06\n" +
 	"\rStressService\x12T\n" +
 	"\aPingReq\x12\x16.stress.v1.PingRequest\x1a\x14.stress.v1.PingReply\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/stress/ping/{name}\x12a\n" +
 	"\tListGames\x12\x1b.stress.v1.ListGamesRequest\x1a\x1c.stress.v1.ListGamesResponse\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/stress/ListGames\x12a\n" +
 	"\tListTasks\x12\x1b.stress.v1.ListTasksRequest\x1a\x1c.stress.v1.ListTasksResponse\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/stress/ListTasks\x12h\n" +
 	"\n" +
-	"CreateTask\x12\x1c.stress.v1.CreateTaskRequest\x1a\x1d.stress.v1.CreateTaskResponse\"\x1d\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/stress/CreateTask\x12`\n" +
-	"\aGetTask\x12\x16.stress.v1.TaskRequest\x1a\x1a.stress.v1.GetTaskResponse\"!\x82\xd3\xe4\x93\x02\x1b\x12\x19/stress/GetTask/{task_id}\x12~\n" +
-	"\x0eGetTaskUserIds\x12\x16.stress.v1.TaskRequest\x1a!.stress.v1.GetTaskUserIdsResponse\"1\x82\xd3\xe4\x93\x02+\x12)/stress/GetTaskUserIds/{task_id}/user_ids\x12b\n" +
+	"CreateTask\x12\x1c.stress.v1.CreateTaskRequest\x1a\x1d.stress.v1.CreateTaskResponse\"\x1d\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/stress/CreateTask\x12g\n" +
+	"\bTaskInfo\x12\x1a.stress.v1.TaskInfoRequest\x1a\x1b.stress.v1.TaskInfoResponse\"\"\x82\xd3\xe4\x93\x02\x1c\x12\x1a/stress/TaskInfo/{task_id}\x12h\n" +
 	"\n" +
-	"DeleteTask\x12\x16.stress.v1.TaskRequest\x1a\x16.google.protobuf.Empty\"$\x82\xd3\xe4\x93\x02\x1e*\x1c/stress/DeleteTask/{task_id}\x12e\n" +
+	"DeleteTask\x12\x1c.stress.v1.DeleteTaskRequest\x1a\x16.google.protobuf.Empty\"$\x82\xd3\xe4\x93\x02\x1e*\x1c/stress/DeleteTask/{task_id}\x12r\n" +
 	"\n" +
-	"CancelTask\x12\x16.stress.v1.TaskRequest\x1a\x16.google.protobuf.Empty\"'\x82\xd3\xe4\x93\x02!:\x01*\"\x1c/stress/CancelTask/{task_id}\x12x\n" +
-	"\x0fGetTaskProgress\x12\x16.stress.v1.TaskRequest\x1a\".stress.v1.GetTaskProgressResponse\")\x82\xd3\xe4\x93\x02#\x12!/stress/GetTaskProgress/{task_id}\x12~\n" +
-	"\x11GetTaskStatistics\x12\x16.stress.v1.TaskRequest\x1a$.stress.v1.GetTaskStatisticsResponse\"+\x82\xd3\xe4\x93\x02%\x12#/stress/GetTaskStatistics/{task_id}\x12\x80\x01\n" +
-	"\x13GetSystemStatistics\x12%.stress.v1.GetSystemStatisticsRequest\x1a&.stress.v1.GetSystemStatisticsResponse\"\x1a\x82\xd3\xe4\x93\x02\x14\x12\x12/stress/statisticsBD\n" +
-	"\x18dev.kratos.api.stress.v1B\rStressProtoV1P\x01Z\x17stress/api/stress/v1;v1b\x06proto3"
+	"CancelTask\x12\x1c.stress.v1.CancelTaskRequest\x1a\x1d.stress.v1.CancelTaskResponse\"'\x82\xd3\xe4\x93\x02!:\x01*\"\x1c/stress/CancelTask/{task_id}\x12i\n" +
+	"\tGetRecord\x12\x18.stress.v1.RecordRequest\x1a\x19.stress.v1.RecordResponse\"'\x82\xd3\xe4\x93\x02!:\x01*\"\x1c/stress/TaskRecord/{task_id}B\x19Z\x17stress/api/stress/v1;v1b\x06proto3"
 
 var (
 	file_stress_v1_stress_proto_rawDescOnce sync.Once
@@ -1655,85 +1523,67 @@ func file_stress_v1_stress_proto_rawDescGZIP() []byte {
 }
 
 var file_stress_v1_stress_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_stress_v1_stress_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
+var file_stress_v1_stress_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_stress_v1_stress_proto_goTypes = []any{
-	(TaskStatus)(0),                     // 0: stress.v1.TaskStatus
-	(*PingRequest)(nil),                 // 1: stress.v1.PingRequest
-	(*PingReply)(nil),                   // 2: stress.v1.PingReply
-	(*ListGamesRequest)(nil),            // 3: stress.v1.ListGamesRequest
-	(*ListGamesResponse)(nil),           // 4: stress.v1.ListGamesResponse
-	(*CreateTaskRequest)(nil),           // 5: stress.v1.CreateTaskRequest
-	(*CreateTaskResponse)(nil),          // 6: stress.v1.CreateTaskResponse
-	(*TaskRequest)(nil),                 // 7: stress.v1.TaskRequest
-	(*GetTaskResponse)(nil),             // 8: stress.v1.GetTaskResponse
-	(*ListTasksRequest)(nil),            // 9: stress.v1.ListTasksRequest
-	(*ListTasksResponse)(nil),           // 10: stress.v1.ListTasksResponse
-	(*GetTaskUserIdsResponse)(nil),      // 11: stress.v1.GetTaskUserIdsResponse
-	(*GetTaskProgressResponse)(nil),     // 12: stress.v1.GetTaskProgressResponse
-	(*GetTaskStatisticsResponse)(nil),   // 13: stress.v1.GetTaskStatisticsResponse
-	(*GetSystemStatisticsRequest)(nil),  // 14: stress.v1.GetSystemStatisticsRequest
-	(*GetSystemStatisticsResponse)(nil), // 15: stress.v1.GetSystemStatisticsResponse
-	(*Game)(nil),                        // 16: stress.v1.Game
-	(*TaskConfig)(nil),                  // 17: stress.v1.TaskConfig
-	(*BetOrderConfig)(nil),              // 18: stress.v1.BetOrderConfig
-	(*BetBonusConfig)(nil),              // 19: stress.v1.BetBonusConfig
-	(*Task)(nil),                        // 20: stress.v1.Task
-	(*TaskProgress)(nil),                // 21: stress.v1.TaskProgress
-	(*TaskStatistics)(nil),              // 22: stress.v1.TaskStatistics
-	(*SystemStatistics)(nil),            // 23: stress.v1.SystemStatistics
-	nil,                                 // 24: stress.v1.TaskStatistics.ErrorCountsEntry
-	(*timestamppb.Timestamp)(nil),       // 25: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),               // 26: google.protobuf.Empty
+	(TaskStatus)(0),               // 0: stress.v1.TaskStatus
+	(*PingRequest)(nil),           // 1: stress.v1.PingRequest
+	(*PingReply)(nil),             // 2: stress.v1.PingReply
+	(*ListGamesRequest)(nil),      // 3: stress.v1.ListGamesRequest
+	(*ListGamesResponse)(nil),     // 4: stress.v1.ListGamesResponse
+	(*ListTasksRequest)(nil),      // 5: stress.v1.ListTasksRequest
+	(*ListTasksResponse)(nil),     // 6: stress.v1.ListTasksResponse
+	(*CreateTaskRequest)(nil),     // 7: stress.v1.CreateTaskRequest
+	(*CreateTaskResponse)(nil),    // 8: stress.v1.CreateTaskResponse
+	(*TaskInfoRequest)(nil),       // 9: stress.v1.TaskInfoRequest
+	(*TaskInfoResponse)(nil),      // 10: stress.v1.TaskInfoResponse
+	(*CancelTaskRequest)(nil),     // 11: stress.v1.CancelTaskRequest
+	(*CancelTaskResponse)(nil),    // 12: stress.v1.CancelTaskResponse
+	(*DeleteTaskRequest)(nil),     // 13: stress.v1.DeleteTaskRequest
+	(*RecordRequest)(nil),         // 14: stress.v1.RecordRequest
+	(*RecordResponse)(nil),        // 15: stress.v1.RecordResponse
+	(*Game)(nil),                  // 16: stress.v1.Game
+	(*TaskConfig)(nil),            // 17: stress.v1.TaskConfig
+	(*BetOrderConfig)(nil),        // 18: stress.v1.BetOrderConfig
+	(*BetBonusConfig)(nil),        // 19: stress.v1.BetBonusConfig
+	(*Task)(nil),                  // 20: stress.v1.Task
+	(*TaskCompletionReport)(nil),  // 21: stress.v1.TaskCompletionReport
+	(*timestamppb.Timestamp)(nil), // 22: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),         // 23: google.protobuf.Empty
 }
 var file_stress_v1_stress_proto_depIdxs = []int32{
 	16, // 0: stress.v1.ListGamesResponse.games:type_name -> stress.v1.Game
-	17, // 1: stress.v1.CreateTaskRequest.config:type_name -> stress.v1.TaskConfig
-	20, // 2: stress.v1.CreateTaskResponse.task:type_name -> stress.v1.Task
-	20, // 3: stress.v1.GetTaskResponse.task:type_name -> stress.v1.Task
-	0,  // 4: stress.v1.ListTasksRequest.status:type_name -> stress.v1.TaskStatus
-	20, // 5: stress.v1.ListTasksResponse.tasks:type_name -> stress.v1.Task
-	21, // 6: stress.v1.GetTaskProgressResponse.progress:type_name -> stress.v1.TaskProgress
-	22, // 7: stress.v1.GetTaskStatisticsResponse.statistics:type_name -> stress.v1.TaskStatistics
-	23, // 8: stress.v1.GetSystemStatisticsResponse.statistics:type_name -> stress.v1.SystemStatistics
-	18, // 9: stress.v1.TaskConfig.bet_order:type_name -> stress.v1.BetOrderConfig
-	19, // 10: stress.v1.TaskConfig.bet_bonus:type_name -> stress.v1.BetBonusConfig
-	0,  // 11: stress.v1.Task.status:type_name -> stress.v1.TaskStatus
-	17, // 12: stress.v1.Task.config:type_name -> stress.v1.TaskConfig
-	21, // 13: stress.v1.Task.progress:type_name -> stress.v1.TaskProgress
-	22, // 14: stress.v1.Task.statistics:type_name -> stress.v1.TaskStatistics
-	25, // 15: stress.v1.Task.created_at:type_name -> google.protobuf.Timestamp
-	25, // 16: stress.v1.Task.updated_at:type_name -> google.protobuf.Timestamp
-	25, // 17: stress.v1.TaskStatistics.start_time:type_name -> google.protobuf.Timestamp
-	25, // 18: stress.v1.TaskStatistics.end_time:type_name -> google.protobuf.Timestamp
-	24, // 19: stress.v1.TaskStatistics.error_counts:type_name -> stress.v1.TaskStatistics.ErrorCountsEntry
-	25, // 20: stress.v1.SystemStatistics.collected_at:type_name -> google.protobuf.Timestamp
-	1,  // 21: stress.v1.StressService.PingReq:input_type -> stress.v1.PingRequest
-	3,  // 22: stress.v1.StressService.ListGames:input_type -> stress.v1.ListGamesRequest
-	9,  // 23: stress.v1.StressService.ListTasks:input_type -> stress.v1.ListTasksRequest
-	5,  // 24: stress.v1.StressService.CreateTask:input_type -> stress.v1.CreateTaskRequest
-	7,  // 25: stress.v1.StressService.GetTask:input_type -> stress.v1.TaskRequest
-	7,  // 26: stress.v1.StressService.GetTaskUserIds:input_type -> stress.v1.TaskRequest
-	7,  // 27: stress.v1.StressService.DeleteTask:input_type -> stress.v1.TaskRequest
-	7,  // 28: stress.v1.StressService.CancelTask:input_type -> stress.v1.TaskRequest
-	7,  // 29: stress.v1.StressService.GetTaskProgress:input_type -> stress.v1.TaskRequest
-	7,  // 30: stress.v1.StressService.GetTaskStatistics:input_type -> stress.v1.TaskRequest
-	14, // 31: stress.v1.StressService.GetSystemStatistics:input_type -> stress.v1.GetSystemStatisticsRequest
-	2,  // 32: stress.v1.StressService.PingReq:output_type -> stress.v1.PingReply
-	4,  // 33: stress.v1.StressService.ListGames:output_type -> stress.v1.ListGamesResponse
-	10, // 34: stress.v1.StressService.ListTasks:output_type -> stress.v1.ListTasksResponse
-	6,  // 35: stress.v1.StressService.CreateTask:output_type -> stress.v1.CreateTaskResponse
-	8,  // 36: stress.v1.StressService.GetTask:output_type -> stress.v1.GetTaskResponse
-	11, // 37: stress.v1.StressService.GetTaskUserIds:output_type -> stress.v1.GetTaskUserIdsResponse
-	26, // 38: stress.v1.StressService.DeleteTask:output_type -> google.protobuf.Empty
-	26, // 39: stress.v1.StressService.CancelTask:output_type -> google.protobuf.Empty
-	12, // 40: stress.v1.StressService.GetTaskProgress:output_type -> stress.v1.GetTaskProgressResponse
-	13, // 41: stress.v1.StressService.GetTaskStatistics:output_type -> stress.v1.GetTaskStatisticsResponse
-	15, // 42: stress.v1.StressService.GetSystemStatistics:output_type -> stress.v1.GetSystemStatisticsResponse
-	32, // [32:43] is the sub-list for method output_type
-	21, // [21:32] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	0,  // 1: stress.v1.ListTasksRequest.status:type_name -> stress.v1.TaskStatus
+	20, // 2: stress.v1.ListTasksResponse.tasks:type_name -> stress.v1.Task
+	17, // 3: stress.v1.CreateTaskRequest.config:type_name -> stress.v1.TaskConfig
+	20, // 4: stress.v1.CreateTaskResponse.task:type_name -> stress.v1.Task
+	20, // 5: stress.v1.TaskInfoResponse.task:type_name -> stress.v1.Task
+	18, // 6: stress.v1.TaskConfig.bet_order:type_name -> stress.v1.BetOrderConfig
+	19, // 7: stress.v1.TaskConfig.bet_bonus:type_name -> stress.v1.BetBonusConfig
+	0,  // 8: stress.v1.Task.status:type_name -> stress.v1.TaskStatus
+	17, // 9: stress.v1.Task.config:type_name -> stress.v1.TaskConfig
+	22, // 10: stress.v1.Task.created_at:type_name -> google.protobuf.Timestamp
+	22, // 11: stress.v1.Task.updated_at:type_name -> google.protobuf.Timestamp
+	1,  // 12: stress.v1.StressService.PingReq:input_type -> stress.v1.PingRequest
+	3,  // 13: stress.v1.StressService.ListGames:input_type -> stress.v1.ListGamesRequest
+	5,  // 14: stress.v1.StressService.ListTasks:input_type -> stress.v1.ListTasksRequest
+	7,  // 15: stress.v1.StressService.CreateTask:input_type -> stress.v1.CreateTaskRequest
+	9,  // 16: stress.v1.StressService.TaskInfo:input_type -> stress.v1.TaskInfoRequest
+	13, // 17: stress.v1.StressService.DeleteTask:input_type -> stress.v1.DeleteTaskRequest
+	11, // 18: stress.v1.StressService.CancelTask:input_type -> stress.v1.CancelTaskRequest
+	14, // 19: stress.v1.StressService.GetRecord:input_type -> stress.v1.RecordRequest
+	2,  // 20: stress.v1.StressService.PingReq:output_type -> stress.v1.PingReply
+	4,  // 21: stress.v1.StressService.ListGames:output_type -> stress.v1.ListGamesResponse
+	6,  // 22: stress.v1.StressService.ListTasks:output_type -> stress.v1.ListTasksResponse
+	8,  // 23: stress.v1.StressService.CreateTask:output_type -> stress.v1.CreateTaskResponse
+	10, // 24: stress.v1.StressService.TaskInfo:output_type -> stress.v1.TaskInfoResponse
+	23, // 25: stress.v1.StressService.DeleteTask:output_type -> google.protobuf.Empty
+	12, // 26: stress.v1.StressService.CancelTask:output_type -> stress.v1.CancelTaskResponse
+	15, // 27: stress.v1.StressService.GetRecord:output_type -> stress.v1.RecordResponse
+	20, // [20:28] is the sub-list for method output_type
+	12, // [12:20] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_stress_v1_stress_proto_init() }
@@ -1747,7 +1597,7 @@ func file_stress_v1_stress_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_stress_v1_stress_proto_rawDesc), len(file_stress_v1_stress_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   24,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

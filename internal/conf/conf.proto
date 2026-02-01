@@ -10,6 +10,7 @@ message Bootstrap {
     Data data     = 2;
     Log log       = 3;
     Launch launch = 4;
+    Notify notify = 5;
 }
 
 message Server {
@@ -56,10 +57,18 @@ message Log {
     bool file     = 6;
 }
 
+// 通知（飞书 Webhook）
+message Notify {
+    bool enabled          = 1;  // 开关，false 时不发送
+    string prefix         = 2;  // 消息前缀，如 [stress] 用于区分来源
+    string webhook_url     = 3;  // 飞书 Webhook 地址
+    string signing_secret  = 4;  // 签名密钥，配置后启用加签（与 feishu-test.sh 一致）
+}
+
 message Launch {
-  repeated string sites   = 1;  // SITE 标识，用于清理 Redis/测试环境（如 egame50001）
-  bool auto_loads  = 2;
-  int32 interval_sec = 3;
-  int32 batch_load_size = 4;
-  int32 max_load_total = 5;
+    repeated string sites = 1;  // SITE 标识，用于清理 Redis/测试环境（如 egame50001）
+    bool auto_loads       = 2;
+    int32 interval_sec    = 3;
+    int32 batch_load_size = 4;
+    int32 max_load_total  = 5;
 }

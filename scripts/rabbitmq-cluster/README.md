@@ -203,7 +203,6 @@ docker exec rabbitmq1 rabbitmqctl set_cluster_partition_handling pause_minority
 
 - **5672**: AMQP协议端口 (通过HAProxy负载均衡)
 - **15672**: 管理界面端口 (已映射到rabbitmq1，可直接访问)
-- **15692/15693/15694**: Prometheus 指标端口 (rabbitmq_prometheus 插件，分别对应 rabbitmq1/2/3)
 - **25672**: 集群通信端口 (内部使用，无需映射)
 
 ## 扩展集群

@@ -2,25 +2,18 @@
 
 监控远程 RabbitMQ 集群、Redis 集群和 MySQL 数据库。
 
-## 部署拓扑
-- **Prometheus + Grafana + Exporters**: 192.168.10.87
-- **RabbitMQ 集群**: 192.168.10.83 (scripts/rabbitmq-cluster)
-- **Redis 集群**: 192.168.10.83 (scripts/redis-cluster)
-- **MySQL**: 192.168.10.83
-
 ## 组件
 - Prometheus: 数据收集
 - Grafana: 数据可视化
 - Node Exporter: 系统监控
 - MySQL Exporter: MySQL 监控  
 - Redis Exporter: Redis 监控
-- RabbitMQ Exporter (kbudde): RabbitMQ Management API 指标
+- RabbitMQ Exporter: RabbitMQ 监控
 
 ## 监控目标
-- Redis 集群: 192.168.10.83:7000-7005 (redis_exporter /scrape)
+- Redis 集群: 192.168.10.83:7000-7005
 - MySQL 数据库: 192.168.10.83:3306
-- RabbitMQ 集群: 192.168.10.83:15692/15693/15694 (rabbitmq_prometheus 原生插件，Grafana 10991)
-- RabbitMQ Management: 192.168.10.83:15672 (kbudde exporter)
+- RabbitMQ 集群: 192.168.10.83:15672
 
 ## 快速开始
 
