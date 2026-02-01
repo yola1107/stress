@@ -9,11 +9,20 @@ import (
 
 	v1 "stress/api/stress/v1"
 	"stress/internal/biz/game/base"
+	"stress/internal/biz/metrics"
 	"stress/pkg/xgo"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/panjf2000/ants/v2"
 )
+
+const (
+	logInterval    = 1 * time.Second // 进度日志间隔
+	reportInterval = 5 * time.Second // Prometheus 上报间隔
+)
+
+// ReportProvider 报告提供者，由调用方注入（如 stats.BuildReport）
+type ReportProvider func(ctx context.Context, now time.Time) *v1.TaskCompletionReport
 
 // Task 压测任务
 type Task struct {
@@ -275,25 +284,44 @@ func (t *Task) CompletionReport(now time.Time) *v1.TaskCompletionReport {
 	}
 }
 
-// 监控任务进度
-func (t *Task) Monitor(ctx context.Context) {
+// RunMonitor 运行监控：1s 日志 + 5s Prometheus 上报，ctx 取消后退出
+func (t *Task) RunMonitor(ctx context.Context, getReport ReportProvider) {
+	if getReport == nil {
+		getReport = func(ctx context.Context, now time.Time) *v1.TaskCompletionReport {
+			return t.CompletionReport(now)
+		}
+	}
 	start := time.Now()
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
+	logTicker := time.NewTicker(logInterval)
+	reportTicker := time.NewTicker(reportInterval)
+	defer logTicker.Stop()
+	defer reportTicker.Stop()
+
+	report := getReport(ctx, time.Now())
+	metrics.ReportTask(report)
+	t.printProgress(report, start)
 
 	for {
 		select {
 		case <-ctx.Done():
-			t.printFinalStats(start)
+			report = getReport(context.Background(), time.Now())
+			metrics.ReportTask(report)
+			t.printFinalStats(report, start)
 			return
-		case <-ticker.C:
-			t.printProgress(start)
+		case <-logTicker.C:
+			r := t.CompletionReport(time.Now())
+			t.printProgress(r, start)
+		case <-reportTicker.C:
+			report = getReport(ctx, time.Now())
+			metrics.ReportTask(report)
 		}
 	}
 }
 
-func (t *Task) printProgress(start time.Time) {
-	r := t.CompletionReport(time.Now())
+func (t *Task) printProgress(r *v1.TaskCompletionReport, start time.Time) {
+	if r == nil {
+		return
+	}
 	elapsed := time.Since(start)
 	sec := elapsed.Seconds()
 	if sec <= 0 {
@@ -307,7 +335,7 @@ func (t *Task) printProgress(start time.Time) {
 	if sec > 0 {
 		qps = float64(r.Process) / sec
 	}
-	log.Infof("[%s]: 进度:%d/%d(%.2f%%), 用时:%s, 剩余:%s, QPS:%.2f, step:%.2f, 延迟:%s    ",
+	log.Infof("[%s]: 进度:%d/%d(%.2f%%), 用时:%s, 剩余:%s, QPS:%.2f, step:%.2f, 延迟:%s",
 		r.TaskId,
 		r.Process,
 		r.Target,
@@ -320,8 +348,10 @@ func (t *Task) printProgress(start time.Time) {
 	)
 }
 
-func (t *Task) printFinalStats(start time.Time) {
-	r := t.CompletionReport(time.Now())
+func (t *Task) printFinalStats(r *v1.TaskCompletionReport, start time.Time) {
+	if r == nil {
+		return
+	}
 	elapsed := time.Since(start)
 	qps := 0.0
 	if sec := elapsed.Seconds(); sec > 0 {

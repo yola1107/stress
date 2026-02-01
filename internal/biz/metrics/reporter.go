@@ -1,38 +1,19 @@
 package metrics
 
 import (
-	"context"
 	"fmt"
-	"time"
-
 	v1 "stress/api/stress/v1"
-	"stress/internal/biz/stats"
-	"stress/internal/biz/task"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// ReportTaskMetrics 启动指标上报，ctx 取消后退出
-func ReportTaskMetrics(ctx context.Context, t *task.Task, repo stats.OrderLoader) {
-	ticker := time.NewTicker(reportInterval)
-	defer ticker.Stop()
-
-	report := stats.BuildReport(ctx, repo, t, time.Now())
+// ReportTask 将任务报告上报到 Prometheus（供 task.RunMonitor 调用）
+func ReportTask(report *v1.TaskCompletionReport) {
+	if report == nil {
+		return
+	}
 	labels := baseLabels(report)
 	reportOnce(labels, report)
-
-	for {
-		select {
-		case <-ctx.Done():
-			// ctx 已取消，用 background 保证最终一次 DB 查询能完成
-			report = stats.BuildReport(context.Background(), repo, t, time.Now())
-			reportOnce(labels, report)
-			return
-		case <-ticker.C:
-			report = stats.BuildReport(ctx, repo, t, time.Now())
-			reportOnce(labels, report)
-		}
-	}
 }
 
 func baseLabels(report *v1.TaskCompletionReport) prometheus.Labels {

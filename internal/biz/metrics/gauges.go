@@ -1,16 +1,13 @@
 package metrics
 
 import (
-	"time"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 const (
-	labelTaskID    = "task_id"
-	labelGameID    = "game_id"
-	reportInterval = 5 * time.Second
+	labelTaskID = "task_id"
+	labelGameID = "game_id"
 )
 
 // 指标名规范：stress_task_<name>，标签 task_id、game_id

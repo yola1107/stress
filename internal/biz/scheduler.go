@@ -8,7 +8,6 @@ import (
 
 	v1 "stress/api/stress/v1"
 	"stress/internal/biz/game/base"
-	"stress/internal/biz/metrics"
 	"stress/internal/biz/stats"
 	"stress/internal/biz/task"
 	"stress/internal/biz/user"
@@ -58,6 +57,8 @@ func (uc *UseCase) runTaskSessions(t *task.Task) {
 	taskID := t.GetID()
 	cfg := t.GetConfig()
 	members := uc.memberPool.GetAllocated(taskID)
+
+	// 阶段0: 前置检查
 	if len(members) == 0 {
 		t.Stop()
 		uc.memberPool.Release(taskID)
@@ -65,21 +66,21 @@ func (uc *UseCase) runTaskSessions(t *task.Task) {
 		return
 	}
 
+	// 阶段1: 初始化
 	g, _ := uc.GetGame(cfg.GameId)
 	checker := uc.gamePool.RequireProtobuf
-
 	httpClient := user.NewHTTPClient(int(cfg.MemberCount))
-	defer httpClient.CloseIdleConnections() // 确保HTTP连接被释放
+	defer httpClient.CloseIdleConnections()
 
 	client := user.NewAPIClient(httpClient, user.NoopSecretProvider, g, checker)
 	t.SetBonusConfig(getBonusConfigForGame(cfg))
 
-	runCtx, stopRun := context.WithCancel(t.Context())
-	defer stopRun()
+	// 阶段2: 监控（1s 日志 + 5s Prometheus）
+	go t.RunMonitor(t.Context(), func(ctx context.Context, now time.Time) *v1.TaskCompletionReport {
+		return stats.BuildReport(ctx, uc.repo, t, now)
+	})
 
-	go t.Monitor(runCtx)
-	go metrics.ReportTaskMetrics(runCtx, t, uc.repo)
-
+	// 阶段3: 执行会话
 	var wg sync.WaitGroup
 	wg.Add(len(members))
 	for _, m := range members {
@@ -97,8 +98,10 @@ func (uc *UseCase) runTaskSessions(t *task.Task) {
 	}
 	wg.Wait()
 
+	// 阶段4: 停止任务
 	t.Stop()
 
+	// 阶段5: 后处理
 	uc.memberPool.Release(taskID)
 	if t.GetStatus() == v1.TaskStatus_TASK_RUNNING {
 		t.SetStatus(v1.TaskStatus_TASK_COMPLETED)
