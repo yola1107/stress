@@ -38,8 +38,7 @@ func (p *Pool) Get(gameID int64) (base.IGame, bool) {
 func (p *Pool) List() []base.IGame {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	cpy := make([]base.IGame, len(p.list))
-	copy(cpy, p.list)
+	cpy := append([]base.IGame{}, p.list...)
 	return cpy
 }
 

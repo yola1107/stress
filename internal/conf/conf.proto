@@ -59,9 +59,10 @@ message Log {
 
 // 通知（飞书 Webhook）
 message Notify {
-    bool enabled       = 1;  // 开关，false 时不发送
-    string prefix      = 2;  // 消息前缀，如 [stress] 用于区分来源
-    string webhook_url = 3;  // 飞书 Webhook 地址
+    bool enabled          = 1;  // 开关，false 时不发送
+    string prefix         = 2;  // 消息前缀，如 [stress] 用于区分来源
+    string webhook_url     = 3;  // 飞书 Webhook 地址
+    string signing_secret  = 4;  // 签名密钥，配置后启用加签（与 feishu-test.sh 一致）
 }
 
 message Launch {

@@ -23,8 +23,7 @@ const (
 	memberInitialBalance = 10000
 	memberIDOffset       = 1000
 	cleanupTimeout       = 5 * time.Minute
-	cleanupRetryDelay    = 5 * time.Second
-	cleanupStartDelay    = 1 * time.Second // 任务结束后等待 DB 落库再开始清理
+	cleanupRetryDelay    = 5 * time.Second // 任务结束后等待 DB 落库再开始清理
 )
 
 // DataRepo 数据层接口：成员/订单/清理/任务ID计数
@@ -33,6 +32,8 @@ type DataRepo interface {
 	CleanRedisBySites(ctx context.Context, sites []string) error
 	CleanGameOrderTable(ctx context.Context) error
 	GetGameOrderCount(ctx context.Context) (int64, error)
+	GetOrderCountByScope(ctx context.Context, scope OrderScope) (int64, error)
+	DeleteOrdersByScope(ctx context.Context, scope OrderScope) (int64, error)
 	GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
 	NextTaskID(ctx context.Context, gameID int64) (string, error)
 }
@@ -116,10 +117,9 @@ func (uc *UseCase) cleanOnStartup() {
 	ctx, cancel := context.WithTimeout(context.Background(), startupCleanTimeout)
 	defer cancel()
 
-	if err := uc.cleanupRedis(ctx); err != nil {
+	if err := uc.repo.CleanRedisBySites(ctx, uc.c.Sites); err != nil {
 		uc.log.Warnf("startup clean Redis: %v", err)
 	}
-
 	if err := uc.repo.CleanGameOrderTable(ctx); err != nil {
 		uc.log.Warnf("startup clean order table: %v", err)
 	} else {

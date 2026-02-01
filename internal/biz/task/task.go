@@ -9,6 +9,7 @@ import (
 
 	v1 "stress/api/stress/v1"
 	"stress/internal/biz/game/base"
+	"stress/pkg/xgo"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/panjf2000/ants/v2"
@@ -20,6 +21,8 @@ type Task struct {
 	id        string
 	game      base.IGame
 	createdAt time.Time
+
+	finishedAt time.Time
 
 	status      v1.TaskStatus
 	config      *v1.TaskConfig
@@ -111,9 +114,31 @@ func (t *Task) GetStatus() v1.TaskStatus {
 	return s
 }
 
+func (t *Task) GetCreatedAt() time.Time {
+	t.mu.RLock()
+	createdAt := t.createdAt
+	t.mu.RUnlock()
+	return createdAt
+}
+
+func (t *Task) GetFinishedAt() time.Time {
+	t.mu.RLock()
+	finishedAt := t.finishedAt
+	t.mu.RUnlock()
+	return finishedAt
+}
+
+func (t *Task) GetStep() int64 {
+	return atomic.LoadInt64(&t.step)
+}
+
 func (t *Task) SetStatus(s v1.TaskStatus) {
 	t.mu.Lock()
 	t.status = s
+	if s == v1.TaskStatus_TASK_COMPLETED ||
+		s == v1.TaskStatus_TASK_FAILED {
+		t.finishedAt = time.Now()
+	}
 	t.mu.Unlock()
 }
 
@@ -166,7 +191,7 @@ func (t *Task) Stop() {
 		t.pool = nil
 	}
 	t.mu.Unlock()
-	log.Infof("[task %s] stopped", t.id)
+	log.Infof("[%s] task stopped", t.id)
 }
 
 // 统计方法
@@ -200,41 +225,53 @@ func (t *Task) AddError(msg string) {
 	atomic.AddInt64(&t.errors, 1)
 }
 
-// StatsSnapshot 统计快照
-type StatsSnapshot struct {
-	ID               string
-	Status           v1.TaskStatus
-	Config           *v1.TaskConfig
-	Process          int64
-	Target           int64
-	Step             int64
-	TotalDuration    time.Duration
-	ActiveMembers    int64
-	CompletedMembers int64
-	FailedMembers    int64
-	FailedRequests   int64
-	CreatedAt        time.Time
-	FinishedAt       time.Time
-}
-
-func (t *Task) StatsSnapshot() StatsSnapshot {
+// CompletionReport 生成任务报告（供 metrics、notify、logging 复用）
+func (t *Task) CompletionReport(now time.Time) *v1.TaskCompletionReport {
 	t.mu.RLock()
-	id, status, cfg, createdAt := t.id, t.status, t.config, t.createdAt
+	id, cfg := t.id, t.config
+	createdAt := t.createdAt
 	t.mu.RUnlock()
 
-	return StatsSnapshot{
-		ID:               id,
-		Status:           status,
-		Config:           cfg,
-		Process:          atomic.LoadInt64(&t.process),
-		Target:           t.target,
-		Step:             atomic.LoadInt64(&t.step),
-		TotalDuration:    time.Duration(atomic.LoadInt64(&t.duration)),
-		ActiveMembers:    atomic.LoadInt64(&t.active),
-		CompletedMembers: atomic.LoadInt64(&t.completed),
-		FailedMembers:    atomic.LoadInt64(&t.failed),
-		FailedRequests:   atomic.LoadInt64(&t.errors),
-		CreatedAt:        createdAt,
+	process := atomic.LoadInt64(&t.process)
+	step := atomic.LoadInt64(&t.step)
+	totalDur := time.Duration(atomic.LoadInt64(&t.duration))
+	active := atomic.LoadInt64(&t.active)
+	completed := atomic.LoadInt64(&t.completed)
+	failed := atomic.LoadInt64(&t.failed)
+	errors := atomic.LoadInt64(&t.errors)
+
+	elapsed := now.Sub(createdAt)
+	if !t.finishedAt.IsZero() {
+		elapsed = t.finishedAt.Sub(createdAt)
+	}
+	sec := elapsed.Seconds()
+	qps := 0.0
+	if sec > 0 {
+		qps = float64(process) / sec
+	}
+
+	gameID := int64(0)
+	if cfg != nil {
+		gameID = cfg.GameId
+	}
+
+	avgLatency := xgo.AvgDuration(totalDur, step)
+
+	return &v1.TaskCompletionReport{
+		TaskId:        id,
+		GameId:        gameID,
+		Process:       process,
+		Target:        t.target,
+		Step:          step,
+		Duration:      xgo.FormatDuration(elapsed),
+		Qps:           qps,
+		AvgLatency:    avgLatency,
+		ActiveMembers: active,
+		Completed:     completed,
+		Failed:        failed,
+		FailedReqs:    errors,
+		ProgressPct:   xgo.PctCap100(process, t.target),
+		// OrderCount, TotalBet, TotalWin, RtpPct 由 stats 包补充
 	}
 }
 
@@ -256,77 +293,47 @@ func (t *Task) Monitor(ctx context.Context) {
 }
 
 func (t *Task) printProgress(start time.Time) {
-	snap := t.StatsSnapshot()
+	r := t.CompletionReport(time.Now())
 	elapsed := time.Since(start)
 	sec := elapsed.Seconds()
 	if sec <= 0 {
 		return
 	}
-
-	pct := 0.0
-	if snap.Target > 0 {
-		pct = float64(snap.Process) / float64(snap.Target) * 100
-	}
 	remaining := time.Duration(0)
-	if pct > 0 && pct < 100 {
-		remaining = time.Duration(float64(elapsed)/pct*100) - elapsed
+	if r.ProgressPct > 0 && r.ProgressPct < 100 {
+		remaining = time.Duration(float64(elapsed)/r.ProgressPct*100) - elapsed
 	}
-
+	qps := 0.0
+	if sec > 0 {
+		qps = float64(r.Process) / sec
+	}
 	log.Infof("[%s]: 进度:%d/%d(%.2f%%), 用时:%s, 剩余:%s, QPS:%.2f, step:%.2f, 延迟:%s    ",
-		snap.ID, snap.Process, snap.Target, pct,
-		shortDuration(elapsed), shortDuration(remaining),
-		float64(snap.Process)/sec, float64(snap.Step)/sec,
-		avgDuration(snap.TotalDuration, snap.Step),
+		r.TaskId,
+		r.Process,
+		r.Target,
+		r.ProgressPct,
+		xgo.ShortDuration(elapsed),
+		xgo.ShortDuration(remaining),
+		qps,
+		float64(r.Step)/sec,
+		r.AvgLatency,
 	)
 }
 
 func (t *Task) printFinalStats(start time.Time) {
-	snap := t.StatsSnapshot()
+	r := t.CompletionReport(time.Now())
 	elapsed := time.Since(start)
-	sec := elapsed.Seconds()
 	qps := 0.0
-	if sec > 0 {
-		qps = float64(snap.Process) / sec
+	if sec := elapsed.Seconds(); sec > 0 {
+		qps = float64(r.Process) / sec
 	}
 	log.Infof("[%s] 任务结束: 进度:%d/%d, 总步数:%d, 耗时:%v, QPS:%.2f, 平均延迟:%s",
-		snap.ID, snap.Process, snap.Target, snap.Step, elapsed, qps,
-		avgDuration(snap.TotalDuration, snap.Step),
+		r.TaskId,
+		r.Process,
+		r.Target,
+		r.Step,
+		elapsed,
+		qps,
+		r.AvgLatency,
 	)
-}
-
-func avgDuration(d time.Duration, step int64) string {
-	if step <= 0 {
-		return "0"
-	}
-	return shortDuration(time.Duration(int64(d) / step))
-}
-
-func shortDuration(d time.Duration) string {
-	if d == 0 {
-		return "0"
-	}
-	sec := d.Seconds()
-	for _, u := range []struct {
-		div float64
-		sym string
-	}{
-		{60 * 60 * 24, "d"},
-		{60 * 60, "h"},
-		{60, "m"},
-		{1, "s"},
-		{1e-3, "ms"},
-		{1e-6, "µs"},
-		{1e-9, "ns"},
-	} {
-		if sec >= u.div {
-			val := sec / u.div
-			if val >= 100 {
-				return fmt.Sprintf("%.0f%s", val, u.sym)
-			} else if val >= 10 {
-				return fmt.Sprintf("%.1f%s", val, u.sym)
-			}
-			return fmt.Sprintf("%.2f%s", val, u.sym)
-		}
-	}
-	return "0"
 }

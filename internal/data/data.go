@@ -139,7 +139,8 @@ func (r *dataRepo) NextTaskID(ctx context.Context, gameID int64) (string, error)
 	defer cancel()
 
 	now := time.Now()
-	key := fmt.Sprintf("stress-pool:count:%s", now.Format("2006-01-02"))
+	date := now.Format("20060102")
+	key := fmt.Sprintf("stress-pool:count:%s", date)
 	field := strconv.FormatInt(gameID, 10)
 
 	count, err := r.data.rdb.HIncrBy(ctx, key, field, 1).Result()
@@ -153,5 +154,5 @@ func (r *dataRepo) NextTaskID(ctx context.Context, gameID int64) (string, error)
 		_ = r.data.rdb.ExpireAt(ctx, key, midnight).Err()
 	}
 
-	return fmt.Sprintf("%d-%d", gameID, count), nil
+	return fmt.Sprintf("%s-%d-%d", date, gameID, count), nil
 }

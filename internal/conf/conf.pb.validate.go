@@ -757,6 +757,8 @@ func (m *Notify) validate(all bool) error {
 
 	// no validation rules for WebhookUrl
 
+	// no validation rules for SigningSecret
+
 	if len(errors) > 0 {
 		return NotifyMultiError(errors)
 	}

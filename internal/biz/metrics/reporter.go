@@ -5,98 +5,57 @@ import (
 	"fmt"
 	"time"
 
+	v1 "stress/api/stress/v1"
+	"stress/internal/biz/stats"
 	"stress/internal/biz/task"
 
-	"github.com/go-kratos/kratos/v2/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// OrderReader 订单数据读取接口
-type OrderReader interface {
-	GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
-	GetGameOrderCount(ctx context.Context) (int64, error)
-}
-
 // ReportTaskMetrics 启动指标上报，ctx 取消后退出
-func ReportTaskMetrics(ctx context.Context, t *task.Task, repo OrderReader) {
+func ReportTaskMetrics(ctx context.Context, t *task.Task, repo stats.OrderLoader) {
 	ticker := time.NewTicker(reportInterval)
 	defer ticker.Stop()
 
-	snap := t.StatsSnapshot()
-	labels := baseLabels(snap)
-	reportOnce(ctx, repo, labels, snap)
+	report := stats.BuildReport(ctx, repo, t, time.Now())
+	labels := baseLabels(report)
+	reportOnce(labels, report)
 
 	for {
 		select {
 		case <-ctx.Done():
+			// ctx 已取消，用 background 保证最终一次 DB 查询能完成
+			report = stats.BuildReport(context.Background(), repo, t, time.Now())
+			reportOnce(labels, report)
 			return
 		case <-ticker.C:
-			snap = t.StatsSnapshot()
-			reportOnce(ctx, repo, labels, snap)
+			report = stats.BuildReport(ctx, repo, t, time.Now())
+			reportOnce(labels, report)
 		}
 	}
 }
 
-func baseLabels(snap task.StatsSnapshot) prometheus.Labels {
+func baseLabels(report *v1.TaskCompletionReport) prometheus.Labels {
 	gameID := "unknown"
-	if snap.Config != nil && snap.Config.GameId > 0 {
-		gameID = fmt.Sprintf("%d", snap.Config.GameId)
+	if report != nil && report.GameId > 0 {
+		gameID = fmt.Sprintf("%d", report.GameId)
 	}
-	return prometheus.Labels{labelTaskID: snap.ID, labelGameID: gameID}
+	taskID := ""
+	if report != nil {
+		taskID = report.TaskId
+	}
+	return prometheus.Labels{labelTaskID: taskID, labelGameID: gameID}
 }
 
-func reportOnce(ctx context.Context, repo OrderReader, labels prometheus.Labels, snap task.StatsSnapshot) {
-	order := loadOrderData(ctx, repo, snap.ID)
-
-	progressPctVal := 0.0
-	if snap.Target > 0 {
-		progressPctVal = float64(snap.Process) / float64(snap.Target) * 100
-		if progressPctVal > 100 {
-			progressPctVal = 100
-		}
-	}
-
-	elapsed := time.Since(snap.CreatedAt).Seconds()
-	if !snap.FinishedAt.IsZero() {
-		elapsed = snap.FinishedAt.Sub(snap.CreatedAt).Seconds()
-	}
-	qpsVal := 0.0
-	if elapsed > 0 {
-		qpsVal = float64(snap.Process) / elapsed
-	}
-
-	set(progressPct, labels, progressPctVal)
-	set(qps, labels, qpsVal)
-	set(activeMembers, labels, float64(snap.ActiveMembers))
-	set(failedReqs, labels, float64(snap.FailedRequests))
-	set(totalBet, labels, float64(order.totalBet))
-	set(totalWin, labels, float64(order.totalWin))
-	set(rtpPct, labels, order.rtpPct)
-	set(orderCount, labels, float64(order.totalCnt))
-}
-
-type orderData struct {
-	totalBet, totalWin, totalCnt int64
-	rtpPct                       float64
-}
-
-func loadOrderData(ctx context.Context, repo OrderReader, taskID string) orderData {
-	totalBet, totalWin, betCnt, _, err := repo.GetDetailedOrderAmounts(ctx)
-	totalCnt := betCnt
-
-	if err != nil {
-		log.Warnf("[%s] GetDetailedOrderAmounts failed: %v", taskID, err)
-		totalBet, totalWin = 0, 0
-		totalCnt, _ = repo.GetGameOrderCount(ctx)
-	}
-
-	rtpPctVal := 0.0
-	if totalBet > 0 {
-		rtpPctVal = float64(totalWin) / float64(totalBet) * 100
-	}
-
-	return orderData{
-		totalBet: totalBet, totalWin: totalWin, totalCnt: totalCnt,
-		rtpPct: rtpPctVal,
-	}
+func reportOnce(labels prometheus.Labels, r *v1.TaskCompletionReport) {
+	set(_metric_progress, labels, float64(r.Process))
+	set(_metric_total_steps, labels, float64(r.Step))
+	set(_metric_progress_pct, labels, r.ProgressPct)
+	set(_metric_qps, labels, r.Qps)
+	set(_metric_active_members, labels, float64(r.ActiveMembers))
+	set(_metric_failed_reqs, labels, float64(r.FailedReqs))
+	set(_metric_total_bet, labels, float64(r.TotalBet))
+	set(_metric_total_win, labels, float64(r.TotalWin))
+	set(_metric_rtp_pct, labels, r.RtpPct)
+	set(_metric_order_count, labels, float64(r.OrderCount))
 }

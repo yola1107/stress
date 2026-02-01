@@ -201,3 +201,24 @@ message Task {
     google.protobuf.Timestamp created_at = 8;  // 创建时间
     google.protobuf.Timestamp updated_at = 9;  // 更新时间
 }
+
+// 任务完成/统计报告（供 Prometheus、飞书通知、API 统一复用）
+message TaskCompletionReport {
+    string task_id      = 1;   // 任务ID
+    int64 game_id       = 2;   // 游戏ID
+    int64 process       = 3;   // 已完成局数
+    int64 target        = 4;   // 目标局数
+    int64 step          = 5;   // 总步数
+    string duration     = 6;   // 耗时（格式化，如 1.5h）
+    double qps          = 7;   // QPS
+    string avg_latency  = 8;   // 平均延迟（格式化，如 12.34ms）
+    int64 order_count   = 9;   // 订单数
+    int64 total_bet     = 10;  // 总下注（×1e4）
+    int64 total_win     = 11;  // 总赢（×1e4）
+    double rtp_pct      = 12;  // RTP %
+    int64 active_members = 13;  // 活跃成员数（运行中）
+    int64 completed     = 14;  // 完成成员数
+    int64 failed        = 15;  // 失败成员数
+    int64 failed_reqs   = 16;  // 失败请求数
+    double progress_pct = 17;  // 进度 % (process/target*100, 上限 100)
+}

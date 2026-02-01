@@ -9,8 +9,10 @@ import (
 	v1 "stress/api/stress/v1"
 	"stress/internal/biz/game/base"
 	"stress/internal/biz/metrics"
+	"stress/internal/biz/stats"
 	"stress/internal/biz/task"
 	"stress/internal/biz/user"
+	"stress/internal/notify"
 )
 
 // Schedule 从待调度队列取任务、分配成员、启动压测
@@ -58,25 +60,26 @@ func (uc *UseCase) Schedule() {
 // 4) 结束任务：t.Stop() 取消 task context、释放协程池
 // 5) 释放成员、置状态、清理环境、触发下一轮调度
 func (uc *UseCase) runTaskSessions(t *task.Task) {
-	snap := t.StatsSnapshot()
-	members := uc.memberPool.GetAllocated(snap.ID)
+	taskID := t.GetID()
+	cfg := t.GetConfig()
+	members := uc.memberPool.GetAllocated(taskID)
 	if len(members) == 0 {
 		t.Stop()
-		uc.memberPool.Release(snap.ID)
+		uc.memberPool.Release(taskID)
 		uc.Schedule()
 		return
 	}
 
-	g, _ := uc.GetGame(snap.Config.GameId)
+	g, _ := uc.GetGame(cfg.GameId)
 	checker := uc.gamePool.RequireProtobuf
 
 	maxConns := 100
-	if snap.Config != nil && snap.Config.MemberCount > 0 {
-		maxConns = int(snap.Config.MemberCount)
+	if cfg != nil && cfg.MemberCount > 0 {
+		maxConns = int(cfg.MemberCount)
 	}
 	httpClient := user.NewHTTPClient(maxConns)
 	client := user.NewAPIClient(httpClient, user.NoopSecretProvider, g, checker)
-	t.SetBonusConfig(getBonusConfigForGame(snap.Config, snap.Config.GameId))
+	t.SetBonusConfig(getBonusConfigForGame(cfg))
 
 	runCtx, stopRun := context.WithCancel(t.Context())
 	go t.Monitor(runCtx)
@@ -106,13 +109,26 @@ func (uc *UseCase) runTaskSessions(t *task.Task) {
 	// 立即释放 HTTP 空闲连接，不等待 GC
 	httpClient.CloseIdleConnections()
 
-	// 5) 释放成员、置完成态、清理环境、调度下一批
-	uc.memberPool.Release(snap.ID)
+	// 5) 释放成员、置完成态、等待订单落库→通知飞书→清理环境、调度下一批
+	uc.memberPool.Release(taskID)
 	if t.GetStatus() == v1.TaskStatus_TASK_RUNNING {
 		t.SetStatus(v1.TaskStatus_TASK_COMPLETED)
-		<-uc.CleanTestEnvironment(snap.ID, snap.Step)
+		scope := buildOrderScopeFromTask(t)
+		uc.finishTaskCleanup(taskID, scope, t.GetStep(), t)
 	}
 	uc.Schedule()
+}
+
+// sendTaskCompletionNotify 任务结束后发送飞书通知
+func (uc *UseCase) sendTaskCompletionNotify(ctx context.Context, t *task.Task) {
+	if uc.notify == nil {
+		return
+	}
+	report := stats.BuildReport(ctx, uc.repo, t, time.Now())
+	msg := notify.BuildTaskCompletionMessage(report)
+	if err := uc.notify.Send(ctx, msg); err != nil {
+		uc.log.Warnf("[%s] notify task completion: %v", t.GetID(), err)
+	}
 }
 
 // CreateTask 创建并尝试运行
@@ -161,78 +177,59 @@ func (uc *UseCase) CancelTask(id string) error {
 	return nil
 }
 
-// CleanTestEnvironment 清理 Redis site:* 并等订单表达到阈值后 truncate，返回可读 channel
-func (uc *UseCase) CleanTestEnvironment(taskID string, step int64) <-chan struct{} {
-	time.Sleep(cleanupStartDelay)
+// finishTaskCleanup 等待订单落库 → 飞书通知 → 清理环境（阻塞）
+func (uc *UseCase) finishTaskCleanup(taskID string, scope OrderScope, threshold int64, t *task.Task) {
+	time.Sleep(cleanupRetryDelay)
 	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
-	done := make(chan struct{})
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		if err := uc.cleanupRedis(ctx); err != nil {
-			uc.log.Errorf("[%s] Redis cleanup: %v", taskID, err)
+	defer cancel()
+
+	for ctx.Err() == nil {
+		n, err := uc.repo.GetOrderCountByScope(ctx, scope)
+		if err == nil && n >= threshold {
+			break
 		}
-	}()
-	go func() {
-		defer wg.Done()
-		uc.waitOrderThenClean(ctx, taskID, step)
-	}()
-	go func() {
-		wg.Wait()
-		cancel()
-		uc.log.Infof("[%s] cleanup done", taskID)
-		close(done)
-	}()
-	return done
-}
-
-// cleanupRedis 统一的 Redis 清理逻辑
-func (uc *UseCase) cleanupRedis(ctx context.Context) error {
-	if uc.c == nil || len(uc.c.Sites) == 0 {
-		return nil
+		if err != nil {
+			uc.log.Errorf("[%s] order count: %v", taskID, err)
+		}
+		time.Sleep(cleanupRetryDelay)
 	}
+	if ctx.Err() != nil {
+		uc.log.Warnf("[%s] wait orders timeout", taskID)
+	}
+
+	uc.sendTaskCompletionNotify(context.Background(), t)
+
 	if err := uc.repo.CleanRedisBySites(ctx, uc.c.Sites); err != nil {
-		return err
+		uc.log.Errorf("[%s] Redis cleanup: %v", taskID, err)
 	}
-	uc.log.Info("Redis cleanup done")
-	return nil
+	if _, err := uc.repo.DeleteOrdersByScope(ctx, scope); err != nil {
+		uc.log.Errorf("[%s] delete orders: %v", taskID, err)
+	}
+
+	uc.log.Infof("[%s] cleanup done and finished", taskID)
 }
 
-func getBonusConfigForGame(cfg *v1.TaskConfig, gameID int64) *v1.BetBonusConfig {
+// buildOrderScopeFromTask 从任务构建订单范围
+func buildOrderScopeFromTask(t *task.Task) OrderScope {
+	cfg := t.GetConfig()
+	s := OrderScope{GameID: cfg.GameId, Merchant: cfg.Merchant, StartTime: t.GetCreatedAt(), EndTime: t.GetFinishedAt()}
+	if s.EndTime.IsZero() {
+		s.EndTime = time.Now()
+	}
+	if cfg.BetOrder != nil && cfg.BetOrder.BaseMoney > 0 {
+		s.ExcludeAmt = cfg.BetOrder.BaseMoney
+	}
+	return s
+}
+
+func getBonusConfigForGame(cfg *v1.TaskConfig) *v1.BetBonusConfig {
 	if cfg == nil {
 		return nil
 	}
 	for _, b := range cfg.BetBonus {
-		if b != nil && b.GameId == gameID {
+		if b != nil && b.GameId == cfg.GameId {
 			return b
 		}
 	}
 	return nil
-}
-
-// waitOrderThenClean 每隔一段时间查订单数，>= threshold 时 truncate 并返回
-func (uc *UseCase) waitOrderThenClean(ctx context.Context, taskID string, threshold int64) {
-	ticker := time.NewTicker(cleanupRetryDelay)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			count, err := uc.repo.GetGameOrderCount(ctx)
-			if err != nil {
-				uc.log.Errorf("[%s] get order count: %v", taskID, err)
-				continue
-			}
-			if count < threshold {
-				continue
-			}
-			uc.log.Infof("[%s] order table %d>=%d, truncating", taskID, count, threshold)
-			if err := uc.repo.CleanGameOrderTable(ctx); err != nil {
-				uc.log.Errorf("[%s] truncate: %v", taskID, err)
-			}
-			return
-		}
-	}
 }

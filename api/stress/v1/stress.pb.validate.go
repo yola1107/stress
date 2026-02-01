@@ -2548,3 +2548,139 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = TaskValidationError{}
+
+// Validate checks the field values on TaskCompletionReport with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *TaskCompletionReport) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TaskCompletionReport with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// TaskCompletionReportMultiError, or nil if none found.
+func (m *TaskCompletionReport) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TaskCompletionReport) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for TaskId
+
+	// no validation rules for GameId
+
+	// no validation rules for Process
+
+	// no validation rules for Target
+
+	// no validation rules for Step
+
+	// no validation rules for Duration
+
+	// no validation rules for Qps
+
+	// no validation rules for AvgLatency
+
+	// no validation rules for OrderCount
+
+	// no validation rules for TotalBet
+
+	// no validation rules for TotalWin
+
+	// no validation rules for RtpPct
+
+	// no validation rules for ActiveMembers
+
+	// no validation rules for Completed
+
+	// no validation rules for Failed
+
+	// no validation rules for FailedReqs
+
+	// no validation rules for ProgressPct
+
+	if len(errors) > 0 {
+		return TaskCompletionReportMultiError(errors)
+	}
+
+	return nil
+}
+
+// TaskCompletionReportMultiError is an error wrapping multiple validation
+// errors returned by TaskCompletionReport.ValidateAll() if the designated
+// constraints aren't met.
+type TaskCompletionReportMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TaskCompletionReportMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TaskCompletionReportMultiError) AllErrors() []error { return m }
+
+// TaskCompletionReportValidationError is the validation error returned by
+// TaskCompletionReport.Validate if the designated constraints aren't met.
+type TaskCompletionReportValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e TaskCompletionReportValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e TaskCompletionReportValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e TaskCompletionReportValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e TaskCompletionReportValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e TaskCompletionReportValidationError) ErrorName() string {
+	return "TaskCompletionReportValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e TaskCompletionReportValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sTaskCompletionReport.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = TaskCompletionReportValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = TaskCompletionReportValidationError{}
