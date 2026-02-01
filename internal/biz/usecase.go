@@ -17,9 +17,7 @@ import (
 
 // 业务常量
 const (
-	startupCleanTimeout = 2 * time.Minute
-	cleanupTimeout      = 5 * time.Minute
-	cleanupRetryDelay   = 5 * time.Second // 任务结束后等待 DB 落库再开始清理
+	cleanupTimeout = 10 * time.Minute
 )
 
 // DataRepo 数据层接口：成员/订单/清理/任务ID计数
@@ -119,7 +117,7 @@ func (uc *UseCase) GetMemberStats() (idle, allocated, total int) {
 
 // cleanOnStartup 启动时清理 Redis 与订单表
 func (uc *UseCase) cleanOnStartup() {
-	ctx, cancel := context.WithTimeout(context.Background(), startupCleanTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
 
 	if err := uc.repo.CleanRedisBySites(ctx, uc.c.Sites); err != nil {

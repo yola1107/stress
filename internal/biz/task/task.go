@@ -33,6 +33,7 @@ type Task struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
+	// 统计原子计数
 	target    int64
 	process   int64
 	step      int64
@@ -77,12 +78,6 @@ func (t *Task) GetGame() base.IGame {
 	return t.game
 }
 
-//func (t *Task) SetBonusConfig(cfg *v1.BetBonusConfig) {
-//	t.mu.Lock()
-//	t.bonusConfig = cfg
-//	t.mu.Unlock()
-//}
-
 func (t *Task) GetBonusConfig() *v1.BetBonusConfig {
 	return t.bonusConfig
 }
@@ -120,10 +115,6 @@ func (t *Task) GetFinishedAt() time.Time {
 	return finishedAt
 }
 
-func (t *Task) GetStep() int64 {
-	return atomic.LoadInt64(&t.step)
-}
-
 func (t *Task) Cancel() error {
 	t.mu.Lock()
 	if t.status == v1.TaskStatus_TASK_COMPLETED ||
@@ -143,10 +134,13 @@ func (t *Task) Stop() {
 	if t.cancel != nil {
 		t.cancel()
 	}
-	//log.Infof("[%s] task stopped", t.id)
 }
 
-// 统计方法
+// ============== 统计方法 =============================
+
+func (t *Task) GetStep() int64 {
+	return atomic.LoadInt64(&t.step)
+}
 
 func (t *Task) AddBetOrder(d time.Duration, spinOver bool) {
 	atomic.AddInt64(&t.step, 1)
@@ -205,26 +199,19 @@ func (t *Task) Snapshot(now time.Time) *v1.TaskCompletionReport {
 	}
 }
 
-//// SetStart 标记会话开始执行
-//func (t *Task) SetStart(cnt int64) {
-//	atomic.AddInt64(&t.active, cnt)
-//}
-
 // SetStart 标记会话开始执行
 func (t *Task) SetStart(cnt int64, bounds []*v1.BetBonusConfig) {
 	t.mu.Lock()
 	t.status = v1.TaskStatus_TASK_RUNNING
-	t.mu.Unlock()
-
 	for _, b := range bounds {
 		if b != nil && b.GameId == t.config.GameId {
 			t.bonusConfig = b
 			break
 		}
 	}
+	t.mu.Unlock()
 
 	atomic.AddInt64(&t.active, cnt)
-
 	go t.Monitor()
 }
 
@@ -241,8 +228,8 @@ func (t *Task) MarkSessionDone(ok bool) {
 // Monitor 运行监控：1s 日志输出，task context 取消后退出
 func (t *Task) Monitor() {
 	start := time.Now()
-	logTicker := time.NewTicker(logInterval)
-	defer logTicker.Stop()
+	tick := time.NewTicker(logInterval)
+	defer tick.Stop()
 
 	t.printProgress(start)
 
@@ -251,7 +238,7 @@ func (t *Task) Monitor() {
 		case <-t.ctx.Done():
 			t.printFinalStats(start)
 			return
-		case <-logTicker.C:
+		case <-tick.C:
 			t.printProgress(start)
 		}
 	}
@@ -264,7 +251,7 @@ func (t *Task) printProgress(start time.Time) {
 		return
 	}
 
-	// 直接从Task获取数据
+	// 从Task获取数据
 	process := atomic.LoadInt64(&t.process)
 	step := atomic.LoadInt64(&t.step)
 	target := t.target

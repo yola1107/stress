@@ -70,17 +70,14 @@ func (uc *UseCase) ExecuteTask(t *task.Task, c *v1.TaskConfig, members []member.
 	client := user.NewAPIClient(httpClient, user.NoopSecretProvider, g, uc.gamePool.RequireProtobuf)
 	antsPool, _ := ants.NewPool(capacity)
 
-	closeChan := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-closeChan:
+	// 创建DB写入完成channel
+	dbWriteDone := make(chan struct{})
 
-			default:
-			}
+	// 启动任务指标上报（监听DB写入完成）
+	go uc.startTaskReporting(taskID, t, dbWriteDone)
 
-		}
-	}()
+	// 启动DB写入状态检查
+	go uc.monitorOrderWriteCompletion(t, dbWriteDone)
 
 	var wg sync.WaitGroup
 	wg.Add(len(members))
@@ -100,35 +97,24 @@ func (uc *UseCase) ExecuteTask(t *task.Task, c *v1.TaskConfig, members []member.
 
 	// 资源释放
 	t.Stop()
+	t.SetStatus(v1.TaskStatus_TASK_COMPLETED)
 	httpClient.CloseIdleConnections()
-	uc.memberPool.Release(taskID)
 	antsPool.Release()
-
-	// 释放成员、置完成态、等待订单落库→通知飞书→清理环境、调度下一批
-	if t.GetStatus() == v1.TaskStatus_TASK_RUNNING {
-		t.SetStatus(v1.TaskStatus_TASK_COMPLETED)
-
-		// 阻塞等待DB写库完成
-		ch := make(chan struct{})
-
-		//scope := buildOrderScopeFromTask(t)
-		//uc.finishTaskCleanup(taskID, scope, t.GetStep(), t)
-	}
-
-	uc.Schedule()
+	uc.memberPool.Release(taskID)
 
 }
 
 // startTaskReporting 启动任务指标上报
-func (uc *UseCase) startTaskReporting(ctx context.Context, t *task.Task) {
+func (uc *UseCase) startTaskReporting(taskID string, t *task.Task, doneChan <-chan struct{}) {
 	reportTicker := time.NewTicker(reportInterval)
 	go func() {
 		defer reportTicker.Stop()
 		for {
 			select {
-			case <-ctx.Done():
-				// 任务结束，进行最终完整上报
-				uc.reportFinalTaskMetrics(t)
+			case <-doneChan:
+				t.SetFinishAt()
+				uc.FinalTaskProcess(t)
+				uc.Schedule() // 调度下一任务 唤醒
 				return
 			case <-reportTicker.C:
 				// 定期上报任务统计指标
@@ -139,23 +125,19 @@ func (uc *UseCase) startTaskReporting(ctx context.Context, t *task.Task) {
 	}()
 }
 
-// reportFinalTaskMetrics 任务完成时进行完整指标上报（包含订单数据）
-func (uc *UseCase) reportFinalTaskMetrics(t *task.Task) {
-	report := t.Snapshot(time.Now())
+// monitorOrderWriteCompletion 监控订单写入DB完成状态
+func (uc *UseCase) monitorOrderWriteCompletion(t *task.Task, done chan<- struct{}) {
+	// 等待任务完成或取消
+	<-t.Context().Done()
 
-	// 填充完整的订单统计数据用于最终指标上报
-	ctx := context.Background()
-	if totalBet, totalWin, betOrderCount, _, err := uc.repo.GetDetailedOrderAmounts(ctx); err == nil {
-		report.TotalBet = totalBet
-		report.TotalWin = totalWin
-		report.OrderCount = betOrderCount
-		report.RtpPct = xgo.Pct(totalWin, totalBet)
-	} else if orderCount, err := uc.repo.GetGameOrderCount(ctx); err == nil {
-		report.OrderCount = orderCount
+	// 任务完成后，开始每5秒检查DB是否写完
+	for {
+		if orderCount, err := uc.repo.GetGameOrderCount(context.Background()); err == nil && orderCount >= t.GetStep() {
+			close(done)
+			return
+		}
+		time.Sleep(5 * time.Second)
 	}
-
-	// 上报完整指标
-	metrics.ReportTask(report)
 }
 
 // CreateTask 创建并尝试运行
@@ -165,7 +147,7 @@ func (uc *UseCase) CreateTask(ctx context.Context, g base.IGame, config *v1.Task
 		return nil, fmt.Errorf("failed to generate task ID: %w", err)
 	}
 
-	t, err := task.NewTask(taskID, g, config)
+	t, err := task.NewTask(context.Background(), taskID, g, config)
 	if err != nil {
 		return nil, err
 	}
@@ -204,51 +186,12 @@ func (uc *UseCase) CancelTask(id string) error {
 	return nil
 }
 
-// processTaskFinish 等待订单落库 → 飞书通知 → 清理环境（阻塞）
-func (uc *UseCase) processTaskFinish(taskID string, t *task.Task) {
-	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
-	defer cancel()
-
-	threshold := t.GetStep()
-	scope := buildOrderScopeFromTask(t)
-
-	// 等待订单落库
-	uc.waitForOrdersToComplete(ctx, taskID, threshold, scope)
-
-	// 发送任务完成通知
-	uc.sendTaskCompletionNotification(ctx, taskID, t)
-
-	// 执行环境清理
-	uc.performEnvironmentCleanup(ctx, taskID, scope)
-}
-
-// waitForOrdersToComplete 等待订单数据完全落库
-func (uc *UseCase) waitForOrdersToComplete(ctx context.Context, taskID string, threshold int64, scope OrderScope) {
-	time.Sleep(cleanupRetryDelay)
-
-	for ctx.Err() == nil {
-		n, err := uc.repo.GetOrderCountByScope(ctx, scope)
-		if err == nil && n >= threshold {
-			break
-		}
-		if err != nil {
-			uc.log.Errorf("[%s] order count: %v", taskID, err)
-		}
-		time.Sleep(cleanupRetryDelay)
-	}
-	if ctx.Err() != nil {
-		uc.log.Warnf("[%s] wait orders timeout", taskID)
-	}
-}
-
-// sendTaskCompletionNotification 发送任务完成通知
-func (uc *UseCase) sendTaskCompletionNotification(ctx context.Context, taskID string, t *task.Task) {
-	if uc.notify == nil {
-		return
-	}
-
+// FinalTaskProcess 任务完成时进行完整指标上报（包含订单数据）
+func (uc *UseCase) FinalTaskProcess(t *task.Task) {
 	report := t.Snapshot(time.Now())
-	// 填充订单统计数据
+
+	// 填充完整的订单统计数据用于最终指标上报
+	ctx := context.Background()
 	if totalBet, totalWin, betOrderCount, _, err := uc.repo.GetDetailedOrderAmounts(ctx); err == nil {
 		report.TotalBet = totalBet
 		report.TotalWin = totalWin
@@ -257,31 +200,51 @@ func (uc *UseCase) sendTaskCompletionNotification(ctx context.Context, taskID st
 	} else if orderCount, err := uc.repo.GetGameOrderCount(ctx); err == nil {
 		report.OrderCount = orderCount
 	}
-	msg := notify.BuildTaskCompletionMessage(report)
-	if err := uc.notify.Send(ctx, msg); err != nil {
-		uc.log.Warnf("[%s] notify task completion: %v", t.GetID(), err)
+
+	// 上报完整指标
+	metrics.ReportTask(report)
+
+	// TODO.. 汇总订单数据 Statistics 数据上报给s3
+
+	// 飞书通知
+	if uc.notify != nil {
+		msg := notify.BuildTaskCompletionMessage(report)
+		if err := uc.notify.Send(ctx, msg); err != nil {
+			uc.log.Warnf("[%s] notify task completion: %v", t.GetID(), err)
+		}
 	}
+
+	// 环境清理
+	uc.performEnvironmentCleanup(t)
 }
 
 // performEnvironmentCleanup 执行环境清理工作
-func (uc *UseCase) performEnvironmentCleanup(ctx context.Context, taskID string, scope OrderScope) {
+func (uc *UseCase) performEnvironmentCleanup(t *task.Task) {
+	taskID := t.GetID()
+	scope := buildOrderScopeFromTask(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
+	defer cancel()
 	// 清理Redis缓存
 	if err := uc.repo.CleanRedisBySites(ctx, uc.c.Sites); err != nil {
 		uc.log.Errorf("[%s] Redis cleanup: %v", taskID, err)
 	}
-
 	// 删除测试订单数据
 	if _, err := uc.repo.DeleteOrdersByScope(ctx, scope); err != nil {
-		uc.log.Errorf("[%s] delete orders: %v", taskID, err)
+		uc.log.Errorf("[%s] Mysql delete orders: %v", taskID, err)
 	}
-
-	uc.log.Infof("[%s] task finished", taskID)
+	uc.log.Infof("[%s] task completed, use=%v", taskID, time.Since(t.GetCreatedAt()))
 }
 
 // buildOrderScopeFromTask 从任务构建订单范围
 func buildOrderScopeFromTask(t *task.Task) OrderScope {
 	cfg := t.GetConfig()
-	s := OrderScope{GameID: cfg.GameId, Merchant: cfg.Merchant, StartTime: t.GetCreatedAt(), EndTime: t.GetFinishedAt()}
+	s := OrderScope{
+		GameID:    cfg.GameId,
+		Merchant:  cfg.Merchant,
+		StartTime: t.GetCreatedAt(),
+		EndTime:   t.GetFinishedAt(),
+	}
 	if s.EndTime.IsZero() {
 		s.EndTime = time.Now()
 	}
