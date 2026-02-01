@@ -9,35 +9,27 @@ import (
 
 	v1 "stress/api/stress/v1"
 	"stress/internal/biz/game/base"
-	"stress/internal/biz/metrics"
 	"stress/pkg/xgo"
 
 	"github.com/go-kratos/kratos/v2/log"
-	"github.com/panjf2000/ants/v2"
 )
 
 const (
-	logInterval    = 1 * time.Second // 进度日志间隔
-	reportInterval = 5 * time.Second // Prometheus 上报间隔
+	logInterval = 1 * time.Second // 进度日志间隔
 )
-
-// ReportProvider 报告提供者，由调用方注入（如 stats.BuildReport）
-type ReportProvider func(ctx context.Context, now time.Time) *v1.TaskCompletionReport
 
 // Task 压测任务
 type Task struct {
-	mu        sync.RWMutex
-	id        string
-	game      base.IGame
-	createdAt time.Time
-
+	mu         sync.RWMutex
+	id         string
+	game       base.IGame
+	createdAt  time.Time
 	finishedAt time.Time
 
 	status      v1.TaskStatus
 	config      *v1.TaskConfig
 	bonusConfig *v1.BetBonusConfig
 
-	pool   *ants.Pool
 	ctx    context.Context
 	cancel context.CancelFunc
 
@@ -51,22 +43,8 @@ type Task struct {
 	errors    int64
 }
 
-// NewTask 创建任务，parent 取消时任务会收到信号（通常传 UseCase.ctx）
+// NewTask 创建任务，parent 取消时任务会收到信号
 func NewTask(parent context.Context, id string, g base.IGame, cfg *v1.TaskConfig) (*Task, error) {
-	capacity := 1000
-	target := int64(0)
-	if cfg != nil {
-		if cfg.MemberCount > 0 {
-			capacity = int(cfg.MemberCount)
-			target = int64(cfg.MemberCount) * int64(cfg.TimesPerMember)
-		}
-	}
-
-	pool, err := ants.NewPool(capacity)
-	if err != nil {
-		return nil, err
-	}
-
 	if parent == nil {
 		parent = context.Background()
 	}
@@ -76,11 +54,10 @@ func NewTask(parent context.Context, id string, g base.IGame, cfg *v1.TaskConfig
 		status:    v1.TaskStatus_TASK_PENDING,
 		config:    cfg,
 		createdAt: time.Now(),
-		pool:      pool,
 		game:      g,
 		ctx:       ctx,
 		cancel:    cancel,
-		target:    target,
+		target:    int64(cfg.MemberCount) * int64(cfg.TimesPerMember),
 	}, nil
 }
 
@@ -97,23 +74,17 @@ func (t *Task) GetConfig() *v1.TaskConfig {
 }
 
 func (t *Task) GetGame() base.IGame {
-	t.mu.RLock()
-	g := t.game
-	t.mu.RUnlock()
-	return g
+	return t.game
 }
 
-func (t *Task) SetBonusConfig(cfg *v1.BetBonusConfig) {
-	t.mu.Lock()
-	t.bonusConfig = cfg
-	t.mu.Unlock()
-}
+//func (t *Task) SetBonusConfig(cfg *v1.BetBonusConfig) {
+//	t.mu.Lock()
+//	t.bonusConfig = cfg
+//	t.mu.Unlock()
+//}
 
 func (t *Task) GetBonusConfig() *v1.BetBonusConfig {
-	t.mu.RLock()
-	c := t.bonusConfig
-	t.mu.RUnlock()
-	return c
+	return t.bonusConfig
 }
 
 func (t *Task) GetStatus() v1.TaskStatus {
@@ -123,11 +94,23 @@ func (t *Task) GetStatus() v1.TaskStatus {
 	return s
 }
 
+func (t *Task) SetStatus(s v1.TaskStatus) {
+	t.mu.Lock()
+	t.status = s
+	t.mu.Unlock()
+}
+
 func (t *Task) GetCreatedAt() time.Time {
 	t.mu.RLock()
 	createdAt := t.createdAt
 	t.mu.RUnlock()
 	return createdAt
+}
+
+func (t *Task) SetFinishAt() {
+	t.mu.Lock()
+	t.finishedAt = time.Now()
+	t.mu.Unlock()
 }
 
 func (t *Task) GetFinishedAt() time.Time {
@@ -141,28 +124,6 @@ func (t *Task) GetStep() int64 {
 	return atomic.LoadInt64(&t.step)
 }
 
-func (t *Task) SetStatus(s v1.TaskStatus) {
-	t.mu.Lock()
-	t.status = s
-	if s == v1.TaskStatus_TASK_COMPLETED ||
-		s == v1.TaskStatus_TASK_FAILED {
-		t.finishedAt = time.Now()
-	}
-	t.mu.Unlock()
-}
-
-func (t *Task) Start() error {
-	t.mu.Lock()
-	if t.status != v1.TaskStatus_TASK_PENDING {
-		t.mu.Unlock()
-		return fmt.Errorf("cannot start: status %v", t.status)
-	}
-	t.status = v1.TaskStatus_TASK_RUNNING
-	t.mu.Unlock()
-	log.Infof("[task %s] started", t.id)
-	return nil
-}
-
 func (t *Task) Cancel() error {
 	t.mu.Lock()
 	if t.status == v1.TaskStatus_TASK_COMPLETED ||
@@ -173,49 +134,19 @@ func (t *Task) Cancel() error {
 	}
 	t.status = v1.TaskStatus_TASK_CANCELLED
 	t.mu.Unlock()
-	if t.cancel != nil {
-		t.cancel()
-	}
-	log.Infof("[task %s] cancelled", t.id)
+	t.Stop()
+	log.Infof("[%s] task cancelled", t.id)
 	return nil
-}
-
-func (t *Task) Submit(fn func()) error {
-	t.mu.RLock()
-	pool := t.pool
-	t.mu.RUnlock()
-	if pool == nil {
-		return fmt.Errorf("pool released")
-	}
-	return pool.Submit(fn)
 }
 
 func (t *Task) Stop() {
 	if t.cancel != nil {
 		t.cancel()
 	}
-	t.mu.Lock()
-	if t.pool != nil {
-		t.pool.Release()
-		t.pool = nil
-	}
-	t.mu.Unlock()
-	log.Infof("[%s] task stopped", t.id)
+	//log.Infof("[%s] task stopped", t.id)
 }
 
 // 统计方法
-func (t *Task) MarkMemberStart() {
-	atomic.AddInt64(&t.active, 1)
-}
-
-func (t *Task) MarkMemberDone(ok bool) {
-	atomic.AddInt64(&t.active, -1)
-	if ok {
-		atomic.AddInt64(&t.completed, 1)
-	} else {
-		atomic.AddInt64(&t.failed, 1)
-	}
-}
 
 func (t *Task) AddBetOrder(d time.Duration, spinOver bool) {
 	atomic.AddInt64(&t.step, 1)
@@ -234,136 +165,154 @@ func (t *Task) AddError(msg string) {
 	atomic.AddInt64(&t.errors, 1)
 }
 
-// CompletionReport 生成任务报告（供 metrics、notify、logging 复用）
-func (t *Task) CompletionReport(now time.Time) *v1.TaskCompletionReport {
+// Snapshot 获取当前任务状态快照（供 metrics、notify、logging 复用）
+func (t *Task) Snapshot(now time.Time) *v1.TaskCompletionReport {
 	t.mu.RLock()
-	id, cfg := t.id, t.config
-	createdAt := t.createdAt
+	finishedAt := t.finishedAt
 	t.mu.RUnlock()
 
 	process := atomic.LoadInt64(&t.process)
 	step := atomic.LoadInt64(&t.step)
-	totalDur := time.Duration(atomic.LoadInt64(&t.duration))
-	active := atomic.LoadInt64(&t.active)
-	completed := atomic.LoadInt64(&t.completed)
-	failed := atomic.LoadInt64(&t.failed)
-	errors := atomic.LoadInt64(&t.errors)
 
-	elapsed := now.Sub(createdAt)
-	if !t.finishedAt.IsZero() {
-		elapsed = t.finishedAt.Sub(createdAt)
+	// 计算耗时和 QPS
+	elapsed := now.Sub(t.createdAt)
+	if !finishedAt.IsZero() {
+		elapsed = finishedAt.Sub(t.createdAt)
 	}
-	sec := elapsed.Seconds()
 	qps := 0.0
-	if sec > 0 {
+	if sec := elapsed.Seconds(); sec > 0 {
 		qps = float64(process) / sec
 	}
 
-	gameID := int64(0)
-	if cfg != nil {
-		gameID = cfg.GameId
-	}
-
-	avgLatency := xgo.AvgDuration(totalDur, step)
+	// 计算平均延迟
+	avgLatency := xgo.AvgDuration(time.Duration(atomic.LoadInt64(&t.duration)), step)
 
 	return &v1.TaskCompletionReport{
-		TaskId:        id,
-		GameId:        gameID,
+		TaskId:        t.id,
+		GameId:        t.config.GameId,
 		Process:       process,
 		Target:        t.target,
 		Step:          step,
 		Duration:      xgo.FormatDuration(elapsed),
 		Qps:           qps,
 		AvgLatency:    avgLatency,
-		ActiveMembers: active,
-		Completed:     completed,
-		Failed:        failed,
-		FailedReqs:    errors,
+		ActiveMembers: atomic.LoadInt64(&t.active),
+		Completed:     atomic.LoadInt64(&t.completed),
+		Failed:        atomic.LoadInt64(&t.failed),
+		FailedReqs:    atomic.LoadInt64(&t.errors),
 		ProgressPct:   xgo.PctCap100(process, t.target),
-		// OrderCount, TotalBet, TotalWin, RtpPct 由 stats 包补充
+		// OrderCount, TotalBet, TotalWin, RtpPct 由 上游 包补充
 	}
 }
 
-// RunMonitor 运行监控：1s 日志 + 5s Prometheus 上报，ctx 取消后退出
-func (t *Task) RunMonitor(ctx context.Context, getReport ReportProvider) {
-	if getReport == nil {
-		getReport = func(ctx context.Context, now time.Time) *v1.TaskCompletionReport {
-			return t.CompletionReport(now)
+//// SetStart 标记会话开始执行
+//func (t *Task) SetStart(cnt int64) {
+//	atomic.AddInt64(&t.active, cnt)
+//}
+
+// SetStart 标记会话开始执行
+func (t *Task) SetStart(cnt int64, bounds []*v1.BetBonusConfig) {
+	t.mu.Lock()
+	t.status = v1.TaskStatus_TASK_RUNNING
+	t.mu.Unlock()
+
+	for _, b := range bounds {
+		if b != nil && b.GameId == t.config.GameId {
+			t.bonusConfig = b
+			break
 		}
 	}
+
+	atomic.AddInt64(&t.active, cnt)
+
+	go t.Monitor()
+}
+
+// MarkSessionDone 标记会话执行完成
+func (t *Task) MarkSessionDone(ok bool) {
+	atomic.AddInt64(&t.active, -1)
+	if ok {
+		atomic.AddInt64(&t.completed, 1)
+	} else {
+		atomic.AddInt64(&t.failed, 1)
+	}
+}
+
+// Monitor 运行监控：1s 日志输出，task context 取消后退出
+func (t *Task) Monitor() {
 	start := time.Now()
 	logTicker := time.NewTicker(logInterval)
-	reportTicker := time.NewTicker(reportInterval)
 	defer logTicker.Stop()
-	defer reportTicker.Stop()
 
-	report := getReport(ctx, time.Now())
-	metrics.ReportTask(report)
-	t.printProgress(report, start)
+	t.printProgress(start)
 
 	for {
 		select {
-		case <-ctx.Done():
-			report = getReport(context.Background(), time.Now())
-			metrics.ReportTask(report)
-			t.printFinalStats(report, start)
+		case <-t.ctx.Done():
+			t.printFinalStats(start)
 			return
 		case <-logTicker.C:
-			r := t.CompletionReport(time.Now())
-			t.printProgress(r, start)
-		case <-reportTicker.C:
-			report = getReport(ctx, time.Now())
-			metrics.ReportTask(report)
+			t.printProgress(start)
 		}
 	}
 }
 
-func (t *Task) printProgress(r *v1.TaskCompletionReport, start time.Time) {
-	if r == nil {
-		return
-	}
+func (t *Task) printProgress(start time.Time) {
 	elapsed := time.Since(start)
 	sec := elapsed.Seconds()
 	if sec <= 0 {
 		return
 	}
+
+	// 直接从Task获取数据
+	process := atomic.LoadInt64(&t.process)
+	step := atomic.LoadInt64(&t.step)
+	target := t.target
+
+	progressPct := xgo.PctCap100(process, target)
 	remaining := time.Duration(0)
-	if r.ProgressPct > 0 && r.ProgressPct < 100 {
-		remaining = time.Duration(float64(elapsed)/r.ProgressPct*100) - elapsed
+	if progressPct > 0 && progressPct < 100 {
+		remaining = time.Duration(float64(elapsed)/progressPct*100) - elapsed
 	}
-	qps := 0.0
-	if sec > 0 {
-		qps = float64(r.Process) / sec
-	}
+
+	qps := float64(process) / sec
+	totalDur := time.Duration(atomic.LoadInt64(&t.duration))
+	avgLatency := xgo.AvgDuration(totalDur, step)
+
 	log.Infof("[%s]: 进度:%d/%d(%.2f%%), 用时:%s, 剩余:%s, QPS:%.2f, step:%.2f, 延迟:%s",
-		r.TaskId,
-		r.Process,
-		r.Target,
-		r.ProgressPct,
+		t.id,
+		process,
+		target,
+		progressPct,
 		xgo.ShortDuration(elapsed),
 		xgo.ShortDuration(remaining),
 		qps,
-		float64(r.Step)/sec,
-		r.AvgLatency,
+		float64(step)/sec,
+		avgLatency,
 	)
 }
 
-func (t *Task) printFinalStats(r *v1.TaskCompletionReport, start time.Time) {
-	if r == nil {
-		return
-	}
+func (t *Task) printFinalStats(start time.Time) {
 	elapsed := time.Since(start)
+	process := atomic.LoadInt64(&t.process)
+	step := atomic.LoadInt64(&t.step)
+	target := t.target
+
 	qps := 0.0
 	if sec := elapsed.Seconds(); sec > 0 {
-		qps = float64(r.Process) / sec
+		qps = float64(process) / sec
 	}
+
+	totalDur := time.Duration(atomic.LoadInt64(&t.duration))
+	avgLatency := xgo.AvgDuration(totalDur, step)
+
 	log.Infof("[%s] 任务结束: 进度:%d/%d, 总步数:%d, 耗时:%v, QPS:%.2f, 平均延迟:%s",
-		r.TaskId,
-		r.Process,
-		r.Target,
-		r.Step,
+		t.id,
+		process,
+		target,
+		step,
 		elapsed,
 		qps,
-		r.AvgLatency,
+		avgLatency,
 	)
 }

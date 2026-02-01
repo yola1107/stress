@@ -17,13 +17,9 @@ import (
 
 // 业务常量
 const (
-	startupCleanTimeout  = 2 * time.Minute
-	memberLoaderInterval = 5 * time.Second
-	memberBatchSize      = 1000
-	memberInitialBalance = 10000
-	memberIDOffset       = 1000
-	cleanupTimeout       = 5 * time.Minute
-	cleanupRetryDelay    = 5 * time.Second // 任务结束后等待 DB 落库再开始清理
+	startupCleanTimeout = 2 * time.Minute
+	cleanupTimeout      = 5 * time.Minute
+	cleanupRetryDelay   = 5 * time.Second // 任务结束后等待 DB 落库再开始清理
 )
 
 // DataRepo 数据层接口：成员/订单/清理/任务ID计数
@@ -36,6 +32,15 @@ type DataRepo interface {
 	DeleteOrdersByScope(ctx context.Context, scope OrderScope) (int64, error)
 	GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
 	NextTaskID(ctx context.Context, gameID int64) (string, error)
+}
+
+// OrderScope 订单范围（与 statistics 查询口径一致）
+type OrderScope struct {
+	GameID     int64
+	Merchant   string
+	StartTime  time.Time
+	EndTime    time.Time
+	ExcludeAmt float64 // 0 表示 0.01（= base_money）
 }
 
 // UseCase 编排层：通过 DataRepo + 领域池（Game/Task/Member）编排业务
@@ -129,7 +134,7 @@ func (uc *UseCase) cleanOnStartup() {
 
 // runMemberLoader 按间隔生成成员、落库、加入空闲池，每批后调用 onLoaded（如 Schedule）
 func runMemberLoader(ctx context.Context, repo DataRepo, pool *member.Pool, logHelper *log.Helper, c *conf.Launch, onLoaded func()) {
-	ticker := time.NewTicker(memberLoaderInterval)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 	loaded := int32(0)
 	for loaded < c.MaxLoadTotal {
@@ -137,7 +142,7 @@ func runMemberLoader(ctx context.Context, repo DataRepo, pool *member.Pool, logH
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			n := memberBatchSize
+			n := 1000
 			if left := int(c.MaxLoadTotal - loaded); left < n {
 				n = left
 			}
@@ -148,8 +153,8 @@ func runMemberLoader(ctx context.Context, repo DataRepo, pool *member.Pool, logH
 			for i := 0; i < n; i++ {
 				loaded++
 				batch[i] = member.Info{
-					Name:    fmt.Sprintf("%s%d", member.DefaultMemberNamePrefix, loaded+memberIDOffset),
-					Balance: memberInitialBalance,
+					Name:    fmt.Sprintf("%s%d", member.DefaultMemberNamePrefix, loaded+1000), // eg: gogpct1000
+					Balance: 10000,
 				}
 			}
 			if err := repo.BatchUpsertMembers(ctx, batch); err != nil {
