@@ -52,3 +52,4 @@ notify:
   prefix: "[stress]"   # 消息前缀，用于区分来源
   webhook_url: ""      # 飞书 Webhook 地址
   signing_secret: ""   # 签名密钥，配置后启用加签（与 feishu-test.sh 一致）
+

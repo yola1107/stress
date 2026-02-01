@@ -75,14 +75,17 @@ all:
 HOST=192.168.10.72
 USER=aa
 PASS=ABC123
-REMOTE_PATH=/data/demo
+DIR=/data/demo
+
+SSH=sshpass -p '$(PASS)' ssh -o StrictHostKeyChecking=no $(USER)@$(HOST)
+SCP=sshpass -p '$(PASS)' scp -o StrictHostKeyChecking=no
 
 .PHONY: scp
 # deploy to remote server
 scp: build
-	sshpass -p $(PASS) ssh -o StrictHostKeyChecking=no $(USER)@$(HOST) mkdir -p $(REMOTE_PATH)/{bin,configs}
-	sshpass -p $(PASS) scp -o StrictHostKeyChecking=no -r bin/* $(USER)@$(HOST):$(REMOTE_PATH)/bin/
-	sshpass -p $(PASS) scp -o StrictHostKeyChecking=no -r configs/* $(USER)@$(HOST):$(REMOTE_PATH)/configs/
+	$(SSH) mkdir -p $(DIR)/{bin,configs}
+	$(SCP) -r bin/* $(USER)@$(HOST):$(DIR)/bin/
+	$(SCP) -r configs/* $(USER)@$(HOST):$(DIR)/configs/
 
 # show help
 help:
