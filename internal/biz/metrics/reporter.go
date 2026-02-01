@@ -7,28 +7,17 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// ReportTask 将任务报告上报到 Prometheus（供 task.RunMonitor 调用）
-func ReportTask(report *v1.TaskCompletionReport) {
-	if report == nil {
+// ReportTask 将任务报告上报到 Prometheus（供 task.Monitor 调用）
+func ReportTask(r *v1.TaskCompletionReport) {
+	if r == nil {
 		return
 	}
-	labels := baseLabels(report)
-	reportOnce(labels, report)
-}
 
-func baseLabels(report *v1.TaskCompletionReport) prometheus.Labels {
-	gameID := "unknown"
-	if report != nil && report.GameId > 0 {
-		gameID = fmt.Sprintf("%d", report.GameId)
+	labels := prometheus.Labels{
+		labelTaskID: r.TaskId,
+		labelGameID: fmt.Sprintf("%d", r.GameId),
 	}
-	taskID := ""
-	if report != nil {
-		taskID = report.TaskId
-	}
-	return prometheus.Labels{labelTaskID: taskID, labelGameID: gameID}
-}
 
-func reportOnce(labels prometheus.Labels, r *v1.TaskCompletionReport) {
 	set(_metric_progress, labels, float64(r.Process))
 	set(_metric_total_steps, labels, float64(r.Step))
 	set(_metric_progress_pct, labels, r.ProgressPct)
