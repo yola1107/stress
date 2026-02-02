@@ -113,13 +113,12 @@ func (uc *UseCase) startTaskReporting(taskID string, t *task.Task, doneChan <-ch
 			select {
 			case <-doneChan:
 				t.SetFinishAt()
-				uc.FinalTaskProcess(t)
+				uc.ReportTask(t)
 				uc.Schedule() // 调度下一任务 唤醒
 				return
 			case <-reportTicker.C:
 				// 定期上报任务统计指标
-				report := t.Snapshot(time.Now())
-				metrics.ReportTask(report)
+				uc.ReportTask(t)
 			}
 		}
 	}()
@@ -186,8 +185,8 @@ func (uc *UseCase) CancelTask(id string) error {
 	return nil
 }
 
-// FinalTaskProcess 任务完成时进行完整指标上报（包含订单数据）
-func (uc *UseCase) FinalTaskProcess(t *task.Task) {
+// ReportTask 任务完成时进行完整指标上报（包含订单数据）
+func (uc *UseCase) ReportTask(t *task.Task) {
 	report := t.Snapshot(time.Now())
 
 	// 填充完整的订单统计数据用于最终指标上报
@@ -216,6 +215,8 @@ func (uc *UseCase) FinalTaskProcess(t *task.Task) {
 
 	// 环境清理
 	uc.performEnvironmentCleanup(t)
+
+	uc.log.Infof("[%s] task completed, use=%v", t.GetID(), time.Since(t.GetCreatedAt()))
 }
 
 // performEnvironmentCleanup 执行环境清理工作
@@ -233,7 +234,6 @@ func (uc *UseCase) performEnvironmentCleanup(t *task.Task) {
 	if _, err := uc.repo.DeleteOrdersByScope(ctx, scope); err != nil {
 		uc.log.Errorf("[%s] Mysql delete orders: %v", taskID, err)
 	}
-	uc.log.Infof("[%s] task completed, use=%v", taskID, time.Since(t.GetCreatedAt()))
 }
 
 // buildOrderScopeFromTask 从任务构建订单范围
