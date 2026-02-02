@@ -3,13 +3,13 @@ package biz
 import (
 	"context"
 	"strconv"
+	"stress/internal/biz/stats"
 	"sync"
 	"time"
 
 	"stress/internal/biz/game"
 	"stress/internal/biz/game/base"
 	"stress/internal/biz/member"
-	"stress/internal/biz/stats/statistics"
 	"stress/internal/biz/task"
 	"stress/internal/conf"
 	"stress/internal/notify"
@@ -34,7 +34,7 @@ type DataRepo interface {
 	DeleteOrdersByScope(ctx context.Context, scope OrderScope) (int64, error)
 	GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
 	NextTaskID(ctx context.Context, gameID int64) (string, error)
-	QueryGameOrderPoints(ctx context.Context, filter statistics.QueryFilter) ([]statistics.Point, error)
+	QueryGameOrderPoints(ctx context.Context, filter QueryFilter) ([]stats.Point, error)
 }
 
 // OrderScope 订单范围（与 statistics 查询口径一致）
@@ -44,6 +44,16 @@ type OrderScope struct {
 	StartTime  time.Time
 	EndTime    time.Time
 	ExcludeAmt float64 // 0 表示 0.01（= base_money）
+}
+
+// QueryFilter 查询参数
+type QueryFilter struct {
+	GameID        int
+	Merchant      string
+	Member        string
+	StartTime     string
+	EndTime       string
+	ExcludeAmount float64
 }
 
 // UseCase 编排层：通过 DataRepo + 领域池（Game/Task/Member）编排业务
@@ -59,7 +69,7 @@ type UseCase struct {
 	memberPool *member.Pool
 
 	notify notify.Notifier
-	stats  *statistics.Component
+	stats  *stats.Component
 }
 
 // NewUseCase 创建 UseCase
@@ -75,7 +85,7 @@ func NewUseCase(repo DataRepo, logger log.Logger, c *conf.Launch, notify notify.
 		taskPool:   task.NewTaskPool(),
 		memberPool: member.NewMemberPool(),
 		notify:     notify,
-		stats:      statistics.New(),
+		stats:      stats.New(),
 	}
 
 	// 启动时自清理：Redis site:* + 订单表，避免上次压测残留

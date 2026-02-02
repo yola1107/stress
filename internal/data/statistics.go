@@ -3,10 +3,10 @@ package data
 import (
 	"context"
 	"fmt"
+	"stress/internal/biz"
+	"stress/internal/biz/stats"
 	"strings"
 	"time"
-
-	"stress/internal/biz/stats/statistics"
 
 	"github.com/go-kratos/kratos/v2/log"
 )
@@ -23,7 +23,7 @@ const (
 var locSH, _ = time.LoadLocation("Asia/Shanghai")
 
 // QueryGameOrderPoints 查询并返回图表点（查询 + 聚合为点）
-func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, filter statistics.QueryFilter) ([]statistics.Point, error) {
+func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, filter biz.QueryFilter) ([]stats.Point, error) {
 	if r.data.order == nil {
 		return nil, fmt.Errorf("order database not configured")
 	}
@@ -62,7 +62,7 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, filter statistics.Q
 		return nil, err
 	}
 
-	var pts []statistics.Point
+	var pts []stats.Point
 	var bet, win, cumBet, cumWin float64
 	var t string
 	var orders int
@@ -75,7 +75,7 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, filter statistics.Q
 			if cumBet > 0 {
 				rate = (cumBet - cumWin) / cumBet
 			}
-			pts = append(pts, statistics.Point{X: float64(orders) / orderUnit, Y: rate, Time: t})
+			pts = append(pts, stats.Point{X: float64(orders) / orderUnit, Y: rate, Time: t})
 		}
 	}
 
@@ -96,7 +96,7 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, filter statistics.Q
 }
 
 // sample 等间距采样，保留首尾
-func sample(pts []statistics.Point) []statistics.Point {
+func sample(pts []stats.Point) []stats.Point {
 	n := len(pts)
 	if n <= sampleMax {
 		return pts
@@ -105,7 +105,7 @@ func sample(pts []statistics.Point) []statistics.Point {
 	if step < 1 {
 		step = 1
 	}
-	out := make([]statistics.Point, 0, sampleMax)
+	out := make([]stats.Point, 0, sampleMax)
 	for i := 0; i < n && len(out) < sampleMax-1; i += step {
 		out = append(out, pts[i])
 	}

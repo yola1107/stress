@@ -1,4 +1,4 @@
-package statistics
+package stats
 
 import (
 	"encoding/json"
@@ -18,16 +18,6 @@ var OutputDir = "./rtp_charts" //defaultOutputDir()
 type Result struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
-}
-
-// QueryFilter 查询参数
-type QueryFilter struct {
-	GameID        int
-	Merchant      string
-	Member        string
-	StartTime     string
-	EndTime       string
-	ExcludeAmount float64
 }
 
 // Point 图表数据点
