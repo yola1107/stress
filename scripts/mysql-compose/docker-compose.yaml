@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  mysql8:
+    image: mysql:8.0
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "Aa12345!@#"
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./data:/var/lib/mysql
+      - ./conf/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - ./log:/var/log/mysql
+    command:
+      - "--default-authentication-plugin=mysql_native_password"
+    ulimits:
+      nofile: 65535
+    sysctls:
+      - net.core.somaxconn=65535
