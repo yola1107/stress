@@ -2,19 +2,19 @@ package biz
 
 import (
 	"context"
-	"errors"
-	"stress/internal/biz/member"
-	"stress/internal/biz/user"
 	"sync"
 	"time"
 
 	v1 "stress/api/stress/v1"
 	"stress/internal/biz/game/base"
+	"stress/internal/biz/member"
 	"stress/internal/biz/metrics"
 	"stress/internal/biz/task"
+	"stress/internal/biz/user"
 	"stress/internal/notify"
 	"stress/pkg/xgo"
 
+	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/panjf2000/ants/v2"
 )
 
@@ -143,13 +143,14 @@ func (uc *UseCase) monitorOrderWriteCompletion(t *task.Task, done chan<- struct{
 func (uc *UseCase) CreateTask(ctx context.Context, g base.IGame, config *v1.TaskConfig) (*task.Task, error) {
 	taskID, err := uc.repo.NextTaskID(ctx, config.GameId)
 	if err != nil {
-		return nil, errors.New("failed to generate task ID: " + err.Error())
+		return nil, errors.Newf(500, "TASK_ID_GENERATE_FAILED", "failed to generate task ID: %v", err)
 	}
 
-	t, err := task.NewTask(context.Background(), taskID, g, config)
+	t, err := task.NewTask(uc.ctx, taskID, g, config)
 	if err != nil {
-		return nil, err
+		return nil, errors.Newf(500, "TASK_CREATE_FAILED", "failed to create task: %v", err)
 	}
+
 	uc.taskPool.Add(t)
 	uc.Schedule()
 	return t, nil
@@ -174,12 +175,14 @@ func (uc *UseCase) DeleteTask(id string) error {
 func (uc *UseCase) CancelTask(id string) error {
 	t, ok := uc.taskPool.Get(id)
 	if !ok {
-		return errors.New("task not found")
+		return errors.NotFound("TASK_NOT_FOUND", "task not found")
 	}
+
 	// 先 Cancel 再 Release，避免任务仍在跑时成员被提前复用
 	if err := t.Cancel(); err != nil {
-		return err
+		return errors.Newf(500, "TASK_CANCEL_FAILED", "cancel task failed: %v", err)
 	}
+
 	uc.memberPool.Release(id)
 	uc.Schedule()
 	return nil

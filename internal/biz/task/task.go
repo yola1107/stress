@@ -2,7 +2,6 @@ package task
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"stress/internal/biz/game/base"
 	"stress/pkg/xgo"
 
+	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 )
 
@@ -117,14 +117,15 @@ func (t *Task) GetFinishedAt() time.Time {
 
 func (t *Task) Cancel() error {
 	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	if t.status == v1.TaskStatus_TASK_COMPLETED ||
 		t.status == v1.TaskStatus_TASK_FAILED ||
 		t.status == v1.TaskStatus_TASK_CANCELLED {
-		t.mu.Unlock()
-		return fmt.Errorf("task already finished/cancelled")
+		return errors.BadRequest("TASK_ALREADY_FINISHED", "task already finished or cancelled")
 	}
+
 	t.status = v1.TaskStatus_TASK_CANCELLED
-	t.mu.Unlock()
 	t.Stop()
 	log.Infof("[%s] task cancelled", t.id)
 	return nil

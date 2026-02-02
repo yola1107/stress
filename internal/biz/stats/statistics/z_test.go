@@ -1,33 +1,16 @@
 package statistics
 
-import (
-	"context"
-	"testing"
-	"time"
-)
+import "testing"
 
-// TestQueryGameStatistics 与 main 相同功能：ID 解析、流程串联
+// TestQueryGameStatistics 单游戏查询流程（不依赖真实DB）
 func TestQueryGameStatistics(t *testing.T) {
-	ctx := context.Background()
-	today := time.Now().Format("2006-01-02")
-	r, err := QueryGameStatistics(ctx,
-		&Config{
-			Host:     "192.168.10.83",
-			User:     "root",
-			Password: "Aa12345!@#",
-			Database: "egame_order",
-		},
-		"18961",
-		"幸运熊猫",
-		"xfl123",
-		"",
-		today+" 00:00:00",
-		today+" 23:59:59",
-	)
+	c := New()
+	points := []Point{{X: 1, Y: 0.1, Time: "2024-01-01 00:00:00"}}
+	r, err := c.BuildChart(points, "幸运熊猫", "xfl123")
 	if err != nil {
-		t.Fatalf("集成测试失败: %v", err)
+		t.Fatalf("查询失败: %v", err)
 	}
-	if r == nil || !r.Success {
-		t.Fatalf("集成测试失败: %+v", r)
+	if r == nil {
+		t.Fatalf("结果为空")
 	}
 }

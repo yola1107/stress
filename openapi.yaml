@@ -263,7 +263,7 @@ components:
             properties:
                 taskId:
                     type: string
-            description: '--- 删除任务 ---'
+            description: '--- 获取任务结果 ---'
         stress.v1.RecordResponse:
             type: object
             properties:
@@ -281,7 +281,6 @@ components:
                     type: string
                 status:
                     type: integer
-                    description: string description                   = 2;  // 任务描述
                     format: enum
                 config:
                     $ref: '#/components/schemas/stress.v1.TaskConfig'

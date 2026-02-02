@@ -10,6 +10,8 @@ import (
 	v1 "stress/api/stress/v1"
 	"stress/internal/biz/game/base"
 	"stress/internal/biz/task"
+
+	"github.com/go-kratos/kratos/v2/errors"
 )
 
 // Session 相关常量
@@ -65,7 +67,7 @@ func NewSession(userID int64, memberName string, task *task.Task) *Session {
 func (s *Session) Execute(ctx context.Context, client *APIClient, _ base.SecretProvider) error {
 	cfg := s.task.GetConfig()
 	if cfg == nil {
-		return fmt.Errorf("task config is nil")
+		return errors.BadRequest("INVALID_CONFIG", "task config is nil")
 	}
 	s.Client = client
 	target := cfg.TimesPerMember

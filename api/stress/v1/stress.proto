@@ -142,7 +142,7 @@ message DeleteTaskRequest {
     string task_id = 1 [(validate.rules).string = { min_len: 1 }];  // 任务ID
 }
 
-// --- 删除任务 ---
+// --- 获取任务结果 ---
 message RecordRequest {
     string task_id = 1 [(validate.rules).string = { min_len: 1 }];  // 任务ID
 }
@@ -194,7 +194,6 @@ message BetBonusConfig {
 // 任务完整信息
 message Task {
     string task_id = 1;                        // 任务ID
-                                               //    string description                   = 2;  // 任务描述
     TaskStatus status                    = 3;  // 任务状态
     TaskConfig config                    = 4;  // 任务配置
     string record_url                    = 5;  // 任务结果地址

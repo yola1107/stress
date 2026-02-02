@@ -720,7 +720,7 @@ func (x *DeleteTaskRequest) GetTaskId() string {
 	return ""
 }
 
-// --- 删除任务 ---
+// --- 获取任务结果 ---
 type RecordRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"` // 任务ID
@@ -1127,9 +1127,8 @@ func (x *BetBonusConfig) GetBonusSequence() []int64 {
 
 // 任务完整信息
 type Task struct {
-	state  protoimpl.MessageState `protogen:"open.v1"`
-	TaskId string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"` // 任务ID
-	// string description                   = 2;  // 任务描述
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`              // 任务ID
 	Status        TaskStatus             `protobuf:"varint,3,opt,name=status,proto3,enum=stress.v1.TaskStatus" json:"status,omitempty"` // 任务状态
 	Config        *TaskConfig            `protobuf:"bytes,4,opt,name=config,proto3" json:"config,omitempty"`                            // 任务配置
 	RecordUrl     string                 `protobuf:"bytes,5,opt,name=record_url,json=recordUrl,proto3" json:"record_url,omitempty"`     // 任务结果地址

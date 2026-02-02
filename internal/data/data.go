@@ -9,6 +9,7 @@ import (
 
 	"stress/internal/conf"
 
+	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/wire"
@@ -58,7 +59,7 @@ func NewRedis(c *conf.Data, logger log.Logger) (redis.UniversalClient, func(), e
 
 	// 验证配置
 	if len(c.Redis.Addr) == 0 {
-		return nil, nil, fmt.Errorf("redis address is required")
+		return nil, nil, errors.Newf(500, "REDIS_ADDR_REQUIRED", "redis address is required")
 	}
 
 	rdb := redis.NewUniversalClient(&redis.UniversalOptions{
@@ -72,7 +73,7 @@ func NewRedis(c *conf.Data, logger log.Logger) (redis.UniversalClient, func(), e
 	// 测试 Redis 连接
 	if err := rdb.Ping(context.Background()).Err(); err != nil {
 		l.Errorf("failed pinging redis: %v", err)
-		return nil, nil, err
+		return nil, nil, errors.Newf(500, "REDIS_PING_FAILED", "failed pinging redis: %v", err)
 	}
 
 	cleanup := func() {
@@ -89,7 +90,7 @@ func NewRedis(c *conf.Data, logger log.Logger) (redis.UniversalClient, func(), e
 // NewMysql 创建默认库 MySQL 连接
 func NewMysql(c *conf.Data, logger log.Logger) (*xorm.Engine, func(), error) {
 	if c == nil || c.Database == nil {
-		return nil, nil, fmt.Errorf("data config is required")
+		return nil, nil, errors.Newf(500, "DATA_CONFIG_REQUIRED", "data config is required")
 	}
 	return newMysqlFromConf(c.Database, logger, "default")
 }
@@ -103,7 +104,7 @@ func newMysqlFromConf(c *conf.Data_Database, logger log.Logger, label string) (*
 	db, err := xorm.NewEngine(c.Driver, c.Source)
 	if err != nil {
 		l.Errorf("failed opening %s db: %v", label, err)
-		return nil, nil, err
+		return nil, nil, errors.Newf(500, "DB_OPEN_FAILED", "failed opening %s db: %v", label, err)
 	}
 	maxIdleConns := int(c.MaxIdleConns)
 	if maxIdleConns <= 0 {
@@ -121,7 +122,7 @@ func newMysqlFromConf(c *conf.Data_Database, logger log.Logger, label string) (*
 	if err := db.Ping(); err != nil {
 		l.Errorf("failed pinging, db=%q, err=%v", label, err)
 		_ = db.Close()
-		return nil, nil, err
+		return nil, nil, errors.Newf(500, "DB_PING_FAILED", "failed pinging db=%q: %v", label, err)
 	}
 	cleanup := func() {
 		l.Infof("closing mysql connection. db=%q", label)
@@ -145,7 +146,7 @@ func (r *dataRepo) NextTaskID(ctx context.Context, gameID int64) (string, error)
 
 	count, err := r.data.rdb.HIncrBy(ctx, key, field, 1).Result()
 	if err != nil {
-		return "", fmt.Errorf("redis counter: %w", err)
+		return "", errors.Newf(500, "REDIS_COUNTER_FAILED", "redis counter: %v", err)
 	}
 
 	if count == 1 {

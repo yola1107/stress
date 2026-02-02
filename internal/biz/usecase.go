@@ -9,6 +9,7 @@ import (
 	"stress/internal/biz/game"
 	"stress/internal/biz/game/base"
 	"stress/internal/biz/member"
+	"stress/internal/biz/stats/statistics"
 	"stress/internal/biz/task"
 	"stress/internal/conf"
 	"stress/internal/notify"
@@ -18,7 +19,9 @@ import (
 
 // 业务常量
 const (
-	cleanupTimeout = 10 * time.Minute
+	cleanupTimeout          = 10 * time.Minute
+	defaultMemberBalance    = 10000
+	defaultMemberNameOffset = 1000
 )
 
 // DataRepo 数据层接口：成员/订单/清理/任务ID计数
@@ -31,6 +34,7 @@ type DataRepo interface {
 	DeleteOrdersByScope(ctx context.Context, scope OrderScope) (int64, error)
 	GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
 	NextTaskID(ctx context.Context, gameID int64) (string, error)
+	QueryGameOrderPoints(ctx context.Context, filter statistics.QueryFilter) ([]statistics.Point, error)
 }
 
 // OrderScope 订单范围（与 statistics 查询口径一致）
@@ -55,6 +59,7 @@ type UseCase struct {
 	memberPool *member.Pool
 
 	notify notify.Notifier
+	stats  *statistics.Component
 }
 
 // NewUseCase 创建 UseCase
@@ -70,6 +75,7 @@ func NewUseCase(repo DataRepo, logger log.Logger, c *conf.Launch, notify notify.
 		taskPool:   task.NewTaskPool(),
 		memberPool: member.NewMemberPool(),
 		notify:     notify,
+		stats:      statistics.New(),
 	}
 
 	// 启动时自清理：Redis site:* + 订单表，避免上次压测残留
@@ -135,45 +141,57 @@ func (uc *UseCase) cleanOnStartup() {
 func runMemberLoader(ctx context.Context, repo DataRepo, pool *member.Pool, logHelper *log.Helper, c *conf.Launch, onLoaded func()) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
+
+	const batchSize = 1000
 	loaded := int32(0)
+
 	for loaded < c.MaxLoadTotal {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			n := 1000
+			n := batchSize
 			if left := int(c.MaxLoadTotal - loaded); left < n {
 				n = left
 			}
 			if n <= 0 {
 				continue
 			}
-			batch := make([]member.Info, n)
-			for i := 0; i < n; i++ {
-				loaded++
-				batch[i] = member.Info{
-					Name:    member.DefaultMemberNamePrefix + strconv.FormatInt(int64(loaded+1000), 10),
-					Balance: 10000,
-				}
-			}
+
+			batch := generateMemberBatch(n, &loaded)
 			if err := repo.BatchUpsertMembers(ctx, batch); err != nil {
 				if logHelper != nil {
-					logHelper.Errorf("BatchUpsertMembers: %v", err)
+					logHelper.Errorf("BatchUpsertMembers failed: %v", err)
 				}
 				loaded -= int32(n)
 				continue
 			}
+
 			pool.AddIdle(batch)
 			if logHelper != nil {
 				_, _, total := pool.Stats()
 				logHelper.Infof("Loaded %d members, total: %d", len(batch), total)
 			}
+
 			if onLoaded != nil {
 				onLoaded()
 			}
 		}
 	}
 	if logHelper != nil {
-		logHelper.Info("Member loading completed.")
+		logHelper.Info("Member loading completed")
 	}
+}
+
+// generateMemberBatch 生成成员批次
+func generateMemberBatch(n int, loaded *int32) []member.Info {
+	batch := make([]member.Info, n)
+	for i := 0; i < n; i++ {
+		*loaded += 1
+		batch[i] = member.Info{
+			Name:    member.DefaultMemberNamePrefix + strconv.FormatInt(int64(*loaded+defaultMemberNameOffset), 10),
+			Balance: defaultMemberBalance,
+		}
+	}
+	return batch
 }
