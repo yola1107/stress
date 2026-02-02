@@ -3,10 +3,11 @@ package data
 import (
 	"context"
 	"fmt"
-	"stress/internal/biz"
-	"stress/internal/biz/stats"
 	"strings"
 	"time"
+
+	"stress/internal/biz"
+	"stress/internal/biz/stats"
 
 	"github.com/go-kratos/kratos/v2/log"
 )
@@ -107,7 +108,7 @@ func samplePoints(pts []stats.Point) []stats.Point {
 	for i := 0; i < n && len(out) < maxSamplePoints-1; i += step {
 		out = append(out, pts[i])
 	}
-	out = append(out, pts[n-1]) // 保留最后一条
+	out = append(out, pts[n-1])
 	log.Info("采样", "原", n, "后", len(out))
 	return out
 }

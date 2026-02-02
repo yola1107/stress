@@ -5,8 +5,19 @@ import (
 	"time"
 
 	"stress/internal/biz/member"
+
+	"xorm.io/xorm"
 )
 
+const (
+	inChunkSize       = 250 // MySQL IN 子句分批大小
+	insertBatchSize   = 200 // 插入批次大小
+	defaultMerchant   = "default"
+	defaultPassword   = "123456"
+	defaultMerchantID = 1
+)
+
+// Member 数据库实体
 type Member struct {
 	ID            int64   `xorm:"pk autoincr 'id'"`
 	MemberName    string  `xorm:"'member_name'"`
@@ -37,10 +48,7 @@ func (m *Member) TableName() string {
 	return "member"
 }
 
-// inChunkSize MySQL 预处理占位符有限制，IN 子句分批避免 "too many placeholders"
-const inChunkSize = 250
-
-// BatchUpsertMembers 表中已有该账号（member_name）则只回填 ID 不插入；没有则插入新行并回填 ID
+// BatchUpsertMembers 批量插入或更新成员（已有则回填ID，没有则插入）
 func (r *dataRepo) BatchUpsertMembers(ctx context.Context, members []member.Info) error {
 	if len(members) == 0 {
 		return nil
@@ -53,29 +61,47 @@ func (r *dataRepo) BatchUpsertMembers(ctx context.Context, members []member.Info
 		return err
 	}
 
-	// 1. 批量查已有：按 member_name 查，已有则只回填 ID，不插入
+	// 1. 查询已存在的成员
+	existingByName := r.queryExistingMembers(session, members)
+
+	// 2. 分离已存在和待插入的成员
+	toInsert, newIndices := r.separateMembers(members, existingByName)
+
+	// 3. 批量插入新成员并回填 ID
+	if len(toInsert) > 0 {
+		if err := r.batchInsertMembers(session, toInsert, members, newIndices); err != nil {
+			_ = session.Rollback()
+			return err
+		}
+	}
+
+	return session.Commit()
+}
+
+// queryExistingMembers 查询已存在的成员
+func (r *dataRepo) queryExistingMembers(session *xorm.Session, members []member.Info) map[string]int64 {
 	names := make([]string, len(members))
 	for i := range members {
 		names[i] = members[i].Name
 	}
+
 	existingByName := make(map[string]int64)
 	for i := 0; i < len(names); i += inChunkSize {
-		end := i + inChunkSize
-		if end > len(names) {
-			end = len(names)
-		}
-		chunk := names[i:end]
+		end := min(i+inChunkSize, len(names))
 		var list []Member
-		if err := session.Table("member").In("member_name", chunk).Find(&list); err != nil {
-			_ = session.Rollback()
-			return err
+		if err := session.Table("member").In("member_name", names[i:end]).Find(&list); err != nil {
+			r.log.Warnf("query existing members chunk [%d:%d] failed: %v", i, end, err)
+			continue
 		}
 		for j := range list {
 			existingByName[list[j].MemberName] = list[j].ID
 		}
 	}
+	return existingByName
+}
 
-	// 2. 已有：回填 ID；没有：加入待插入列表
+// separateMembers 分离已存在和待插入的成员
+func (r *dataRepo) separateMembers(members []member.Info, existingByName map[string]int64) ([]*Member, []int) {
 	now := time.Now().Unix()
 	var toInsert []*Member
 	var newIndices []int
@@ -88,57 +114,50 @@ func (r *dataRepo) BatchUpsertMembers(ctx context.Context, members []member.Info
 			MemberName: members[i].Name,
 			NickName:   members[i].Name,
 			Balance:    members[i].Balance,
-			Password:   "123456",
+			Password:   defaultPassword,
 			State:      1,
 			IsDelete:   0,
-			MerchantID: 1,
-			Merchant:   "default",
+			MerchantID: defaultMerchantID,
+			Merchant:   defaultMerchant,
 			CreatedAt:  now,
 			UpdatedAt:  now,
 		})
 		newIndices = append(newIndices, i)
 	}
+	return toInsert, newIndices
+}
 
-	// 3. 批量插入新成员（分批处理避免占位符超限）
-	if len(toInsert) > 0 {
-		const insertBatchSize = 200 // 插入批次大小，调大以减少插入次数
-		for i := 0; i < len(toInsert); i += insertBatchSize {
-			end := i + insertBatchSize
-			if end > len(toInsert) {
-				end = len(toInsert)
-			}
-			batch := toInsert[i:end]
-			if _, err := session.Insert(&batch); err != nil {
-				_ = session.Rollback()
-				return err
-			}
-		}
-
-		// 4. 批量查新插入的 ID（IN 分批，避免占位符超限）
-		newNames := make([]string, len(toInsert))
-		for i := range toInsert {
-			newNames[i] = toInsert[i].MemberName
-		}
-		idByName := make(map[string]int64)
-		for i := 0; i < len(newNames); i += inChunkSize {
-			end := i + inChunkSize
-			if end > len(newNames) {
-				end = len(newNames)
-			}
-			chunk := newNames[i:end]
-			var newList []Member
-			if err := session.Table("member").In("member_name", chunk).Cols("id", "member_name").Find(&newList); err != nil {
-				_ = session.Rollback()
-				return err
-			}
-			for j := range newList {
-				idByName[newList[j].MemberName] = newList[j].ID
-			}
-		}
-		for _, idx := range newIndices {
-			members[idx].ID = idByName[members[idx].Name]
+// batchInsertMembers 批量插入成员
+func (r *dataRepo) batchInsertMembers(session *xorm.Session, toInsert []*Member, members []member.Info, newIndices []int) error {
+	// 批量插入
+	for i := 0; i < len(toInsert); i += insertBatchSize {
+		end := min(i+insertBatchSize, len(toInsert))
+		if _, err := session.Insert(toInsert[i:end]); err != nil {
+			return err
 		}
 	}
 
-	return session.Commit()
+	// 查询新插入的 ID
+	names := make([]string, len(toInsert))
+	for i := range toInsert {
+		names[i] = toInsert[i].MemberName
+	}
+
+	idByName := make(map[string]int64)
+	for i := 0; i < len(names); i += inChunkSize {
+		end := min(i+inChunkSize, len(names))
+		var list []Member
+		if err := session.Table("member").In("member_name", names[i:end]).Cols("id", "member_name").Find(&list); err != nil {
+			return err
+		}
+		for j := range list {
+			idByName[list[j].MemberName] = list[j].ID
+		}
+	}
+
+	// 回填 ID
+	for _, idx := range newIndices {
+		members[idx].ID = idByName[members[idx].Name]
+	}
+	return nil
 }

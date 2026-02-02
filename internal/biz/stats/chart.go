@@ -76,6 +76,10 @@ func generateChart(pts []Point, gameName, merchant string) (string, error) {
 
 // generateChartBytes 生成图表 HTML 字节
 func generateChartBytes(pts []Point, gameName, merchant string) ([]byte, string, error) {
+	if len(pts) == 0 {
+		return nil, "", fmt.Errorf("no data points to generate chart")
+	}
+
 	x, y, t := make([]float64, len(pts)), make([]float64, len(pts)), make([]string, len(pts))
 	xMax, yMin, yMax := 0.0, pts[0].Y, pts[0].Y
 	for i, p := range pts {

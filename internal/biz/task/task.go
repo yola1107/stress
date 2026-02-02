@@ -18,7 +18,7 @@ const (
 	logInterval = 1 * time.Second // 进度日志间隔
 )
 
-// Task 压测任务
+// Task 压测任务实体（领域模型）
 type Task struct {
 	mu         sync.RWMutex
 	id         string
