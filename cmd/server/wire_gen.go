@@ -34,16 +34,24 @@ func wireApp(confServer *conf.Server, confData *conf.Data, launch *conf.Launch, 
 		cleanup()
 		return nil, nil, err
 	}
-	dataData, cleanup3, err := data.NewData(confData, logger, engine, universalClient)
+	s3Bucket, cleanup3, err := data.NewS3Bucket(confData, logger)
 	if err != nil {
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	dataData, cleanup4, err := data.NewData(confData, logger, engine, universalClient, s3Bucket)
+	if err != nil {
+		cleanup3()
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
 	dataRepo := data.NewDataRepo(dataData, logger)
 	notifier := notify.NewFeishu(confNotify)
-	useCase, cleanup4, err := biz.NewUseCase(dataRepo, logger, launch, notifier)
+	useCase, cleanup5, err := biz.NewUseCase(dataRepo, logger, launch, notifier)
 	if err != nil {
+		cleanup4()
 		cleanup3()
 		cleanup2()
 		cleanup()
@@ -54,6 +62,7 @@ func wireApp(confServer *conf.Server, confData *conf.Data, launch *conf.Launch, 
 	httpServer := server.NewHTTPServer(confServer, stressService, logger)
 	app := newApp(logger, grpcServer, httpServer)
 	return app, func() {
+		cleanup5()
 		cleanup4()
 		cleanup3()
 		cleanup2()
