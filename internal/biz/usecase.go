@@ -2,15 +2,16 @@ package biz
 
 import (
 	"context"
-	"fmt"
+	"strconv"
+	"sync"
+	"time"
+
 	"stress/internal/biz/game"
 	"stress/internal/biz/game/base"
 	"stress/internal/biz/member"
 	"stress/internal/biz/task"
 	"stress/internal/conf"
 	"stress/internal/notify"
-	"sync"
-	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
 )
@@ -151,7 +152,7 @@ func runMemberLoader(ctx context.Context, repo DataRepo, pool *member.Pool, logH
 			for i := 0; i < n; i++ {
 				loaded++
 				batch[i] = member.Info{
-					Name:    fmt.Sprintf("%s%d", member.DefaultMemberNamePrefix, loaded+1000), // eg: gogpct1000
+					Name:    member.DefaultMemberNamePrefix + strconv.FormatInt(int64(loaded+1000), 10),
 					Balance: 10000,
 				}
 			}

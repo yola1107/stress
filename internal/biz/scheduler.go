@@ -2,7 +2,7 @@ package biz
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"stress/internal/biz/member"
 	"stress/internal/biz/user"
 	"sync"
@@ -143,7 +143,7 @@ func (uc *UseCase) monitorOrderWriteCompletion(t *task.Task, done chan<- struct{
 func (uc *UseCase) CreateTask(ctx context.Context, g base.IGame, config *v1.TaskConfig) (*task.Task, error) {
 	taskID, err := uc.repo.NextTaskID(ctx, config.GameId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate task ID: %w", err)
+		return nil, errors.New("failed to generate task ID: " + err.Error())
 	}
 
 	t, err := task.NewTask(context.Background(), taskID, g, config)
@@ -174,7 +174,7 @@ func (uc *UseCase) DeleteTask(id string) error {
 func (uc *UseCase) CancelTask(id string) error {
 	t, ok := uc.taskPool.Get(id)
 	if !ok {
-		return fmt.Errorf("task not found")
+		return errors.New("task not found")
 	}
 	// 先 Cancel 再 Release，避免任务仍在跑时成员被提前复用
 	if err := t.Cancel(); err != nil {

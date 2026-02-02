@@ -45,9 +45,7 @@ launch:
   auto_loads: true
   interval_sec: 1
   batch_load_size: 1000
-  max_load_total: 3000
-
-notify:
+  max_load_total: 3000notify:
   enabled: false       # 开关，false 时不发送飞书通知
   prefix: "[stress]"   # 消息前缀，用于区分来源
   webhook_url: ""      # 飞书 Webhook 地址
