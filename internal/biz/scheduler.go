@@ -2,24 +2,26 @@ package biz
 
 import (
 	"context"
-	"fmt"
-	"stress/internal/biz/member"
-	"stress/internal/biz/user"
 	"sync"
 	"time"
 
 	v1 "stress/api/stress/v1"
 	"stress/internal/biz/game/base"
+	"stress/internal/biz/member"
 	"stress/internal/biz/metrics"
 	"stress/internal/biz/task"
+	"stress/internal/biz/user"
 	"stress/internal/notify"
 	"stress/pkg/xgo"
 
+	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/panjf2000/ants/v2"
 )
 
 const (
-	reportInterval = 5 * time.Second // Prometheus 上报间隔
+	reportInterval  = 5 * time.Second  // Prometheus 上报间隔
+	monitorInterval = 5 * time.Second  // 订单监控间隔
+	monitorTimeout  = 10 * time.Minute // 订单监控超时
 )
 
 // Schedule 从待调度队列取任务、分配成员、启动压测
@@ -67,7 +69,7 @@ func (uc *UseCase) ExecuteTask(t *task.Task, c *v1.TaskConfig, members []member.
 
 	g, _ := uc.GetGame(c.GameId)
 	httpClient := user.NewHTTPClient(capacity)
-	client := user.NewAPIClient(httpClient, user.NoopSecretProvider, g, uc.gamePool.RequireProtobuf)
+	apiClient := user.NewAPIClient(httpClient, user.NoopSecretProvider, g, uc.gamePool.RequireProtobuf)
 	antsPool, _ := ants.NewPool(capacity)
 
 	// 创建DB写入完成channel
@@ -87,7 +89,7 @@ func (uc *UseCase) ExecuteTask(t *task.Task, c *v1.TaskConfig, members []member.
 		if err := antsPool.Submit(func() {
 			defer wg.Done()
 			defer t.MarkSessionDone(!sess.IsFailed())
-			_ = sess.Execute(t.Context(), client, user.NoopSecretProvider)
+			_ = sess.Execute(t.Context(), apiClient, user.NoopSecretProvider)
 		}); err != nil {
 			wg.Done()
 			t.MarkSessionDone(false)
@@ -126,16 +128,37 @@ func (uc *UseCase) startTaskReporting(taskID string, t *task.Task, doneChan <-ch
 
 // monitorOrderWriteCompletion 监控订单写入DB完成状态
 func (uc *UseCase) monitorOrderWriteCompletion(t *task.Task, done chan<- struct{}) {
-	// 等待任务完成或取消
-	<-t.Context().Done()
+	<-t.Context().Done() // 等待任务完成
 
-	// 任务完成后，开始每5秒检查DB是否写完
+	ticker := time.NewTicker(monitorInterval)
+	defer ticker.Stop()
+
+	timeout := time.After(monitorTimeout)
+	errCount := 0
+
 	for {
-		if orderCount, err := uc.repo.GetGameOrderCount(context.Background()); err == nil && orderCount >= t.GetStep() {
+		select {
+		case <-timeout:
+			uc.log.Warnf("monitor order completion timeout after %v", monitorTimeout)
 			close(done)
 			return
+		case <-ticker.C:
+			count, err := uc.repo.GetGameOrderCount(context.Background())
+			if err != nil {
+				errCount++
+				if errCount >= 10 {
+					uc.log.Warnf("monitor order failed %d times, give up", errCount)
+					close(done)
+					return
+				}
+				continue
+			}
+			errCount = 0 // 重置错误计数
+			if count >= t.GetStep() {
+				close(done)
+				return
+			}
 		}
-		time.Sleep(5 * time.Second)
 	}
 }
 
@@ -143,13 +166,14 @@ func (uc *UseCase) monitorOrderWriteCompletion(t *task.Task, done chan<- struct{
 func (uc *UseCase) CreateTask(ctx context.Context, g base.IGame, config *v1.TaskConfig) (*task.Task, error) {
 	taskID, err := uc.repo.NextTaskID(ctx, config.GameId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate task ID: %w", err)
+		return nil, errors.Newf(500, "TASK_ID_GENERATE_FAILED", "failed to generate task ID: %v", err)
 	}
 
-	t, err := task.NewTask(context.Background(), taskID, g, config)
+	t, err := task.NewTask(uc.ctx, taskID, g, config)
 	if err != nil {
-		return nil, err
+		return nil, errors.Newf(500, "TASK_CREATE_FAILED", "failed to create task: %v", err)
 	}
+
 	uc.taskPool.Add(t)
 	uc.Schedule()
 	return t, nil
@@ -174,23 +198,41 @@ func (uc *UseCase) DeleteTask(id string) error {
 func (uc *UseCase) CancelTask(id string) error {
 	t, ok := uc.taskPool.Get(id)
 	if !ok {
-		return fmt.Errorf("task not found")
+		return errors.NotFound("TASK_NOT_FOUND", "task not found")
 	}
+
 	// 先 Cancel 再 Release，避免任务仍在跑时成员被提前复用
 	if err := t.Cancel(); err != nil {
-		return err
+		return errors.Newf(500, "TASK_CANCEL_FAILED", "cancel task failed: %v", err)
 	}
+
 	uc.memberPool.Release(id)
 	uc.Schedule()
 	return nil
 }
 
-// ReportTask 任务完成时进行完整指标上报（包含订单数据）
+// ReportTask 任务完成时进行完整指标上报
 func (uc *UseCase) ReportTask(t *task.Task) {
+	ctx := context.Background()
 	report := t.Snapshot(time.Now())
 
-	// 填充完整的订单统计数据用于最终指标上报
-	ctx := context.Background()
+	// 填充订单统计数据
+	uc.fillOrderStats(ctx, report)
+
+	// 上报指标
+	metrics.ReportTask(report)
+
+	// 飞书通知
+	uc.sendNotification(ctx, t.GetID(), report)
+
+	// 环境清理
+	uc.performEnvironmentCleanup(t)
+
+	uc.log.Infof("[%s] task completed, use=%v", t.GetID(), time.Since(t.GetCreatedAt()))
+}
+
+// fillOrderStats 填充订单统计数据
+func (uc *UseCase) fillOrderStats(ctx context.Context, report *v1.TaskCompletionReport) {
 	if totalBet, totalWin, betOrderCount, _, err := uc.repo.GetDetailedOrderAmounts(ctx); err == nil {
 		report.TotalBet = totalBet
 		report.TotalWin = totalWin
@@ -199,24 +241,17 @@ func (uc *UseCase) ReportTask(t *task.Task) {
 	} else if orderCount, err := uc.repo.GetGameOrderCount(ctx); err == nil {
 		report.OrderCount = orderCount
 	}
+}
 
-	// 上报完整指标
-	metrics.ReportTask(report)
-
-	// TODO.. 汇总订单数据 Statistics 数据上报给s3
-
-	// 飞书通知
-	if uc.notify != nil {
-		msg := notify.BuildTaskCompletionMessage(report)
-		if err := uc.notify.Send(ctx, msg); err != nil {
-			uc.log.Warnf("[%s] notify task completion: %v", t.GetID(), err)
-		}
+// sendNotification 发送飞书通知
+func (uc *UseCase) sendNotification(ctx context.Context, taskID string, report *v1.TaskCompletionReport) {
+	if uc.notify == nil {
+		return
 	}
-
-	// 环境清理
-	uc.performEnvironmentCleanup(t)
-
-	uc.log.Infof("[%s] task completed, use=%v", t.GetID(), time.Since(t.GetCreatedAt()))
+	msg := notify.BuildTaskCompletionMessage(report)
+	if err := uc.notify.Send(ctx, msg); err != nil {
+		uc.log.Warnf("[%s] notify task completion: %v", taskID, err)
+	}
 }
 
 // performEnvironmentCleanup 执行环境清理工作

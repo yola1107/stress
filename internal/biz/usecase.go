@@ -2,23 +2,47 @@ package biz
 
 import (
 	"context"
-	"fmt"
+	"io"
+	"strconv"
+	"time"
+
 	"stress/internal/biz/game"
 	"stress/internal/biz/game/base"
 	"stress/internal/biz/member"
+	"stress/internal/biz/stats"
 	"stress/internal/biz/task"
 	"stress/internal/conf"
 	"stress/internal/notify"
-	"sync"
-	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
 )
 
 // 业务常量
 const (
-	cleanupTimeout = 10 * time.Minute
+	cleanupTimeout   = 10 * time.Minute
+	memberLoadBatch  = 1000
+	memberBalance    = 10000
+	memberNameOffset = 1000
 )
+
+// OrderScope 订单查询范围
+type OrderScope struct {
+	GameID     int64
+	Merchant   string
+	StartTime  time.Time
+	EndTime    time.Time
+	ExcludeAmt float64
+}
+
+// QueryFilter 订单查询过滤器
+type QueryFilter struct {
+	GameID        int
+	Merchant      string
+	Member        string
+	StartTime     string
+	EndTime       string
+	ExcludeAmount float64
+}
 
 // DataRepo 数据层接口：成员/订单/清理/任务ID计数
 type DataRepo interface {
@@ -30,15 +54,19 @@ type DataRepo interface {
 	DeleteOrdersByScope(ctx context.Context, scope OrderScope) (int64, error)
 	GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
 	NextTaskID(ctx context.Context, gameID int64) (string, error)
+	QueryGameOrderPoints(ctx context.Context, filter QueryFilter) ([]stats.Point, error)
 }
 
-// OrderScope 订单范围（与 statistics 查询口径一致）
-type OrderScope struct {
-	GameID     int64
-	Merchant   string
-	StartTime  time.Time
-	EndTime    time.Time
-	ExcludeAmt float64 // 0 表示 0.01（= base_money）
+//// StorageUploader 存储上传器接口
+//type StorageUploader interface {
+//	UploadFile(ctx context.Context, bucket, key, contentType string, body io.Reader) (string, error)
+//	UploadBytes(ctx context.Context, bucket, key, contentType string, data []byte) (string, error)
+//}
+
+// S3Uploader S3上传器接口
+type S3Uploader interface {
+	UploadFile(ctx context.Context, bucket, key, contentType string, body io.Reader) (string, error)
+	UploadBytes(ctx context.Context, bucket, key, contentType string, data []byte) (string, error)
 }
 
 // UseCase 编排层：通过 DataRepo + 领域池（Game/Task/Member）编排业务
@@ -54,6 +82,7 @@ type UseCase struct {
 	memberPool *member.Pool
 
 	notify notify.Notifier
+	stats  *stats.Component
 }
 
 // NewUseCase 创建 UseCase
@@ -69,24 +98,18 @@ func NewUseCase(repo DataRepo, logger log.Logger, c *conf.Launch, notify notify.
 		taskPool:   task.NewTaskPool(),
 		memberPool: member.NewMemberPool(),
 		notify:     notify,
+		stats:      stats.New(), // 先使用基础实例
 	}
 
 	// 启动时自清理：Redis site:* + 订单表，避免上次压测残留
 	uc.cleanOnStartup()
 
-	cleanup := func() { uc.cancel() }
+	// 启动成员自动加载
 	if c.AutoLoads {
-		var loaderWg sync.WaitGroup
-		loaderWg.Add(1)
-		go func() {
-			defer loaderWg.Done()
-			runMemberLoader(uc.ctx, repo, uc.memberPool, uc.log, uc.c, uc.Schedule)
-		}()
-		cleanup = func() {
-			uc.cancel()
-			loaderWg.Wait()
-		}
+		go uc.runMemberLoader()
 	}
+
+	cleanup := func() { uc.cancel() }
 	return uc, cleanup, nil
 }
 
@@ -130,49 +153,46 @@ func (uc *UseCase) cleanOnStartup() {
 	}
 }
 
-// runMemberLoader 按间隔生成成员、落库、加入空闲池，每批后调用 onLoaded（如 Schedule）
-func runMemberLoader(ctx context.Context, repo DataRepo, pool *member.Pool, logHelper *log.Helper, c *conf.Launch, onLoaded func()) {
+// runMemberLoader 按间隔生成成员、落库、加入空闲池
+func (uc *UseCase) runMemberLoader() {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
-	loaded := int32(0)
-	for loaded < c.MaxLoadTotal {
+
+	var loaded int32
+	for loaded < uc.c.MaxLoadTotal {
 		select {
-		case <-ctx.Done():
+		case <-uc.ctx.Done():
 			return
 		case <-ticker.C:
-			n := 1000
-			if left := int(c.MaxLoadTotal - loaded); left < n {
-				n = left
-			}
+			n := min32(memberLoadBatch, uc.c.MaxLoadTotal-loaded)
 			if n <= 0 {
 				continue
 			}
 			batch := make([]member.Info, n)
-			for i := 0; i < n; i++ {
+			for i := int32(0); i < n; i++ {
 				loaded++
 				batch[i] = member.Info{
-					Name:    fmt.Sprintf("%s%d", member.DefaultMemberNamePrefix, loaded+1000), // eg: gogpct1000
-					Balance: 10000,
+					Name:    member.DefaultMemberNamePrefix + strconv.FormatInt(int64(loaded+memberNameOffset), 10),
+					Balance: memberBalance,
 				}
 			}
-			if err := repo.BatchUpsertMembers(ctx, batch); err != nil {
-				if logHelper != nil {
-					logHelper.Errorf("BatchUpsertMembers: %v", err)
-				}
-				loaded -= int32(n)
+			if err := uc.repo.BatchUpsertMembers(uc.ctx, batch); err != nil {
+				uc.log.Errorf("BatchUpsertMembers: %v", err)
+				loaded -= n
 				continue
 			}
-			pool.AddIdle(batch)
-			if logHelper != nil {
-				_, _, total := pool.Stats()
-				logHelper.Infof("Loaded %d members, total: %d", len(batch), total)
-			}
-			if onLoaded != nil {
-				onLoaded()
-			}
+			uc.memberPool.AddIdle(batch)
+			_, _, total := uc.memberPool.Stats()
+			uc.log.Infof("Loaded %d members, total: %d", len(batch), total)
+			uc.Schedule()
 		}
 	}
-	if logHelper != nil {
-		logHelper.Info("Member loading completed.")
+	uc.log.Info("Member loading completed")
+}
+
+func min32(a, b int32) int32 {
+	if a < b {
+		return a
 	}
+	return b
 }

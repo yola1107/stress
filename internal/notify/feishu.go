@@ -29,11 +29,15 @@ type Feishu struct {
 }
 
 func NewFeishu(c *conf.Notify) Notifier {
-	if c == nil || !c.Enabled || strings.TrimSpace(c.GetWebhookUrl()) == "" {
+	if c == nil || !c.Enabled {
+		return Noop{}
+	}
+	webhookURL := strings.TrimSpace(c.GetWebhookUrl())
+	if webhookURL == "" {
 		return Noop{}
 	}
 	return &Feishu{
-		WebhookURL:    strings.TrimSpace(c.GetWebhookUrl()),
+		WebhookURL:    webhookURL,
 		SigningSecret: strings.TrimSpace(c.GetSigningSecret()),
 		Prefix:        strings.TrimSpace(c.GetPrefix()),
 		Client:        &http.Client{Timeout: 10 * time.Second},

@@ -1,4 +1,4 @@
-package statistics
+package stats
 
 const chartTpl = `<!DOCTYPE html>
 <html>

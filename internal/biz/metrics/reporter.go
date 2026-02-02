@@ -1,7 +1,7 @@
 package metrics
 
 import (
-	"fmt"
+	"strconv"
 	v1 "stress/api/stress/v1"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -15,7 +15,7 @@ func ReportTask(r *v1.TaskCompletionReport) {
 
 	labels := prometheus.Labels{
 		labelTaskID: r.TaskId,
-		labelGameID: fmt.Sprintf("%d", r.GameId),
+		labelGameID: strconv.FormatInt(r.GameId, 10),
 	}
 
 	set(_metric_progress, labels, float64(r.Process))

@@ -18,6 +18,8 @@ const (
 	errCodeCreateTask = 1
 	errCodeGetTask    = 2
 	errCodeCancelTask = 3
+
+	recordPathFmt = "/api/stress/tasks/%s/record"
 )
 
 // StressService is a stress test service.
@@ -51,7 +53,6 @@ func (s *StressService) ListGames(ctx context.Context, in *v1.ListGamesRequest) 
 			Description: g.Name(),
 		}
 	}
-	s.log.Infof("ListGames returned %d games", len(games))
 	return &v1.ListGamesResponse{Games: games, Total: int32(len(games))}, nil
 }
 
@@ -134,18 +135,18 @@ func (s *StressService) GetRecord(ctx context.Context, in *v1.RecordRequest) (*v
 	}
 	return &v1.RecordResponse{
 		Code: 0, Message: "success",
-		Url: fmt.Sprintf("/api/stress/tasks/%s/record", t.GetID()),
+		Url: fmt.Sprintf(recordPathFmt, t.GetID()),
 	}, nil
 }
 
 func (s *StressService) getTask(taskID string) (*task.Task, error) {
 	if taskID = strings.TrimSpace(taskID); taskID == "" {
-		return nil, fmt.Errorf("TASK_ID_EMPTY")
+		return nil, fmt.Errorf("task id is empty")
 	}
 	if t, ok := s.uc.GetTask(taskID); ok {
 		return t, nil
 	}
-	return nil, fmt.Errorf("TASK_NOT_FOUND")
+	return nil, fmt.Errorf("task not found")
 }
 
 func (s *StressService) buildTask(t *task.Task) *v1.Task {
@@ -155,7 +156,7 @@ func (s *StressService) buildTask(t *task.Task) *v1.Task {
 		TaskId:    taskID,
 		Status:    t.GetStatus(),
 		Config:    t.GetConfig(),
-		RecordUrl: fmt.Sprintf("/api/stress/tasks/%s/record", taskID),
+		RecordUrl: fmt.Sprintf(recordPathFmt, taskID),
 		CreatedAt: timestamppb.New(t.GetCreatedAt()),
 		UpdatedAt: now,
 	}
