@@ -13,16 +13,13 @@ import (
 
 const (
 	orderUnit       = 1e4
-	statsExcludeAmt = 0.01
 	timeLayout      = "2006-01-02 15:04:05"
-)
-const (
-	sampleMax = 5000 // 最大采样数
+	maxSamplePoints = 5000
 )
 
 var locSH, _ = time.LoadLocation("Asia/Shanghai")
 
-// QueryGameOrderPoints 查询并返回图表点（查询 + 聚合为点）
+// QueryGameOrderPoints 查询并返回图表点
 func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, filter biz.QueryFilter) ([]stats.Point, error) {
 	if r.data.order == nil {
 		return nil, fmt.Errorf("order database not configured")
@@ -30,7 +27,7 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, filter biz.QueryFil
 
 	ex := filter.ExcludeAmount
 	if ex <= 0 {
-		ex = statsExcludeAmt
+		ex = excludeAmt
 	}
 
 	conds := []string{"game_id = ?", "amount != ?"}
@@ -55,10 +52,8 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, filter biz.QueryFil
 		CreatedAt   int64
 	}
 	var recs []orderRecord
-	if err := r.data.order.Context(ctx).SQL(
-		"SELECT amount, bonus_amount, created_at FROM game_order WHERE "+strings.Join(conds, " AND ")+" ORDER BY id",
-		args...,
-	).Find(&recs); err != nil {
+	sql := "SELECT amount, bonus_amount, created_at FROM game_order WHERE " + strings.Join(conds, " AND ") + " ORDER BY id"
+	if err := r.data.order.Context(ctx).SQL(sql, args...).Find(&recs); err != nil {
 		return nil, err
 	}
 
@@ -75,38 +70,41 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, filter biz.QueryFil
 			if cumBet > 0 {
 				rate = (cumBet - cumWin) / cumBet
 			}
-			pts = append(pts, stats.Point{X: float64(orders) / orderUnit, Y: rate, Time: t})
+			pts = append(pts, stats.Point{
+				X:    float64(orders) / orderUnit,
+				Y:    rate,
+				Time: t,
+			})
 		}
 	}
 
-	for _, r := range recs {
+	for _, rec := range recs {
 		orders++
-		if r.Amount > 0 {
+		if rec.Amount > 0 {
 			flush()
-			bet, win = r.Amount, r.BonusAmount
-			t = time.Unix(r.CreatedAt, 0).In(locSH).Format(timeLayout)
+			bet, win = rec.Amount, rec.BonusAmount
+			t = time.Unix(rec.CreatedAt, 0).In(locSH).Format(timeLayout)
 		} else {
-			win += r.BonusAmount
+			win += rec.BonusAmount
 		}
 	}
 	flush()
 
-	spts := sample(pts)
-	return spts, nil
+	return samplePoints(pts), nil
 }
 
-// sample 等间距采样，保留首尾
-func sample(pts []stats.Point) []stats.Point {
+// samplePoints 等间距采样
+func samplePoints(pts []stats.Point) []stats.Point {
 	n := len(pts)
-	if n <= sampleMax {
+	if n <= maxSamplePoints {
 		return pts
 	}
-	step := (n - 1) / (sampleMax - 1)
+	step := (n - 1) / (maxSamplePoints - 1)
 	if step < 1 {
 		step = 1
 	}
-	out := make([]stats.Point, 0, sampleMax)
-	for i := 0; i < n && len(out) < sampleMax-1; i += step {
+	out := make([]stats.Point, 0, maxSamplePoints)
+	for i := 0; i < n && len(out) < maxSamplePoints-1; i += step {
 		out = append(out, pts[i])
 	}
 	out = append(out, pts[n-1]) // 保留最后一条
