@@ -165,10 +165,11 @@ message Game {
 // 任务配置
 message TaskConfig {
     int64 game_id            = 1 [(validate.rules).int64 = { gt: 0 }];               // 游戏ID
-    int32 member_count       = 2 [(validate.rules).int32 = { gte: 1, lte: 10000 }];  // 用户数量
-    int32 times_per_member   = 3 [(validate.rules).int32 = { gte: 1, lte: 10000 }];  // 每个用户执行次数
-    BetOrderConfig bet_order = 4;                                                    // 下注配置
-    BetBonusConfig bet_bonus = 5;                                                    // 奖励配置
+    string description       = 2;                                                    // 任务描述
+    int32 member_count       = 3 [(validate.rules).int32 = { gte: 1, lte: 10000 }];  // 用户数量
+    int32 times_per_member   = 4 [(validate.rules).int32 = { gte: 1, lte: 10000 }];  // 每个用户执行次数
+    BetOrderConfig bet_order = 5;                                                    // 下注配置
+    BetBonusConfig bet_bonus = 6;                                                    // 奖励配置
 }
 
 // 下注配置
@@ -201,20 +202,23 @@ message Task {
 message TaskCompletionReport {
     string task_id       = 1;   // 任务ID
     int64 game_id        = 2;   // 游戏ID
-    int64 process        = 3;   // 已完成局数
-    int64 target         = 4;   // 目标局数
-    int64 step           = 5;   // 总步数
-    string duration      = 6;   // 耗时（格式化，如 1.5h）
-    double qps           = 7;   // QPS
-    string avg_latency   = 8;   // 平均延迟（格式化，如 12.34ms）
-    int64 order_count    = 9;   // 订单数
-    int64 total_bet      = 10;  // 总下注（×1e4）
-    int64 total_win      = 11;  // 总赢（×1e4）
-    double rtp_pct       = 12;  // RTP %
-    int64 active_members = 13;  // 活跃成员数（运行中）
-    int64 completed      = 14;  // 完成成员数
-    int64 failed         = 15;  // 失败成员数
-    int64 failed_reqs    = 16;  // 失败请求数
-    double progress_pct  = 17;  // 进度 % (process/target*100, 上限 100)
-    string png_url       = 18;
+    string game_name     = 3;   // 游戏名称
+    int64 process        = 4;   // 已完成局数
+    int64 target         = 5;   // 目标局数
+    int64 step           = 6;   // 总步数
+    string duration      = 7;   // 耗时（格式化，如 1.5h）
+    double qps           = 8;   // QPS
+    string avg_latency   = 9;   // 平均延迟（格式化，如 12.34ms）
+    int64 order_count    = 10;  // 订单数
+    int64 total_bet      = 11;  // 总下注（×1e4）
+    int64 total_win      = 12;  // 总赢（×1e4）
+    double rtp_pct       = 13;  // RTP %
+    int64 active_members = 14;  // 活跃成员数（运行中）
+    int64 completed      = 15;  // 完成成员数
+    int64 failed         = 16;  // 失败成员数
+    int64 failed_reqs    = 17;  // 失败请求数
+    double progress_pct  = 18;  // 进度 % (process/target*100, 上限 100)
+    string png_url       = 19;  // PNG图表URL
+    //    string create_at     = 20;  // 创建时间
+    //    string finish_at     = 21;  // 完成时间
 }

@@ -228,6 +228,14 @@ func (uc *UseCase) ReportTask(t *task.Task, completed bool) {
 	report := t.Snapshot(time.Now())
 	uc.fillOrderStats(ctx, report)
 
+	scope := OrderScope{
+		GameID:     report.GameId,
+		Merchant:   uc.c.GetMerchant(),
+		StartTime:  t.GetCreatedAt(),
+		EndTime:    t.GetFinishedAt(),
+		ExcludeAmt: t.GetConfig().BetOrder.BaseMoney,
+	}
+
 	// 上报完整指标
 	metrics.ReportTask(report)
 
@@ -237,7 +245,7 @@ func (uc *UseCase) ReportTask(t *task.Task, completed bool) {
 	}
 
 	// 汇总订单数据 Statistics 数据上报给s3
-	uc.sendS3Bucket(ctx, t, report)
+	uc.sendS3Bucket(ctx, report.TaskId, report.GameName, scope)
 
 	// 飞书通知
 	uc.sendNotification(ctx, report)
@@ -260,17 +268,12 @@ func (uc *UseCase) fillOrderStats(ctx context.Context, report *v1.TaskCompletion
 	}
 }
 
-func (uc *UseCase) sendS3Bucket(ctx context.Context, t *task.Task, report *v1.TaskCompletionReport) {
-	pts, _ := uc.repo.QueryGameOrderPoints(ctx, OrderScope{
-		GameID:     report.GameId,
-		Merchant:   uc.c.GetMerchant(),
-		StartTime:  t.GetCreatedAt(),
-		EndTime:    t.GetFinishedAt(),
-		ExcludeAmt: t.GetConfig().BetOrder.BaseMoney,
-	})
-	_, err := uc.chartGen.Generate(pts, "金钱虎", uc.c.GetMerchant())
+func (uc *UseCase) sendS3Bucket(ctx context.Context, taskId, gameName string, scope OrderScope) {
+	pts, _ := uc.repo.QueryGameOrderPoints(ctx, scope)
+
+	_, err := uc.chartGen.Generate(pts, taskId, gameName, scope.Merchant)
 	if err != nil {
-		log.Error("failed to build chart: %v", err)
+		log.Errorf("failed to build chart: %v", err)
 	}
 }
 

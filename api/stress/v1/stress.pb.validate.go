@@ -1922,6 +1922,8 @@ func (m *TaskConfig) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	// no validation rules for Description
+
 	if val := m.GetMemberCount(); val < 1 || val > 10000 {
 		err := TaskConfigValidationError{
 			field:  "MemberCount",
@@ -2534,6 +2536,8 @@ func (m *TaskCompletionReport) validate(all bool) error {
 	// no validation rules for TaskId
 
 	// no validation rules for GameId
+
+	// no validation rules for GameName
 
 	// no validation rules for Process
 

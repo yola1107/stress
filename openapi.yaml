@@ -298,6 +298,8 @@ components:
             properties:
                 gameId:
                     type: string
+                description:
+                    type: string
                 memberCount:
                     type: integer
                     format: int32

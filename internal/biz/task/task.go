@@ -184,10 +184,12 @@ func (t *Task) Snapshot(now time.Time) *v1.TaskCompletionReport {
 
 	return &v1.TaskCompletionReport{
 		TaskId:        t.id,
-		GameId:        t.config.GameId,
+		GameId:        t.game.GameID(),
+		GameName:      t.game.Name(),
 		Process:       process,
 		Target:        t.target,
 		Step:          step,
+		ProgressPct:   xgo.PctCap100(process, t.target),
 		Duration:      xgo.FormatDuration(elapsed),
 		Qps:           qps,
 		AvgLatency:    avgLatency,
@@ -195,8 +197,9 @@ func (t *Task) Snapshot(now time.Time) *v1.TaskCompletionReport {
 		Completed:     atomic.LoadInt64(&t.completed),
 		Failed:        atomic.LoadInt64(&t.failed),
 		FailedReqs:    atomic.LoadInt64(&t.errors),
-		ProgressPct:   xgo.PctCap100(process, t.target),
 		// OrderCount, TotalBet, TotalWin, RtpPct 由 上游 包补充
+		//CreateAt:      t.createdAt.Format("2006-01-02 15:04:05"),
+		//FinishAt:      finishedAt.Format("2006-01-02 15:04:05"),
 	}
 }
 

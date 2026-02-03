@@ -304,7 +304,7 @@ func validateSampling(points []statistics.Point, totalOrders int64, step int64) 
 	}
 
 	if len(errors) > 0 {
-		return fmt.Errorf(strings.Join(errors, "; "))
+		return fmt.Errorf("validation failed: %s", strings.Join(errors, "; "))
 	}
 
 	return nil

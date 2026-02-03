@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 const (
@@ -43,7 +42,7 @@ func NewGenerator(dir string) *Generator {
 }
 
 // Generate 生成图表
-func (g *Generator) Generate(pts []Point, gameName, merchant string) (string, error) {
+func (g *Generator) Generate(pts []Point, taskId, gameName, merchant string) (string, error) {
 	if len(pts) == 0 {
 		return "", fmt.Errorf("no data")
 	}
@@ -71,7 +70,7 @@ func (g *Generator) Generate(pts []Point, gameName, merchant string) (string, er
 	yJ, _ := json.Marshal(y)
 	tJ, _ := json.Marshal(t)
 
-	path := filepath.Join(g.outputDir, fmt.Sprintf("%s_%s_cdn.html", gameName, time.Now().Format("20060102_1504")))
+	path := filepath.Join(g.outputDir, fmt.Sprintf("%s.html", taskId))
 	html := fmt.Sprintf(chartTpl, gameName, merchant, gameName, "普通", string(xJ), string(yJ), string(tJ), xMax, yMin, yMax, merchant, gameName, "普通")
 	if err := os.WriteFile(path, []byte(html), 0644); err != nil {
 		return "", err
@@ -93,7 +92,7 @@ func (g *Generator) GenerateBatch(gameData map[string][]Point, merchant string) 
 			fail = append(fail, gameName+" 无数据")
 			continue
 		}
-		path, err := g.Generate(pts, gameName, merchant)
+		path, err := g.Generate(pts, gameName, gameName, merchant)
 		if err != nil {
 			fail = append(fail, gameName+" 生成失败")
 			continue
@@ -128,7 +127,7 @@ func buildResult(ok, fail []string) *Result {
 }
 
 func toPng(html string) string {
-	return strings.TrimSuffix(strings.TrimSuffix(html, "_cdn.html"), ".html") + ".png"
+	return strings.TrimSuffix(html, ".html") + ".png"
 }
 
 func renderPNG(htmlPath string) {

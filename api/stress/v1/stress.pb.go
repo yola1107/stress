@@ -882,10 +882,11 @@ func (x *Game) GetDescription() string {
 type TaskConfig struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	GameId         int64                  `protobuf:"varint,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`                           // 游戏ID
-	MemberCount    int32                  `protobuf:"varint,2,opt,name=member_count,json=memberCount,proto3" json:"member_count,omitempty"`            // 用户数量
-	TimesPerMember int32                  `protobuf:"varint,3,opt,name=times_per_member,json=timesPerMember,proto3" json:"times_per_member,omitempty"` // 每个用户执行次数
-	BetOrder       *BetOrderConfig        `protobuf:"bytes,4,opt,name=bet_order,json=betOrder,proto3" json:"bet_order,omitempty"`                      // 下注配置
-	BetBonus       *BetBonusConfig        `protobuf:"bytes,5,opt,name=bet_bonus,json=betBonus,proto3" json:"bet_bonus,omitempty"`                      // 奖励配置
+	Description    string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`                                // 任务描述
+	MemberCount    int32                  `protobuf:"varint,3,opt,name=member_count,json=memberCount,proto3" json:"member_count,omitempty"`            // 用户数量
+	TimesPerMember int32                  `protobuf:"varint,4,opt,name=times_per_member,json=timesPerMember,proto3" json:"times_per_member,omitempty"` // 每个用户执行次数
+	BetOrder       *BetOrderConfig        `protobuf:"bytes,5,opt,name=bet_order,json=betOrder,proto3" json:"bet_order,omitempty"`                      // 下注配置
+	BetBonus       *BetBonusConfig        `protobuf:"bytes,6,opt,name=bet_bonus,json=betBonus,proto3" json:"bet_bonus,omitempty"`                      // 奖励配置
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -925,6 +926,13 @@ func (x *TaskConfig) GetGameId() int64 {
 		return x.GameId
 	}
 	return 0
+}
+
+func (x *TaskConfig) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
 }
 
 func (x *TaskConfig) GetMemberCount() int32 {
@@ -1183,22 +1191,23 @@ type TaskCompletionReport struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`                        // 任务ID
 	GameId        int64                  `protobuf:"varint,2,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`                       // 游戏ID
-	Process       int64                  `protobuf:"varint,3,opt,name=process,proto3" json:"process,omitempty"`                                   // 已完成局数
-	Target        int64                  `protobuf:"varint,4,opt,name=target,proto3" json:"target,omitempty"`                                     // 目标局数
-	Step          int64                  `protobuf:"varint,5,opt,name=step,proto3" json:"step,omitempty"`                                         // 总步数
-	Duration      string                 `protobuf:"bytes,6,opt,name=duration,proto3" json:"duration,omitempty"`                                  // 耗时（格式化，如 1.5h）
-	Qps           float64                `protobuf:"fixed64,7,opt,name=qps,proto3" json:"qps,omitempty"`                                          // QPS
-	AvgLatency    string                 `protobuf:"bytes,8,opt,name=avg_latency,json=avgLatency,proto3" json:"avg_latency,omitempty"`            // 平均延迟（格式化，如 12.34ms）
-	OrderCount    int64                  `protobuf:"varint,9,opt,name=order_count,json=orderCount,proto3" json:"order_count,omitempty"`           // 订单数
-	TotalBet      int64                  `protobuf:"varint,10,opt,name=total_bet,json=totalBet,proto3" json:"total_bet,omitempty"`                // 总下注（×1e4）
-	TotalWin      int64                  `protobuf:"varint,11,opt,name=total_win,json=totalWin,proto3" json:"total_win,omitempty"`                // 总赢（×1e4）
-	RtpPct        float64                `protobuf:"fixed64,12,opt,name=rtp_pct,json=rtpPct,proto3" json:"rtp_pct,omitempty"`                     // RTP %
-	ActiveMembers int64                  `protobuf:"varint,13,opt,name=active_members,json=activeMembers,proto3" json:"active_members,omitempty"` // 活跃成员数（运行中）
-	Completed     int64                  `protobuf:"varint,14,opt,name=completed,proto3" json:"completed,omitempty"`                              // 完成成员数
-	Failed        int64                  `protobuf:"varint,15,opt,name=failed,proto3" json:"failed,omitempty"`                                    // 失败成员数
-	FailedReqs    int64                  `protobuf:"varint,16,opt,name=failed_reqs,json=failedReqs,proto3" json:"failed_reqs,omitempty"`          // 失败请求数
-	ProgressPct   float64                `protobuf:"fixed64,17,opt,name=progress_pct,json=progressPct,proto3" json:"progress_pct,omitempty"`      // 进度 % (process/target*100, 上限 100)
-	PngUrl        string                 `protobuf:"bytes,18,opt,name=png_url,json=pngUrl,proto3" json:"png_url,omitempty"`
+	GameName      string                 `protobuf:"bytes,3,opt,name=game_name,json=gameName,proto3" json:"game_name,omitempty"`                  // 游戏名称
+	Process       int64                  `protobuf:"varint,4,opt,name=process,proto3" json:"process,omitempty"`                                   // 已完成局数
+	Target        int64                  `protobuf:"varint,5,opt,name=target,proto3" json:"target,omitempty"`                                     // 目标局数
+	Step          int64                  `protobuf:"varint,6,opt,name=step,proto3" json:"step,omitempty"`                                         // 总步数
+	Duration      string                 `protobuf:"bytes,7,opt,name=duration,proto3" json:"duration,omitempty"`                                  // 耗时（格式化，如 1.5h）
+	Qps           float64                `protobuf:"fixed64,8,opt,name=qps,proto3" json:"qps,omitempty"`                                          // QPS
+	AvgLatency    string                 `protobuf:"bytes,9,opt,name=avg_latency,json=avgLatency,proto3" json:"avg_latency,omitempty"`            // 平均延迟（格式化，如 12.34ms）
+	OrderCount    int64                  `protobuf:"varint,10,opt,name=order_count,json=orderCount,proto3" json:"order_count,omitempty"`          // 订单数
+	TotalBet      int64                  `protobuf:"varint,11,opt,name=total_bet,json=totalBet,proto3" json:"total_bet,omitempty"`                // 总下注（×1e4）
+	TotalWin      int64                  `protobuf:"varint,12,opt,name=total_win,json=totalWin,proto3" json:"total_win,omitempty"`                // 总赢（×1e4）
+	RtpPct        float64                `protobuf:"fixed64,13,opt,name=rtp_pct,json=rtpPct,proto3" json:"rtp_pct,omitempty"`                     // RTP %
+	ActiveMembers int64                  `protobuf:"varint,14,opt,name=active_members,json=activeMembers,proto3" json:"active_members,omitempty"` // 活跃成员数（运行中）
+	Completed     int64                  `protobuf:"varint,15,opt,name=completed,proto3" json:"completed,omitempty"`                              // 完成成员数
+	Failed        int64                  `protobuf:"varint,16,opt,name=failed,proto3" json:"failed,omitempty"`                                    // 失败成员数
+	FailedReqs    int64                  `protobuf:"varint,17,opt,name=failed_reqs,json=failedReqs,proto3" json:"failed_reqs,omitempty"`          // 失败请求数
+	ProgressPct   float64                `protobuf:"fixed64,18,opt,name=progress_pct,json=progressPct,proto3" json:"progress_pct,omitempty"`      // 进度 % (process/target*100, 上限 100)
+	PngUrl        string                 `protobuf:"bytes,19,opt,name=png_url,json=pngUrl,proto3" json:"png_url,omitempty"`                       // PNG图表URL
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1245,6 +1254,13 @@ func (x *TaskCompletionReport) GetGameId() int64 {
 		return x.GameId
 	}
 	return 0
+}
+
+func (x *TaskCompletionReport) GetGameName() string {
+	if x != nil {
+		return x.GameName
+	}
+	return ""
 }
 
 func (x *TaskCompletionReport) GetProcess() int64 {
@@ -1405,16 +1421,17 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\x04Game\x12\x17\n" +
 	"\agame_id\x18\x01 \x01(\x03R\x06gameId\x12\x1b\n" +
 	"\tgame_name\x18\x02 \x01(\tR\bgameName\x12 \n" +
-	"\vdescription\x18\x03 \x01(\tR\vdescription\"\x83\x02\n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\"\xa5\x02\n" +
 	"\n" +
 	"TaskConfig\x12 \n" +
-	"\agame_id\x18\x01 \x01(\x03B\a\xfaB\x04\"\x02 \x00R\x06gameId\x12-\n" +
-	"\fmember_count\x18\x02 \x01(\x05B\n" +
+	"\agame_id\x18\x01 \x01(\x03B\a\xfaB\x04\"\x02 \x00R\x06gameId\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12-\n" +
+	"\fmember_count\x18\x03 \x01(\x05B\n" +
 	"\xfaB\a\x1a\x05\x18\x90N(\x01R\vmemberCount\x124\n" +
-	"\x10times_per_member\x18\x03 \x01(\x05B\n" +
+	"\x10times_per_member\x18\x04 \x01(\x05B\n" +
 	"\xfaB\a\x1a\x05\x18\x90N(\x01R\x0etimesPerMember\x126\n" +
-	"\tbet_order\x18\x04 \x01(\v2\x19.stress.v1.BetOrderConfigR\bbetOrder\x126\n" +
-	"\tbet_bonus\x18\x05 \x01(\v2\x19.stress.v1.BetBonusConfigR\bbetBonus\"\x89\x01\n" +
+	"\tbet_order\x18\x05 \x01(\v2\x19.stress.v1.BetOrderConfigR\bbetOrder\x126\n" +
+	"\tbet_bonus\x18\x06 \x01(\v2\x19.stress.v1.BetBonusConfigR\bbetBonus\"\x89\x01\n" +
 	"\x0eBetOrderConfig\x12-\n" +
 	"\n" +
 	"base_money\x18\x01 \x01(\x01B\x0e\xfaB\v\x12\t!\x00\x00\x00\x00\x00\x00\x00\x00R\tbaseMoney\x12#\n" +
@@ -1436,30 +1453,31 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x8b\x04\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xa8\x04\n" +
 	"\x14TaskCompletionReport\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x17\n" +
-	"\agame_id\x18\x02 \x01(\x03R\x06gameId\x12\x18\n" +
-	"\aprocess\x18\x03 \x01(\x03R\aprocess\x12\x16\n" +
-	"\x06target\x18\x04 \x01(\x03R\x06target\x12\x12\n" +
-	"\x04step\x18\x05 \x01(\x03R\x04step\x12\x1a\n" +
-	"\bduration\x18\x06 \x01(\tR\bduration\x12\x10\n" +
-	"\x03qps\x18\a \x01(\x01R\x03qps\x12\x1f\n" +
-	"\vavg_latency\x18\b \x01(\tR\n" +
+	"\agame_id\x18\x02 \x01(\x03R\x06gameId\x12\x1b\n" +
+	"\tgame_name\x18\x03 \x01(\tR\bgameName\x12\x18\n" +
+	"\aprocess\x18\x04 \x01(\x03R\aprocess\x12\x16\n" +
+	"\x06target\x18\x05 \x01(\x03R\x06target\x12\x12\n" +
+	"\x04step\x18\x06 \x01(\x03R\x04step\x12\x1a\n" +
+	"\bduration\x18\a \x01(\tR\bduration\x12\x10\n" +
+	"\x03qps\x18\b \x01(\x01R\x03qps\x12\x1f\n" +
+	"\vavg_latency\x18\t \x01(\tR\n" +
 	"avgLatency\x12\x1f\n" +
-	"\vorder_count\x18\t \x01(\x03R\n" +
+	"\vorder_count\x18\n" +
+	" \x01(\x03R\n" +
 	"orderCount\x12\x1b\n" +
-	"\ttotal_bet\x18\n" +
-	" \x01(\x03R\btotalBet\x12\x1b\n" +
-	"\ttotal_win\x18\v \x01(\x03R\btotalWin\x12\x17\n" +
-	"\artp_pct\x18\f \x01(\x01R\x06rtpPct\x12%\n" +
-	"\x0eactive_members\x18\r \x01(\x03R\ractiveMembers\x12\x1c\n" +
-	"\tcompleted\x18\x0e \x01(\x03R\tcompleted\x12\x16\n" +
-	"\x06failed\x18\x0f \x01(\x03R\x06failed\x12\x1f\n" +
-	"\vfailed_reqs\x18\x10 \x01(\x03R\n" +
+	"\ttotal_bet\x18\v \x01(\x03R\btotalBet\x12\x1b\n" +
+	"\ttotal_win\x18\f \x01(\x03R\btotalWin\x12\x17\n" +
+	"\artp_pct\x18\r \x01(\x01R\x06rtpPct\x12%\n" +
+	"\x0eactive_members\x18\x0e \x01(\x03R\ractiveMembers\x12\x1c\n" +
+	"\tcompleted\x18\x0f \x01(\x03R\tcompleted\x12\x16\n" +
+	"\x06failed\x18\x10 \x01(\x03R\x06failed\x12\x1f\n" +
+	"\vfailed_reqs\x18\x11 \x01(\x03R\n" +
 	"failedReqs\x12!\n" +
-	"\fprogress_pct\x18\x11 \x01(\x01R\vprogressPct\x12\x17\n" +
-	"\apng_url\x18\x12 \x01(\tR\x06pngUrl*\x7f\n" +
+	"\fprogress_pct\x18\x12 \x01(\x01R\vprogressPct\x12\x17\n" +
+	"\apng_url\x18\x13 \x01(\tR\x06pngUrl*\x7f\n" +
 	"\n" +
 	"TaskStatus\x12\x14\n" +
 	"\x10TASK_UNSPECIFIED\x10\x00\x12\x10\n" +
