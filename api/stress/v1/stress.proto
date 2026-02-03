@@ -219,6 +219,4 @@ message TaskCompletionReport {
     int64 failed_reqs    = 17;  // 失败请求数
     double progress_pct  = 18;  // 进度 % (process/target*100, 上限 100)
     string png_url       = 19;  // PNG图表URL
-    //    string create_at     = 20;  // 创建时间
-    //    string finish_at     = 21;  // 完成时间
 }

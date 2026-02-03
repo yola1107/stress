@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -160,46 +161,78 @@ func (t *Task) AddError(msg string) {
 	atomic.AddInt64(&t.errors, 1)
 }
 
-// Snapshot 获取当前任务状态快照（供 metrics、notify、logging 复用）
-func (t *Task) Snapshot(now time.Time) *v1.TaskCompletionReport {
+// getTaskMetrics 直接计算并返回任务指标
+func (t *Task) getTaskMetrics(now time.Time) (process, step, target int64, elapsed time.Duration, qps float64, avgLatency string, progressPct float64, remaining time.Duration) {
 	t.mu.RLock()
 	finishedAt := t.finishedAt
+	target = t.target
 	t.mu.RUnlock()
 
-	process := atomic.LoadInt64(&t.process)
-	step := atomic.LoadInt64(&t.step)
+	process = atomic.LoadInt64(&t.process)
+	step = atomic.LoadInt64(&t.step)
+	duration := atomic.LoadInt64(&t.duration)
 
-	// 计算耗时和 QPS
-	elapsed := now.Sub(t.createdAt)
+	// 计算耗时
+	elapsed = now.Sub(t.createdAt)
 	if !finishedAt.IsZero() {
 		elapsed = finishedAt.Sub(t.createdAt)
 	}
-	qps := 0.0
+
+	// 计算QPS
 	if sec := elapsed.Seconds(); sec > 0 {
 		qps = float64(process) / sec
 	}
 
 	// 计算平均延迟
-	avgLatency := xgo.AvgDuration(time.Duration(atomic.LoadInt64(&t.duration)), step)
+	totalDur := time.Duration(duration)
+	if step > 0 {
+		avgLatency = fmt.Sprintf("%.2fms", float64(totalDur.Nanoseconds())/float64(step)/1e6)
+	} else {
+		avgLatency = "0ms"
+	}
+
+	// 计算进度百分比
+	if target > 0 {
+		progressPct = float64(process*100) / float64(target)
+		if progressPct > 100 {
+			progressPct = 100
+		}
+	}
+
+	// 计算剩余时间
+	if progressPct > 0 && progressPct < 100 {
+		remaining = time.Duration(float64(elapsed)/progressPct*100) - elapsed
+	}
+
+	return
+}
+
+// Snapshot 获取当前任务状态快照（供 metrics、notify、logging 复用）
+func (t *Task) Snapshot(now time.Time) *v1.TaskCompletionReport {
+	process, step, target, elapsed, qps, avgLatency, progressPct, _ := t.getTaskMetrics(now)
+
+	active := atomic.LoadInt64(&t.active)
+	completed := atomic.LoadInt64(&t.completed)
+	failed := atomic.LoadInt64(&t.failed)
+	errors := atomic.LoadInt64(&t.errors)
 
 	return &v1.TaskCompletionReport{
 		TaskId:        t.id,
 		GameId:        t.game.GameID(),
 		GameName:      t.game.Name(),
 		Process:       process,
-		Target:        t.target,
+		Target:        target,
 		Step:          step,
-		ProgressPct:   xgo.PctCap100(process, t.target),
-		Duration:      xgo.FormatDuration(elapsed),
+		ProgressPct:   progressPct,
+		Duration:      elapsed.String(),
 		Qps:           qps,
 		AvgLatency:    avgLatency,
-		ActiveMembers: atomic.LoadInt64(&t.active),
-		Completed:     atomic.LoadInt64(&t.completed),
-		Failed:        atomic.LoadInt64(&t.failed),
-		FailedReqs:    atomic.LoadInt64(&t.errors),
+		ActiveMembers: active,
+		Completed:     completed,
+		Failed:        failed,
+		FailedReqs:    errors,
 		// OrderCount, TotalBet, TotalWin, RtpPct 由 上游 包补充
-		//CreateAt:      t.createdAt.Format("2006-01-02 15:04:05"),
-		//FinishAt:      finishedAt.Format("2006-01-02 15:04:05"),
+		// 时间信息存储在其他地方或通过其他方式获取
 	}
 }
 
@@ -226,81 +259,50 @@ func (t *Task) MarkSessionDone(ok bool) {
 	}
 }
 
+// printTaskProgress 统一的任务进度打印函数
+func (t *Task) printTaskProgress(isFinal bool) {
+	now := time.Now()
+	process, step, target, elapsed, qps, avgLatency, progressPct, remaining := t.getTaskMetrics(now)
+
+	if isFinal {
+		log.Infof("[%s] 任务结束: 进度:%d/%d, 总步数:%d, 耗时:%v, QPS:%.2f, 平均延迟:%s",
+			t.id,
+			process,
+			target,
+			step,
+			elapsed,
+			qps,
+			avgLatency,
+		)
+	} else {
+		log.Infof("[%s]: 进度:%d/%d(%.2f%%), 用时:%s, 剩余:%s, QPS:%.2f, step:%.2f, 延迟:%s",
+			t.id,
+			process,
+			target,
+			progressPct,
+			xgo.ShortDuration(elapsed),
+			xgo.ShortDuration(remaining),
+			qps,
+			float64(step)/elapsed.Seconds(),
+			avgLatency,
+		)
+	}
+}
+
 // Monitor 运行监控：1s 日志输出，task context 取消后退出
 func (t *Task) Monitor() {
-	start := time.Now()
 	tick := time.NewTicker(logInterval)
 	defer tick.Stop()
 
-	t.printProgress(start)
+	t.printTaskProgress(false)
 
 	for {
 		select {
 		case <-t.ctx.Done():
-			t.printFinalStats(start)
+			t.printTaskProgress(true)
 			return
 		case <-tick.C:
-			t.printProgress(start)
+			t.printTaskProgress(false)
 		}
 	}
-}
-
-func (t *Task) printProgress(start time.Time) {
-	elapsed := time.Since(start)
-	sec := elapsed.Seconds()
-	if sec <= 0 {
-		return
-	}
-
-	// 从Task获取数据
-	process := atomic.LoadInt64(&t.process)
-	step := atomic.LoadInt64(&t.step)
-	target := t.target
-
-	progressPct := xgo.PctCap100(process, target)
-	remaining := time.Duration(0)
-	if progressPct > 0 && progressPct < 100 {
-		remaining = time.Duration(float64(elapsed)/progressPct*100) - elapsed
-	}
-
-	qps := float64(process) / sec
-	totalDur := time.Duration(atomic.LoadInt64(&t.duration))
-	avgLatency := xgo.AvgDuration(totalDur, step)
-
-	log.Infof("[%s]: 进度:%d/%d(%.2f%%), 用时:%s, 剩余:%s, QPS:%.2f, step:%.2f, 延迟:%s",
-		t.id,
-		process,
-		target,
-		progressPct,
-		xgo.ShortDuration(elapsed),
-		xgo.ShortDuration(remaining),
-		qps,
-		float64(step)/sec,
-		avgLatency,
-	)
-}
-
-func (t *Task) printFinalStats(start time.Time) {
-	elapsed := time.Since(start)
-	process := atomic.LoadInt64(&t.process)
-	step := atomic.LoadInt64(&t.step)
-	target := t.target
-
-	qps := 0.0
-	if sec := elapsed.Seconds(); sec > 0 {
-		qps = float64(process) / sec
-	}
-
-	totalDur := time.Duration(atomic.LoadInt64(&t.duration))
-	avgLatency := xgo.AvgDuration(totalDur, step)
-
-	log.Infof("[%s] 任务结束: 进度:%d/%d, 总步数:%d, 耗时:%v, QPS:%.2f, 平均延迟:%s",
-		t.id,
-		process,
-		target,
-		step,
-		elapsed,
-		qps,
-		avgLatency,
-	)
 }
