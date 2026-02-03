@@ -125,13 +125,14 @@ func BuildTaskCompletionMessage(r *v1.TaskCompletionReport) *Message {
 		fmt.Sprintf("**QPS**：%.2f", r.Qps),
 		fmt.Sprintf("**平均延迟**：%s", r.AvgLatency),
 		fmt.Sprintf("**订单数**：%d", r.OrderCount),
-		fmt.Sprintf("**总下注**：%.2f (×1e4)", float64(r.TotalBet)),
-		fmt.Sprintf("**总赢**：%.2f (×1e4)", float64(r.TotalWin)),
+		fmt.Sprintf("**总下注**：%.2f ", float64(r.TotalBet)),
+		fmt.Sprintf("**总赢**：%.2f ", float64(r.TotalWin)),
 		fmt.Sprintf("**RTP**：%.2f%%", r.RtpPct),
 		fmt.Sprintf("**活跃成员**：%d", r.ActiveMembers),
 		fmt.Sprintf("**完成成员**：%d", r.Completed),
 		fmt.Sprintf("**失败成员**：%d", r.Failed),
 		fmt.Sprintf("**失败请求**：%d", r.FailedReqs),
+		fmt.Sprintf("**S3-URL= %q", "https://empty"),
 	}
 	return &Message{Title: "压测任务结束", Content: strings.Join(lines, "\n")}
 }

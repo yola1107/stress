@@ -166,8 +166,8 @@ components:
         stress.v1.BetBonusConfig:
             type: object
             properties:
-                gameId:
-                    type: string
+                enable:
+                    type: boolean
                 bonusNum:
                     type: string
                 randomNums:
@@ -207,8 +207,6 @@ components:
         stress.v1.CreateTaskRequest:
             type: object
             properties:
-                description:
-                    type: string
                 config:
                     $ref: '#/components/schemas/stress.v1.TaskConfig'
             description: '--- 创建任务 ---'
@@ -279,6 +277,8 @@ components:
             properties:
                 taskId:
                     type: string
+                description:
+                    type: string
                 status:
                     type: integer
                     format: enum
@@ -307,17 +307,7 @@ components:
                 betOrder:
                     $ref: '#/components/schemas/stress.v1.BetOrderConfig'
                 betBonus:
-                    type: array
-                    items:
-                        $ref: '#/components/schemas/stress.v1.BetBonusConfig'
-                apiUrl:
-                    type: string
-                launchUrl:
-                    type: string
-                signRequired:
-                    type: boolean
-                merchant:
-                    type: string
+                    $ref: '#/components/schemas/stress.v1.BetBonusConfig'
             description: 任务配置
         stress.v1.TaskInfoResponse:
             type: object

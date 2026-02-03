@@ -17,10 +17,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	jsoniter "github.com/json-iterator/go"
-
 	v1 "stress/api/stress/v1"
 	"stress/internal/biz/game/base"
+	"stress/internal/conf"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 var jsonAPI = jsoniter.ConfigFastest
@@ -83,15 +84,17 @@ type APIClient struct {
 	game                base.IGame
 	protobufChecker     func(gameID int64) bool
 	protoConverterCache atomic.Value
+	launchCfg           *conf.Launch
 }
 
 func NewAPIClient(httpClient *http.Client, secretProvider base.SecretProvider,
-	game base.IGame, protobufChecker func(gameID int64) bool) *APIClient {
+	game base.IGame, protobufChecker func(gameID int64) bool, launchCfg *conf.Launch) *APIClient {
 	return &APIClient{
 		http:            httpClient,
 		secret:          secretProvider,
 		game:            game,
 		protobufChecker: protobufChecker,
+		launchCfg:       launchCfg,
 	}
 }
 
@@ -158,9 +161,9 @@ func (c *APIClient) request(ctx context.Context, method, apiURL string, body any
 			if c.secret == nil {
 				return nil, errors.New("sign_required=true but secret provider is nil")
 			}
-			secret, ok := c.secret(cfg.Merchant)
+			secret, ok := c.secret(c.launchCfg.Merchant)
 			if !ok || secret == "" {
-				return nil, fmt.Errorf("sign_required=true but no secret for merchant=%s", cfg.Merchant)
+				return nil, fmt.Errorf("sign_required=true but no secret for merchant=%s", c.launchCfg.GetMerchant())
 			}
 			req.Header.Set("Sign", signForLaunch(lp, secret))
 		}
@@ -187,15 +190,15 @@ func (c *APIClient) request(ctx context.Context, method, apiURL string, body any
 func (c *APIClient) Launch(ctx context.Context, cfg *v1.TaskConfig, member string) (string, error) {
 	params := launchParams{
 		GameID:    cfg.GameId,
-		Merchant:  cfg.Merchant,
+		Merchant:  c.launchCfg.Merchant,
 		Member:    member,
 		Timestamp: time.Now().Unix(),
 	}
 
-	launchUrl := strings.TrimRight(cfg.LaunchUrl, "/")
+	launchUrl := strings.TrimRight(c.launchCfg.GetLaunchUrl(), "/")
 	apiURL := fmt.Sprintf("%s/v1/game/launch", launchUrl)
 
-	res, err := c.request(ctx, http.MethodPost, apiURL, params, "", cfg.SignRequired, cfg)
+	res, err := c.request(ctx, http.MethodPost, apiURL, params, "", c.launchCfg.GetSignRequired(), cfg)
 	if err != nil {
 		return "", err
 	}
@@ -221,7 +224,7 @@ func (c *APIClient) Launch(ctx context.Context, cfg *v1.TaskConfig, member strin
 }
 
 func (c *APIClient) Login(ctx context.Context, cfg *v1.TaskConfig, token string) (string, map[string]any, error) {
-	apiURL := fmt.Sprintf("%s/api/member/login", strings.TrimRight(cfg.ApiUrl, "/"))
+	apiURL := fmt.Sprintf("%s/api/member/login", strings.TrimRight(c.launchCfg.ApiUrl, "/"))
 	res, err := c.request(ctx, http.MethodPost, apiURL, map[string]any{"token": token}, "", false, nil)
 	if err != nil {
 		return "", nil, err
@@ -255,18 +258,13 @@ func (c *APIClient) getConverter(cfg *v1.TaskConfig) (base.ProtobufConverter, er
 		return nil, fmt.Errorf("no game instance, game=%d", cfg.GameId)
 	}
 
-	if cached := c.protoConverterCache.Load(); cached != nil {
-		if conv, ok := cached.(base.ProtobufConverter); ok {
-			return conv, nil
-		}
-	}
-
 	conv := c.game.GetProtobufConverter()
 	if conv == nil {
 		return nil, fmt.Errorf("no converter for game %d", cfg.GameId)
 	}
 
-	c.protoConverterCache.Store(conv)
+	// 不再缓存protobuf转换器，因为不同游戏可能有不同的转换器
+	// 缓存可能导致内存占用过大，特别是当有很多不同游戏实例时
 	return conv, nil
 }
 
@@ -301,7 +299,7 @@ func (c *APIClient) BetOrder(ctx context.Context, cfg *v1.TaskConfig, token stri
 		params["purchase"] = cfg.BetOrder.Purchase
 	}
 
-	apiURL := fmt.Sprintf("%s/api/game/betorder", strings.TrimRight(cfg.ApiUrl, "/"))
+	apiURL := fmt.Sprintf("%s/api/game/betorder", strings.TrimRight(c.launchCfg.GetApiUrl(), "/"))
 	res, err := c.request(ctx, http.MethodPost, apiURL, params, token, false, nil)
 	if err != nil {
 		return nil, err
@@ -353,7 +351,7 @@ type BetBonusResult struct {
 
 func (c *APIClient) BetBonus(ctx context.Context, cfg *v1.TaskConfig, token string, bonusNum int64) (*BetBonusResult, error) {
 	params := map[string]any{"gameId": cfg.GameId, "bonusNum": bonusNum}
-	apiURL := fmt.Sprintf("%s/api/game/betbonus", strings.TrimRight(cfg.ApiUrl, "/"))
+	apiURL := fmt.Sprintf("%s/api/game/betbonus", strings.TrimRight(c.launchCfg.GetApiUrl(), "/"))
 	res, err := c.request(ctx, http.MethodPost, apiURL, params, token, false, nil)
 	if err != nil {
 		return nil, err
@@ -371,4 +369,15 @@ func (c *APIClient) BetBonus(ctx context.Context, cfg *v1.TaskConfig, token stri
 		}
 	}
 	return result, nil
+}
+
+// Close 释放APIClient占用的资源
+func (c *APIClient) Close() {
+	if c.http != nil {
+		c.http.CloseIdleConnections()
+	}
+	//// 清除protobuf转换器缓存
+	//if c.protobufChecker != nil {
+	//	c.protoConverterCache.Store(nil)
+	//}
 }

@@ -894,6 +894,34 @@ func (m *Launch) validate(all bool) error {
 
 	// no validation rules for MaxLoadTotal
 
+	// no validation rules for MemberPrefix
+
+	// no validation rules for Merchant
+
+	if utf8.RuneCountInString(m.GetApiUrl()) < 1 {
+		err := LaunchValidationError{
+			field:  "ApiUrl",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if utf8.RuneCountInString(m.GetLaunchUrl()) < 1 {
+		err := LaunchValidationError{
+			field:  "LaunchUrl",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	// no validation rules for SignRequired
+
 	if len(errors) > 0 {
 		return LaunchMultiError(errors)
 	}

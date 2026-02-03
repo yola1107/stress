@@ -201,14 +201,11 @@ func (t *Task) Snapshot(now time.Time) *v1.TaskCompletionReport {
 }
 
 // SetStart 标记会话开始执行
-func (t *Task) SetStart(cnt int64, bounds []*v1.BetBonusConfig) {
+func (t *Task) SetStart(cnt int64, b *v1.BetBonusConfig) {
 	t.mu.Lock()
 	t.status = v1.TaskStatus_TASK_RUNNING
-	for _, b := range bounds {
-		if b != nil && b.GameId == t.config.GameId {
-			t.bonusConfig = b
-			break
-		}
+	if b != nil && b.Enable {
+		t.bonusConfig = b
 	}
 	t.mu.Unlock()
 

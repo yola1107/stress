@@ -3,112 +3,145 @@ package data
 import (
 	"context"
 	"fmt"
-	"strings"
+	"math/rand"
+	"strconv"
 	"time"
 
 	"stress/internal/biz"
-	"stress/internal/biz/stats"
+	"stress/internal/biz/stats/statistics"
 
 	"github.com/go-kratos/kratos/v2/log"
 )
 
 const (
-	orderUnit       = 1e4
-	timeLayout      = "2006-01-02 15:04:05"
-	maxSamplePoints = 5000
+	orderUnit  = 1e4
+	timeLayout = "2006-01-02 15:04:05"
 )
 
 var locSH, _ = time.LoadLocation("Asia/Shanghai")
 
-// QueryGameOrderPoints 查询并返回图表点
-func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, filter biz.QueryFilter) ([]stats.Point, error) {
+func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope biz.OrderScope) ([]statistics.Point, error) {
 	if r.data.order == nil {
 		return nil, fmt.Errorf("order database not configured")
 	}
 
-	ex := filter.ExcludeAmount
-	if ex <= 0 {
-		ex = excludeAmt
+	if scope.GameID == 0 || scope.Merchant == "" {
+		return nil, fmt.Errorf("game_id and merchant are required")
 	}
 
-	conds := []string{"game_id = ?", "amount != ?"}
-	args := []any{filter.GameID, ex}
+	log.Debugf("QueryGameOrderPoints: %v", scope)
 
-	if filter.Merchant != "" {
-		conds = append(conds, "merchant = ?")
-		args = append(args, filter.Merchant)
-	}
-	if filter.Member != "" {
-		conds = append(conds, "member = ?")
-		args = append(args, filter.Member)
-	}
-	if filter.StartTime != "" && filter.EndTime != "" {
-		conds = append(conds, "created_at BETWEEN UNIX_TIMESTAMP(?) AND UNIX_TIMESTAMP(?)")
-		args = append(args, filter.StartTime, filter.EndTime)
+	excludeAmount := scope.ExcludeAmt
+	if excludeAmount <= 0 {
+		excludeAmount = 0.01
 	}
 
-	type orderRecord struct {
-		Amount      float64
-		BonusAmount float64
-		CreatedAt   int64
-	}
-	var recs []orderRecord
-	sql := "SELECT amount, bonus_amount, created_at FROM game_order WHERE " + strings.Join(conds, " AND ") + " ORDER BY id"
-	if err := r.data.order.Context(ctx).SQL(sql, args...).Find(&recs); err != nil {
-		return nil, err
+	const batchSize = 500000
+	const sampleMax = 5000
+
+	type record struct {
+		Amount      float64 `xorm:"amount"`
+		BonusAmount float64 `xorm:"bonus_amount"`
+		CreatedAt   int64   `xorm:"created_at"`
+		ID          int64   `xorm:"id"`
 	}
 
-	var pts []stats.Point
-	var bet, win, cumBet, cumWin float64
-	var t string
-	var orders int
+	var (
+		cumBet       float64
+		cumWin       float64
+		orders       int64
+		lastTime     int64
+		lastID       int64
+		totalBatches int
+	)
 
-	flush := func() {
-		if bet > 0 || win > 0 {
-			cumBet += bet
-			cumWin += win
+	// ====== 核心：使用 Reservoir Sampling ======
+	reservoir := make([]statistics.Point, 0, sampleMax)
+
+	// 随机种子
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	start := time.Now()
+
+	for {
+		totalBatches++
+
+		// 改为更稳妥的分页条件
+		query := `
+			SELECT amount, bonus_amount, created_at, id 
+			FROM game_order 
+			WHERE game_id = ? 
+			  AND merchant = ? 
+			  AND amount != ? 
+			  AND (created_at > ? OR (created_at = ? AND id > ?))
+			ORDER BY created_at, id 
+			LIMIT ?`
+
+		args := []any{
+			scope.GameID,
+			scope.Merchant,
+			excludeAmount,
+			lastTime,
+			lastTime,
+			lastID,
+			batchSize,
+		}
+
+		var batch []record
+		if err := r.data.order.SQL(query, args...).Find(&batch); err != nil {
+			log.Errorf("查询第 %d 批订单失败: %v", totalBatches, err)
+			return nil, fmt.Errorf("query failed: %w", err)
+		}
+
+		if len(batch) == 0 {
+			break
+		}
+
+		for _, rec := range batch {
+			orders++
+
+			lastTime = rec.CreatedAt
+			lastID = rec.ID
+
+			cumBet += rec.Amount
+			cumWin += rec.BonusAmount
+
 			rate := 0.0
 			if cumBet > 0 {
 				rate = (cumBet - cumWin) / cumBet
 			}
-			pts = append(pts, stats.Point{
+
+			// 这里先不做时间格式化，只保存时间戳
+			point := statistics.Point{
 				X:    float64(orders) / orderUnit,
 				Y:    rate,
-				Time: t,
-			})
+				Time: fmt.Sprintf("%d", rec.CreatedAt),
+			}
+
+			// ===== 蓄水池采样 =====
+			if len(reservoir) < sampleMax {
+				reservoir = append(reservoir, point)
+			} else {
+				r := rnd.Int63n(orders)
+				if r < sampleMax {
+					reservoir[r] = point
+				}
+			}
 		}
 	}
 
-	for _, rec := range recs {
-		orders++
-		if rec.Amount > 0 {
-			flush()
-			bet, win = rec.Amount, rec.BonusAmount
-			t = time.Unix(rec.CreatedAt, 0).In(locSH).Format(timeLayout)
-		} else {
-			win += rec.BonusAmount
+	log.Infof("流式处理完成: 总订单数=%d, 批次数=%d, 耗时=%v",
+		orders, totalBatches, time.Since(start))
+
+	// ===== 最后只对 5000 条做时间格式化 =====
+	for i := range reservoir {
+		ts, err := strconv.ParseInt(reservoir[i].Time, 10, 64)
+		if err == nil {
+			reservoir[i].Time = time.Unix(ts, 0).
+				In(locSH).
+				Format(timeLayout)
 		}
 	}
-	flush()
 
-	return samplePoints(pts), nil
-}
-
-// samplePoints 等间距采样
-func samplePoints(pts []stats.Point) []stats.Point {
-	n := len(pts)
-	if n <= maxSamplePoints {
-		return pts
-	}
-	step := (n - 1) / (maxSamplePoints - 1)
-	if step < 1 {
-		step = 1
-	}
-	out := make([]stats.Point, 0, maxSamplePoints)
-	for i := 0; i < n && len(out) < maxSamplePoints-1; i += step {
-		out = append(out, pts[i])
-	}
-	out = append(out, pts[n-1])
-	log.Info("采样", "原", n, "后", len(out))
-	return out
+	return reservoir, nil
 }

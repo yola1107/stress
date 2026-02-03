@@ -109,8 +109,7 @@ message ListTasksResponse {
 
 // --- 创建任务 ---
 message CreateTaskRequest {
-    string description = 1;                                                  // 任务描述
-    TaskConfig config  = 2 [(validate.rules).message = { required: true }];  // 任务配置
+  TaskConfig config  = 1 [(validate.rules).message = { required: true }];  // 任务配置
 }
 message CreateTaskResponse {
     int32 code     = 1;
@@ -169,11 +168,7 @@ message TaskConfig {
     int32 member_count                = 2 [(validate.rules).int32 = { gte: 1, lte: 10000 }];  // 用户数量
     int32 times_per_member            = 3 [(validate.rules).int32 = { gte: 1, lte: 10000 }];  // 每个用户执行次数
     BetOrderConfig bet_order          = 4;                                                    // 下注配置
-    repeated BetBonusConfig bet_bonus = 5;                                                    // 奖励配置
-    string api_url                    = 6 [(validate.rules).string = { min_len: 1 }];         // API地址
-    string launch_url                 = 7 [(validate.rules).string = { min_len: 1 }];         // 启动地址
-    bool sign_required                = 8;                                                    // 是否需要签名
-    string merchant                   = 9;                                                    // 商户名称
+    BetBonusConfig bet_bonus          = 5;                                                    // 奖励配置
 }
 
 // 下注配置
@@ -185,15 +180,16 @@ message BetOrderConfig {
 
 // 奖励配置
 message BetBonusConfig {
-    int64 game_id                 = 1 [(validate.rules).int64 = { gt: 0 }];  // 游戏ID
-    int64 bonus_num               = 2;                                       // 指定奖励编号（0表示随机）
-    repeated int64 random_nums    = 3;                                       // 随机范围 [min, max]
-    repeated int64 bonus_sequence = 4;                                       // 奖励序列
+    bool enable =1;
+    int64 bonus_num               = 2;  // 指定奖励编号（0表示随机）
+    repeated int64 random_nums    = 3;  // 随机范围 [min, max]
+    repeated int64 bonus_sequence = 4;  // 奖励序列
 }
 
 // 任务完整信息
 message Task {
-    string task_id = 1;                        // 任务ID
+    string task_id                       = 1;  // 任务ID
+    string description                   = 2;  // 任务描述
     TaskStatus status                    = 3;  // 任务状态
     TaskConfig config                    = 4;  // 任务配置
     string record_url                    = 5;  // 任务结果地址

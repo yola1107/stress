@@ -9,7 +9,7 @@ import (
 	"stress/internal/biz/game"
 	"stress/internal/biz/game/base"
 	"stress/internal/biz/member"
-	"stress/internal/biz/stats"
+	"stress/internal/biz/stats/statistics"
 	"stress/internal/biz/task"
 	"stress/internal/conf"
 	"stress/internal/notify"
@@ -19,11 +19,36 @@ import (
 
 // 业务常量
 const (
-	cleanupTimeout   = 10 * time.Minute
-	memberLoadBatch  = 1000
-	memberBalance    = 10000
-	memberNameOffset = 1000
+	cleanupTimeout = 10 * time.Minute
 )
+
+// DataRepo 数据层接口：成员/订单/清理/任务ID计数
+type DataRepo interface {
+	// 成员管理
+	BatchUpsertMembers(ctx context.Context, members []member.Info) error
+
+	// Redis清理
+	CleanRedisBySites(ctx context.Context, sites []string) error
+
+	// 订单表操作
+	CleanGameOrderTable(ctx context.Context) error
+	DeleteOrdersByScope(ctx context.Context, scope OrderScope) (int64, error)
+
+	// 订单统计查询
+	GetGameOrderCount(ctx context.Context) (int64, error)
+	GetOrderCountByScope(ctx context.Context, scope OrderScope) (int64, error)
+	GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
+	QueryGameOrderPoints(ctx context.Context, scope OrderScope) ([]statistics.Point, error)
+
+	// 任务ID生成
+	NextTaskID(ctx context.Context, gameID int64) (string, error)
+}
+
+// S3Uploader S3上传器接口
+type S3Uploader interface {
+	UploadFile(ctx context.Context, bucket, key, contentType string, body io.Reader) (string, error)
+	UploadBytes(ctx context.Context, bucket, key, contentType string, data []byte) (string, error)
+}
 
 // OrderScope 订单查询范围
 type OrderScope struct {
@@ -32,41 +57,6 @@ type OrderScope struct {
 	StartTime  time.Time
 	EndTime    time.Time
 	ExcludeAmt float64
-}
-
-// QueryFilter 订单查询过滤器
-type QueryFilter struct {
-	GameID        int
-	Merchant      string
-	Member        string
-	StartTime     string
-	EndTime       string
-	ExcludeAmount float64
-}
-
-// DataRepo 数据层接口：成员/订单/清理/任务ID计数
-type DataRepo interface {
-	BatchUpsertMembers(ctx context.Context, members []member.Info) error
-	CleanRedisBySites(ctx context.Context, sites []string) error
-	CleanGameOrderTable(ctx context.Context) error
-	GetGameOrderCount(ctx context.Context) (int64, error)
-	GetOrderCountByScope(ctx context.Context, scope OrderScope) (int64, error)
-	DeleteOrdersByScope(ctx context.Context, scope OrderScope) (int64, error)
-	GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
-	NextTaskID(ctx context.Context, gameID int64) (string, error)
-	QueryGameOrderPoints(ctx context.Context, filter QueryFilter) ([]stats.Point, error)
-}
-
-//// StorageUploader 存储上传器接口
-//type StorageUploader interface {
-//	UploadFile(ctx context.Context, bucket, key, contentType string, body io.Reader) (string, error)
-//	UploadBytes(ctx context.Context, bucket, key, contentType string, data []byte) (string, error)
-//}
-
-// S3Uploader S3上传器接口
-type S3Uploader interface {
-	UploadFile(ctx context.Context, bucket, key, contentType string, body io.Reader) (string, error)
-	UploadBytes(ctx context.Context, bucket, key, contentType string, data []byte) (string, error)
 }
 
 // UseCase 编排层：通过 DataRepo + 领域池（Game/Task/Member）编排业务
@@ -81,8 +71,8 @@ type UseCase struct {
 	taskPool   *task.Pool
 	memberPool *member.Pool
 
-	notify notify.Notifier
-	stats  *stats.Component
+	notify   notify.Notifier
+	chartGen *statistics.Generator
 }
 
 // NewUseCase 创建 UseCase
@@ -98,7 +88,7 @@ func NewUseCase(repo DataRepo, logger log.Logger, c *conf.Launch, notify notify.
 		taskPool:   task.NewTaskPool(),
 		memberPool: member.NewMemberPool(),
 		notify:     notify,
-		stats:      stats.New(), // 先使用基础实例
+		chartGen:   statistics.NewGenerator(""),
 	}
 
 	// 启动时自清理：Redis site:* + 订单表，避免上次压测残留
@@ -155,7 +145,12 @@ func (uc *UseCase) cleanOnStartup() {
 
 // runMemberLoader 按间隔生成成员、落库、加入空闲池
 func (uc *UseCase) runMemberLoader() {
-	ticker := time.NewTicker(5 * time.Second)
+	const (
+		memberLoadBatch  = 1000
+		memberBalance    = 10000
+		memberNameOffset = 1000
+	)
+	ticker := time.NewTicker(time.Duration(uc.c.IntervalSec) * time.Second)
 	defer ticker.Stop()
 
 	var loaded int32
@@ -164,7 +159,7 @@ func (uc *UseCase) runMemberLoader() {
 		case <-uc.ctx.Done():
 			return
 		case <-ticker.C:
-			n := min32(memberLoadBatch, uc.c.MaxLoadTotal-loaded)
+			n := min(memberLoadBatch, uc.c.MaxLoadTotal-loaded)
 			if n <= 0 {
 				continue
 			}
@@ -172,7 +167,7 @@ func (uc *UseCase) runMemberLoader() {
 			for i := int32(0); i < n; i++ {
 				loaded++
 				batch[i] = member.Info{
-					Name:    member.DefaultMemberNamePrefix + strconv.FormatInt(int64(loaded+memberNameOffset), 10),
+					Name:    uc.c.MemberPrefix + strconv.FormatInt(int64(loaded+memberNameOffset), 10),
 					Balance: memberBalance,
 				}
 			}
@@ -188,11 +183,4 @@ func (uc *UseCase) runMemberLoader() {
 		}
 	}
 	uc.log.Info("Member loading completed")
-}
-
-func min32(a, b int32) int32 {
-	if a < b {
-		return a
-	}
-	return b
 }

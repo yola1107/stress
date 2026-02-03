@@ -15,26 +15,23 @@ log:
 data:
   database:
     driver: mysql
-    source: root:123456@tcp(192.168.152.128:3306)/egame?parseTime=True&loc=Local
-#    source: root:Aa12345!@#@tcp(192.168.10.83:3306)/egame?parseTime=True&loc=Local
+    source: root:Aa12345!@#@tcp(192.168.10.83:3306)/egame?parseTime=True&loc=Local
     max_idle_conns: 10
     max_open_conns: 20
   order_database:
     driver: mysql
-    source: root:123456@tcp(192.168.152.128:3306)/egame_order?parseTime=True&loc=Local
-#    source: root:Aa12345!@#@tcp(192.168.10.83:3306)/egame_order?parseTime=True&loc=Local
+    source: root:Aa12345!@#@tcp(192.168.10.83:3306)/egame_order?parseTime=True&loc=Local
     max_idle_conns: 10
     max_open_conns: 20
   redis:
     addr:
-      - 192.168.152.128:6379
-#      - 192.168.10.83:7000
-#      - 192.168.10.83:7001
-#      - 192.168.10.83:7002
-#      - 192.168.10.83:7003
-#      - 192.168.10.83:7004
-#      - 192.168.10.83:7005
-#    password: "A12345!"
+      - 192.168.10.83:7000
+      - 192.168.10.83:7001
+      - 192.168.10.83:7002
+      - 192.168.10.83:7003
+      - 192.168.10.83:7004
+      - 192.168.10.83:7005
+    password: "A12345!"
     read_timeout: 0.5s
     write_timeout: 0.5s
   s3:
@@ -44,16 +41,22 @@ data:
     bucket: "bucket"
     endpoint: ""
 
+notify:
+  enabled: false        # 开关，false 时不发送飞书通知
+  prefix: "[stress]"    # 消息前缀，用于区分来源
+  webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/6223fc9e-58c6-4526-b463-140820b5e7c9"      # 飞书 Webhook 地址
+  signing_secret: "HOyyTFJVwq05KjGwFR5isc"   # 签名密钥，配置后启用加签
+
 launch:
-  sites:
-    - "egame50001"
   auto_loads: true
   interval_sec: 1
   batch_load_size: 1000
   max_load_total: 3000
+  member_prefix: "gopgct"
+  sites: ["egame50001"]
+  merchant: "Jack23"
+  sign_required: false
+  api_url: "http://192.168.10.72:8825"
+  launch_url: "http://192.168.10.72:8825"
 
-notify:
-  enabled: false       # 开关，false 时不发送飞书通知
-  prefix: "[stress]"   # 消息前缀，用于区分来源
-  webhook_url: ""      # 飞书 Webhook 地址
-  signing_secret: ""   # 签名密钥，配置后启用加签（与 feishu-test.sh 一致）
+

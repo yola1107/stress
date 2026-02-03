@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+
 	"stress/internal/conf"
 
 	"github.com/aws/aws-sdk-go-v2/aws"

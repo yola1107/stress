@@ -4,6 +4,7 @@ package kratos.api;
 option go_package = "stress/internal/conf;conf";
 
 import "google/protobuf/duration.proto";
+import "validate/validate.proto";
 
 message Bootstrap {
     Server server = 1;
@@ -76,9 +77,14 @@ message Notify {
 }
 
 message Launch {
-    repeated string sites = 1;  // SITE 标识，用于清理 Redis/测试环境（如 egame50001）
-    bool auto_loads       = 2;
-    int32 interval_sec    = 3;
-    int32 batch_load_size = 4;
-    int32 max_load_total  = 5;
+  bool   auto_loads       = 1;
+  int32  interval_sec     = 2;
+  int32  batch_load_size  = 3;
+  int32  max_load_total   = 4;
+  string member_prefix    = 5;
+  repeated string sites   = 6;  // SITE 标识，用于清理 Redis/测试环境（如 egame50001）
+  string merchant         = 7;  // 商户名称
+  string api_url          = 8 [(validate.rules).string = { min_len: 1 }];  // API地址
+  string launch_url       = 9 [(validate.rules).string = { min_len: 1 }];  // 启动地址
+  bool   sign_required    = 10; // 是否需要签名
 }
