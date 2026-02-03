@@ -3,8 +3,6 @@ package data
 import (
 	"context"
 	"fmt"
-	"math/rand"
-	"strconv"
 	"time"
 
 	"stress/internal/biz"
@@ -20,17 +18,15 @@ const (
 
 var locSH, _ = time.LoadLocation("Asia/Shanghai")
 
-func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope biz.OrderScope) ([]statistics.Point, error) {
+func (r *dataRepo) QueryGameOrderPointsExact(ctx context.Context, scope biz.OrderScope) ([]statistics.Point, error) {
 	if r.data.order == nil {
 		return nil, fmt.Errorf("order database not configured")
 	}
-
 	if scope.GameID == 0 || scope.Merchant == "" {
 		return nil, fmt.Errorf("game_id and merchant are required")
 	}
 
-	log.Debugf("QueryGameOrderPoints: %v", scope)
-
+	start := time.Now()
 	excludeAmount := scope.ExcludeAmt
 	if excludeAmount <= 0 {
 		excludeAmount = 0.01
@@ -46,102 +42,326 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope biz.OrderScop
 		ID          int64   `xorm:"id"`
 	}
 
+	// 获取总订单数
+	totalOrders, err := r.getTotalOrders(scope, excludeAmount)
+	if err != nil {
+		return nil, fmt.Errorf("get total orders failed: %w", err)
+	}
+	if totalOrders == 0 {
+		return []statistics.Point{}, nil
+	}
+
+	step := totalOrders / sampleMax
+	if step < 1 {
+		step = 1
+	}
+
 	var (
-		cumBet       float64
-		cumWin       float64
-		orders       int64
-		lastTime     int64
-		lastID       int64
-		totalBatches int
+		cumBet, cumWin           float64
+		bet, win                 float64
+		orders                   int64
+		lastTime, lastID         int64
+		batchCnt                 int
+		hasPendingData           bool
+		firstPointTime           int64
+		lastPointTime            int64
+		firstCumBet, firstCumWin float64
+		hasFirstPoint            bool
 	)
 
-	// ====== 核心：使用 Reservoir Sampling ======
-	reservoir := make([]statistics.Point, 0, sampleMax)
+	sampledPts := make([]statistics.Point, 0, sampleMax+2)
 
-	// 随机种子
-	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	flush := func(pointTime int64, isLast bool) {
+		if !hasPendingData {
+			return
+		}
 
-	start := time.Now()
+		cumBet += bet
+		cumWin += win
+
+		rate := 0.0
+		if cumBet > 0 {
+			rate = (cumBet - cumWin) / cumBet
+		}
+
+		if orders == 1 || isLast || (orders-1)%step == 0 {
+			sampledPts = append(sampledPts, statistics.Point{
+				X:    float64(orders) / orderUnit,
+				Y:    rate,
+				Time: time.Unix(pointTime, 0).In(locSH).Format(timeLayout),
+			})
+
+			// 保存首点累积值
+			if !hasFirstPoint {
+				firstCumBet = cumBet
+				firstCumWin = cumWin
+				hasFirstPoint = true
+			}
+		}
+
+		bet = 0
+		win = 0
+		hasPendingData = false
+	}
 
 	for {
-		totalBatches++
-
-		// 改为更稳妥的分页条件
+		batchCnt++
 		query := `
-			SELECT amount, bonus_amount, created_at, id 
-			FROM game_order 
-			WHERE game_id = ? 
-			  AND merchant = ? 
-			  AND amount != ? 
+			SELECT amount, bonus_amount, created_at, id
+			FROM game_order
+			WHERE game_id = ?
+			  AND merchant = ?
+			  AND amount != ?
 			  AND (created_at > ? OR (created_at = ? AND id > ?))
-			ORDER BY created_at, id 
+			ORDER BY created_at, id
 			LIMIT ?`
 
 		args := []any{
-			scope.GameID,
-			scope.Merchant,
-			excludeAmount,
-			lastTime,
-			lastTime,
-			lastID,
-			batchSize,
+			scope.GameID, scope.Merchant, excludeAmount,
+			lastTime, lastTime, lastID, batchSize,
 		}
 
 		var batch []record
 		if err := r.data.order.SQL(query, args...).Find(&batch); err != nil {
-			log.Errorf("查询第 %d 批订单失败: %v", totalBatches, err)
 			return nil, fmt.Errorf("query failed: %w", err)
 		}
-
 		if len(batch) == 0 {
 			break
 		}
 
 		for _, rec := range batch {
 			orders++
-
 			lastTime = rec.CreatedAt
 			lastID = rec.ID
 
-			cumBet += rec.Amount
-			cumWin += rec.BonusAmount
+			if rec.Amount > 0 {
+				if hasPendingData {
+					flush(lastPointTime, false)
+				}
 
-			rate := 0.0
-			if cumBet > 0 {
-				rate = (cumBet - cumWin) / cumBet
-			}
+				bet = rec.Amount
+				win = rec.BonusAmount
+				lastPointTime = rec.CreatedAt
+				hasPendingData = true
 
-			// 这里先不做时间格式化，只保存时间戳
-			point := statistics.Point{
-				X:    float64(orders) / orderUnit,
-				Y:    rate,
-				Time: fmt.Sprintf("%d", rec.CreatedAt),
-			}
-
-			// ===== 蓄水池采样 =====
-			if len(reservoir) < sampleMax {
-				reservoir = append(reservoir, point)
+				if firstPointTime == 0 {
+					firstPointTime = rec.CreatedAt
+				}
 			} else {
-				r := rnd.Int63n(orders)
-				if r < sampleMax {
-					reservoir[r] = point
+				win += rec.BonusAmount
+				if !hasPendingData && win > 0 {
+					hasPendingData = true
+					lastPointTime = rec.CreatedAt
+					if firstPointTime == 0 {
+						firstPointTime = rec.CreatedAt
+					}
 				}
 			}
 		}
 	}
 
-	log.Infof("流式处理完成: 总订单数=%d, 批次数=%d, 耗时=%v",
-		orders, totalBatches, time.Since(start))
+	// flush 最后一个点
+	if orders > 0 && hasPendingData {
+		flush(lastPointTime, true)
+	}
 
-	// ===== 最后只对 5000 条做时间格式化 =====
-	for i := range reservoir {
-		ts, err := strconv.ParseInt(reservoir[i].Time, 10, 64)
-		if err == nil {
-			reservoir[i].Time = time.Unix(ts, 0).
-				In(locSH).
-				Format(timeLayout)
+	// 确保首尾点被包含
+	if len(sampledPts) > 0 {
+		ensureFirstAndLast(&sampledPts, totalOrders, firstPointTime, lastPointTime, firstCumBet, firstCumWin, cumBet, cumWin)
+	}
+
+	if len(sampledPts) > sampleMax {
+		sampledPts = uniformTruncate(sampledPts, sampleMax)
+	}
+
+	log.Infof("处理完成: 总订单数=%d, 批次数=%d, 采样点数=%d, 耗时=%v",
+		orders, batchCnt, len(sampledPts), time.Since(start))
+
+	return sampledPts, nil
+}
+
+// 确保首尾点
+func ensureFirstAndLast(points *[]statistics.Point, totalOrders int64, firstTime, lastTime int64, firstCumBet, firstCumWin, lastCumBet, lastCumWin float64) {
+	if len(*points) == 0 || totalOrders <= 0 {
+		return
+	}
+
+	// 首点使用首点累积值
+	firstRate := 0.0
+	if firstCumBet > 0 {
+		firstRate = (firstCumBet - firstCumWin) / firstCumBet
+	}
+
+	firstOrder := int64((*points)[0].X * orderUnit)
+	if firstOrder != 1 {
+		firstPoint := statistics.Point{
+			X:    1.0 / orderUnit,
+			Y:    firstRate,
+			Time: time.Unix(firstTime, 0).In(locSH).Format(timeLayout),
+		}
+		*points = append([]statistics.Point{firstPoint}, *points...)
+	}
+
+	// 尾点使用最后累积值
+	lastRate := 0.0
+	if lastCumBet > 0 {
+		lastRate = (lastCumBet - lastCumWin) / lastCumBet
+	}
+
+	lastOrder := int64((*points)[len(*points)-1].X * orderUnit)
+	if lastOrder != totalOrders {
+		lastPoint := statistics.Point{
+			X:    float64(totalOrders) / orderUnit,
+			Y:    lastRate,
+			Time: time.Unix(lastTime, 0).In(locSH).Format(timeLayout),
+		}
+		*points = append(*points, lastPoint)
+	}
+}
+
+// 均匀截断采样点
+func uniformTruncate(points []statistics.Point, maxPoints int) []statistics.Point {
+	if len(points) <= maxPoints {
+		return points
+	}
+
+	n := len(points)
+	result := make([]statistics.Point, 0, maxPoints)
+
+	// 保留第一个点
+	result = append(result, points[0])
+
+	// 等距采样中间点
+	step := (n - 1) / (maxPoints - 1)
+	if step < 1 {
+		step = 1
+	}
+	for i := step; i < n-step && len(result) < maxPoints-1; i += step {
+		result = append(result, points[i])
+	}
+
+	// 保留最后一个点
+	if len(result) < maxPoints {
+		result = append(result, points[n-1])
+	}
+
+	return result
+}
+
+// 获取总订单数
+func (r *dataRepo) getTotalOrders(scope biz.OrderScope, excludeAmount float64) (int64, error) {
+	query := `
+		SELECT COUNT(*) 
+		FROM game_order 
+		WHERE game_id = ? 
+		  AND merchant = ? 
+		  AND amount != ?`
+
+	var total int64
+	_, err := r.data.order.SQL(query, scope.GameID, scope.Merchant, excludeAmount).Get(&total)
+	return total, err
+}
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+/*// QueryGameOrderPoints 查询并返回图表点
+func (r *dataRepo) QueryGameOrderPoints2(ctx context.Context, filter biz.OrderScope) ([]statistics.Point, error) {
+	if r.data.order == nil {
+		return nil, fmt.Errorf("order database not configured")
+	}
+
+	ex := filter.ExcludeAmt
+	if ex <= 0 {
+		ex = excludeAmt
+	}
+
+	// 构建查询条件
+	where := "game_id = ? AND amount != ?"
+	args := []any{filter.GameID, 0.01}
+
+	if filter.Merchant != "" {
+		where += " AND merchant = ?"
+		args = append(args, filter.Merchant)
+	}
+	//if filter.Member != "" {
+	//	where += " AND member = ?"
+	//	args = append(args, filter.Member)
+	//}
+	if !filter.StartTime.IsZero() && !filter.EndTime.IsZero() {
+		where += " AND created_at BETWEEN UNIX_TIMESTAMP(?) AND UNIX_TIMESTAMP(?)"
+		args = append(args, filter.StartTime, filter.EndTime)
+	}
+
+	// 查询数据
+	type record struct {
+		Amount      float64 `xorm:"amount"`
+		BonusAmount float64 `xorm:"bonus_amount"`
+		CreatedAt   int64   `xorm:"created_at"`
+	}
+	var records []record
+	if err := r.data.order.SQL("SELECT amount, bonus_amount, created_at FROM game_order WHERE "+where+" ORDER BY id", args...).Find(&records); err != nil {
+		return nil, fmt.Errorf("query failed: %w", err)
+	}
+
+	if len(records) == 0 {
+		return nil, nil
+	}
+
+	var pts []statistics.Point
+	var bet, win, cumBet, cumWin float64
+	var t string
+	var orders int
+
+	flush := func() {
+		if bet > 0 || win > 0 {
+			cumBet += bet
+			cumWin += win
+			rate := 0.0
+			if cumBet > 0 {
+				rate = (cumBet - cumWin) / cumBet
+			}
+			pts = append(pts, statistics.Point{
+				X:    float64(orders) / orderUnit,
+				Y:    rate,
+				Time: t,
+			})
 		}
 	}
 
-	return reservoir, nil
+	for _, rec := range records {
+		orders++
+		if rec.Amount > 0 {
+			flush()
+			bet, win = rec.Amount, rec.BonusAmount
+			t = time.Unix(rec.CreatedAt, 0).In(locSH).Format(timeLayout)
+		} else {
+			win += rec.BonusAmount
+		}
+	}
+	flush()
+
+	return sample(pts), nil
 }
+
+
+const sampleMax = 5000
+
+// sample 等间距采样
+func sample(pts []statistics.Point) []statistics.Point {
+	n := len(pts)
+	if n <= sampleMax {
+		return pts
+	}
+	step := (n - 1) / (sampleMax - 1)
+	if step < 1 {
+		step = 1
+	}
+	out := make([]statistics.Point, 0, sampleMax)
+	for i := 0; i < n && len(out) < sampleMax-1; i += step {
+		out = append(out, pts[i])
+	}
+	out = append(out, pts[n-1])
+	fmt.Printf("采样: 原%d后%d", n, len(out))
+	return out
+}
+*/
