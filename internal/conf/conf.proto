@@ -44,15 +44,14 @@ message Data {
         google.protobuf.Duration read_timeout  = 5;
         google.protobuf.Duration write_timeout = 6;
     }
-    
     message S3 {
         string region            = 1;
-        string access_key_id      = 2;
-        string secret_access_key  = 3;
+        string access_key_id     = 2;
+        string secret_access_key = 3;
         string bucket            = 4;
         string endpoint          = 5;
     }
-    
+
     Database database       = 1;
     Database order_database = 2;
     Redis redis             = 3;
@@ -77,14 +76,14 @@ message Notify {
 }
 
 message Launch {
-  bool   auto_loads       = 1;
-  int32  interval_sec     = 2;
-  int32  batch_load_size  = 3;
-  int32  max_load_total   = 4;
-  string member_prefix    = 5;
-  repeated string sites   = 6;  // SITE 标识，用于清理 Redis/测试环境（如 egame50001）
-  string merchant         = 7;  // 商户名称
-  string api_url          = 8 [(validate.rules).string = { min_len: 1 }];  // API地址
-  string launch_url       = 9 [(validate.rules).string = { min_len: 1 }];  // 启动地址
-  bool   sign_required    = 10; // 是否需要签名
+    bool auto_loads       = 1;
+    int32 interval_sec    = 2;
+    int32 batch_load_size = 3;
+    int32 max_load_total  = 4;
+    string member_prefix  = 5;
+    repeated string sites = 6;                                             // SITE 标识，用于清理 Redis/测试环境（如 egame50001）
+    string merchant       = 7;                                             // 商户名称
+    string api_url        = 8 [(validate.rules).string = { min_len: 1 }];  // API地址
+    string launch_url     = 9 [(validate.rules).string = { min_len: 1 }];  // 启动地址
+    bool sign_required    = 10;                                            // 是否需要签名
 }

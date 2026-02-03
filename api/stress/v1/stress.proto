@@ -109,7 +109,7 @@ message ListTasksResponse {
 
 // --- 创建任务 ---
 message CreateTaskRequest {
-  TaskConfig config  = 1 [(validate.rules).message = { required: true }];  // 任务配置
+    TaskConfig config = 1 [(validate.rules).message = { required: true }];  // 任务配置
 }
 message CreateTaskResponse {
     int32 code     = 1;
@@ -164,11 +164,11 @@ message Game {
 
 // 任务配置
 message TaskConfig {
-    int64 game_id                     = 1 [(validate.rules).int64 = { gt: 0 }];               // 游戏ID
-    int32 member_count                = 2 [(validate.rules).int32 = { gte: 1, lte: 10000 }];  // 用户数量
-    int32 times_per_member            = 3 [(validate.rules).int32 = { gte: 1, lte: 10000 }];  // 每个用户执行次数
-    BetOrderConfig bet_order          = 4;                                                    // 下注配置
-    BetBonusConfig bet_bonus          = 5;                                                    // 奖励配置
+    int64 game_id            = 1 [(validate.rules).int64 = { gt: 0 }];               // 游戏ID
+    int32 member_count       = 2 [(validate.rules).int32 = { gte: 1, lte: 10000 }];  // 用户数量
+    int32 times_per_member   = 3 [(validate.rules).int32 = { gte: 1, lte: 10000 }];  // 每个用户执行次数
+    BetOrderConfig bet_order = 4;                                                    // 下注配置
+    BetBonusConfig bet_bonus = 5;                                                    // 奖励配置
 }
 
 // 下注配置
@@ -180,7 +180,7 @@ message BetOrderConfig {
 
 // 奖励配置
 message BetBonusConfig {
-    bool enable =1;
+    bool enable                   = 1;
     int64 bonus_num               = 2;  // 指定奖励编号（0表示随机）
     repeated int64 random_nums    = 3;  // 随机范围 [min, max]
     repeated int64 bonus_sequence = 4;  // 奖励序列
@@ -216,4 +216,5 @@ message TaskCompletionReport {
     int64 failed         = 15;  // 失败成员数
     int64 failed_reqs    = 16;  // 失败请求数
     double progress_pct  = 17;  // 进度 % (process/target*100, 上限 100)
+    string png_url       = 18;
 }
