@@ -45,11 +45,14 @@ message Data {
         google.protobuf.Duration write_timeout = 6;
     }
     message S3 {
-        string region            = 1;
-        string access_key_id     = 2;
-        string secret_access_key = 3;
-        string bucket            = 4;
-        string endpoint          = 5;
+        bool enabled             = 1;  // S3总开关
+        bool upload_html         = 2;  // HTML文件上传开关
+        bool upload_png          = 3;  // PNG文件上传开关
+        string region            = 4;
+        string access_key_id     = 5;
+        string secret_access_key = 6;
+        string bucket            = 7;
+        string endpoint          = 8;
     }
 
     Database database       = 1;

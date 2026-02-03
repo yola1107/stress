@@ -1555,6 +1555,12 @@ func (m *Data_S3) validate(all bool) error {
 
 	var errors []error
 
+	// no validation rules for Enabled
+
+	// no validation rules for UploadHtml
+
+	// no validation rules for UploadPng
+
 	// no validation rules for Region
 
 	// no validation rules for AccessKeyId

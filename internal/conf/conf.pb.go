@@ -762,11 +762,14 @@ func (x *Data_Redis) GetWriteTimeout() *durationpb.Duration {
 
 type Data_S3 struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
-	Region          string                 `protobuf:"bytes,1,opt,name=region,proto3" json:"region,omitempty"`
-	AccessKeyId     string                 `protobuf:"bytes,2,opt,name=access_key_id,json=accessKeyId,proto3" json:"access_key_id,omitempty"`
-	SecretAccessKey string                 `protobuf:"bytes,3,opt,name=secret_access_key,json=secretAccessKey,proto3" json:"secret_access_key,omitempty"`
-	Bucket          string                 `protobuf:"bytes,4,opt,name=bucket,proto3" json:"bucket,omitempty"`
-	Endpoint        string                 `protobuf:"bytes,5,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
+	Enabled         bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`                         // S3总开关
+	UploadHtml      bool                   `protobuf:"varint,2,opt,name=upload_html,json=uploadHtml,proto3" json:"upload_html,omitempty"` // HTML文件上传开关
+	UploadPng       bool                   `protobuf:"varint,3,opt,name=upload_png,json=uploadPng,proto3" json:"upload_png,omitempty"`    // PNG文件上传开关
+	Region          string                 `protobuf:"bytes,4,opt,name=region,proto3" json:"region,omitempty"`
+	AccessKeyId     string                 `protobuf:"bytes,5,opt,name=access_key_id,json=accessKeyId,proto3" json:"access_key_id,omitempty"`
+	SecretAccessKey string                 `protobuf:"bytes,6,opt,name=secret_access_key,json=secretAccessKey,proto3" json:"secret_access_key,omitempty"`
+	Bucket          string                 `protobuf:"bytes,7,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	Endpoint        string                 `protobuf:"bytes,8,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -799,6 +802,27 @@ func (x *Data_S3) ProtoReflect() protoreflect.Message {
 // Deprecated: Use Data_S3.ProtoReflect.Descriptor instead.
 func (*Data_S3) Descriptor() ([]byte, []int) {
 	return file_conf_conf_proto_rawDescGZIP(), []int{2, 2}
+}
+
+func (x *Data_S3) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *Data_S3) GetUploadHtml() bool {
+	if x != nil {
+		return x.UploadHtml
+	}
+	return false
+}
+
+func (x *Data_S3) GetUploadPng() bool {
+	if x != nil {
+		return x.UploadPng
+	}
+	return false
 }
 
 func (x *Data_S3) GetRegion() string {
@@ -858,7 +882,7 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\x04GRPC\x12\x18\n" +
 	"\anetwork\x18\x01 \x01(\tR\anetwork\x12\x12\n" +
 	"\x04addr\x18\x02 \x01(\tR\x04addr\x123\n" +
-	"\atimeout\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\atimeout\"\xe0\x05\n" +
+	"\atimeout\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\atimeout\"\xba\x06\n" +
 	"\x04Data\x125\n" +
 	"\bdatabase\x18\x01 \x01(\v2\x19.kratos.api.Data.DatabaseR\bdatabase\x12@\n" +
 	"\x0eorder_database\x18\x02 \x01(\v2\x19.kratos.api.Data.DatabaseR\rorderDatabase\x12,\n" +
@@ -875,13 +899,18 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\bpassword\x18\x03 \x01(\tR\bpassword\x12\x0e\n" +
 	"\x02db\x18\x04 \x01(\x05R\x02db\x12<\n" +
 	"\fread_timeout\x18\x05 \x01(\v2\x19.google.protobuf.DurationR\vreadTimeout\x12>\n" +
-	"\rwrite_timeout\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\fwriteTimeout\x1a\xa0\x01\n" +
-	"\x02S3\x12\x16\n" +
-	"\x06region\x18\x01 \x01(\tR\x06region\x12\"\n" +
-	"\raccess_key_id\x18\x02 \x01(\tR\vaccessKeyId\x12*\n" +
-	"\x11secret_access_key\x18\x03 \x01(\tR\x0fsecretAccessKey\x12\x16\n" +
-	"\x06bucket\x18\x04 \x01(\tR\x06bucket\x12\x1a\n" +
-	"\bendpoint\x18\x05 \x01(\tR\bendpoint\"\x7f\n" +
+	"\rwrite_timeout\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\fwriteTimeout\x1a\xfa\x01\n" +
+	"\x02S3\x12\x18\n" +
+	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x1f\n" +
+	"\vupload_html\x18\x02 \x01(\bR\n" +
+	"uploadHtml\x12\x1d\n" +
+	"\n" +
+	"upload_png\x18\x03 \x01(\bR\tuploadPng\x12\x16\n" +
+	"\x06region\x18\x04 \x01(\tR\x06region\x12\"\n" +
+	"\raccess_key_id\x18\x05 \x01(\tR\vaccessKeyId\x12*\n" +
+	"\x11secret_access_key\x18\x06 \x01(\tR\x0fsecretAccessKey\x12\x16\n" +
+	"\x06bucket\x18\a \x01(\tR\x06bucket\x12\x1a\n" +
+	"\bendpoint\x18\b \x01(\tR\bendpoint\"\x7f\n" +
 	"\x03Log\x12\x12\n" +
 	"\x04mode\x18\x01 \x01(\x05R\x04mode\x12\x14\n" +
 	"\x05level\x18\x02 \x01(\tR\x05level\x12\x10\n" +
