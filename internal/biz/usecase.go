@@ -144,8 +144,6 @@ func (uc *UseCase) cleanOnStartup() {
 	}
 	if err := uc.repo.CleanGameOrderTable(ctx); err != nil {
 		uc.log.Warnf("startup clean order table: %v", err)
-	} else {
-		uc.log.Info("startup clean order table done")
 	}
 }
 
@@ -156,6 +154,7 @@ func (uc *UseCase) runMemberLoader() {
 		memberBalance    = 10000
 		memberNameOffset = 1000
 	)
+
 	ticker := time.NewTicker(time.Duration(uc.conf.Member.IntervalSec) * time.Second)
 	defer ticker.Stop()
 

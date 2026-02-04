@@ -2,9 +2,6 @@ package member
 
 import "sync"
 
-//// DefaultMemberNamePrefix 默认成员名前缀（填充空闲池时生成名称用）
-//const DefaultMemberNamePrefix = "gopgct"
-
 // Info MemberInfo 玩家信息
 type Info struct {
 	ID      int64

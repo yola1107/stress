@@ -1,12 +1,13 @@
 package statistics
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 const (
@@ -65,9 +66,9 @@ func (g *Generator) Generate(pts []Point, taskId, gameName, merchant string, sav
 		}
 	}
 
-	xJ, _ := json.Marshal(x)
-	yJ, _ := json.Marshal(y)
-	tJ, _ := json.Marshal(t)
+	xJ, _ := jsoniter.Marshal(x)
+	yJ, _ := jsoniter.Marshal(y)
+	tJ, _ := jsoniter.Marshal(t)
 
 	html := fmt.Sprintf(chartTpl, gameName, merchant, gameName, "普通", string(xJ), string(yJ), string(tJ), xMax, yMin, yMax, merchant, gameName, "普通")
 
