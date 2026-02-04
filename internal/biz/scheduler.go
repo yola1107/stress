@@ -59,13 +59,18 @@ func (uc *UseCase) Schedule() {
 
 // ExecuteTask 执行压测任务
 func (uc *UseCase) ExecuteTask(t *task.Task, members []member.Info) {
-	if t.GetStatus() != v1.TaskStatus_TASK_PENDING {
+	if !t.CompareAndSetStatus(v1.TaskStatus_TASK_PENDING, v1.TaskStatus_TASK_RUNNING) {
+		uc.log.Warnf("[%s] task status changed, skip execution", t.GetID())
 		return
 	}
 
 	config := t.GetConfig()
 	capacity := len(members)
-	t.SetStart(int64(capacity), config.BetBonus)
+	if config.BetBonus != nil && config.BetBonus.Enable {
+		t.SetBonusConfig(config.BetBonus)
+	}
+	t.AddActive(int64(capacity))
+	go t.Monitor()
 
 	// 初始化客户端
 	g, _ := uc.GetGame(config.GameId)

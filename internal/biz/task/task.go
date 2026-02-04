@@ -81,62 +81,80 @@ func (t *Task) GetGame() base.IGame {
 }
 
 func (t *Task) GetBonusConfig() *v1.BetBonusConfig {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
 	return t.bonusConfig
+}
+
+// SetBonusConfig 设置 BonusConfig
+func (t *Task) SetBonusConfig(b *v1.BetBonusConfig) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.bonusConfig = b
+}
+
+// AddActive 增加活跃成员数
+func (t *Task) AddActive(delta int64) {
+	atomic.AddInt64(&t.active, delta)
 }
 
 func (t *Task) GetStatus() v1.TaskStatus {
 	t.mu.RLock()
-	s := t.status
-	t.mu.RUnlock()
-	return s
+	defer t.mu.RUnlock()
+	return t.status
 }
 
 func (t *Task) SetStatus(s v1.TaskStatus) {
 	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.status = s
-	t.mu.Unlock()
+}
+
+// CompareAndSetStatus 原子地比较并设置状态（CAS操作）
+func (t *Task) CompareAndSetStatus(old, new v1.TaskStatus) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.status == old {
+		t.status = new
+		return true
+	}
+	return false
 }
 
 func (t *Task) GetCreatedAt() time.Time {
-	t.mu.RLock()
-	createdAt := t.createdAt
-	t.mu.RUnlock()
-	return createdAt
+	return t.createdAt // 创建后不变，无需加锁
 }
 
 func (t *Task) SetFinishAt() {
 	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.finishedAt = time.Now()
-	t.mu.Unlock()
 }
 
 func (t *Task) GetFinishedAt() time.Time {
 	t.mu.RLock()
-	finishedAt := t.finishedAt
-	t.mu.RUnlock()
-	return finishedAt
+	defer t.mu.RUnlock()
+	return t.finishedAt
 }
 
 func (t *Task) SetRecordUrl(url string) {
 	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.recordUrl = url
-	t.mu.Unlock()
 }
 
 func (t *Task) GetRecordUrl() string {
 	t.mu.RLock()
-	url := t.recordUrl
-	t.mu.RUnlock()
-	return url
+	defer t.mu.RUnlock()
+	return t.recordUrl
 }
 
 func (t *Task) Cancel() error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	if t.status == v1.TaskStatus_TASK_COMPLETED ||
-		t.status == v1.TaskStatus_TASK_FAILED ||
-		t.status == v1.TaskStatus_TASK_CANCELLED {
+	// 只允许从 PENDING 或 RUNNING 状态取消
+	if t.status != v1.TaskStatus_TASK_PENDING && t.status != v1.TaskStatus_TASK_RUNNING {
 		return errors.BadRequest("TASK_ALREADY_FINISHED", "task already finished or cancelled")
 	}
 
@@ -248,19 +266,6 @@ func (t *Task) Snapshot(now time.Time) *v1.TaskCompletionReport {
 		// OrderCount, TotalBet, TotalWin, RtpPct 由 上游 包补充
 		// 时间信息存储在其他地方或通过其他方式获取
 	}
-}
-
-// SetStart 标记会话开始执行
-func (t *Task) SetStart(cnt int64, b *v1.BetBonusConfig) {
-	t.mu.Lock()
-	t.status = v1.TaskStatus_TASK_RUNNING
-	if b != nil && b.Enable {
-		t.bonusConfig = b
-	}
-	t.mu.Unlock()
-
-	atomic.AddInt64(&t.active, cnt)
-	go t.Monitor()
 }
 
 // MarkSessionDone 标记会话执行完成
