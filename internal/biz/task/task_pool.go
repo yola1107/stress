@@ -3,6 +3,9 @@ package task
 import (
 	"sort"
 	"sync"
+	"time"
+
+	v1 "stress/api/stress/v1"
 )
 
 // Pool 任务池
@@ -105,4 +108,40 @@ func (p *Pool) DropPendingHead() {
 		p.pending = p.pending[1:]
 	}
 	p.mu.Unlock()
+}
+
+// CleanupExpiredTasks 清理指定时间之前完成的任务
+// retention: 保留时长，例如 24*time.Hour 表示保留 24 小时内完成的任务
+// 返回清理的任务数量
+func (p *Pool) CleanupExpiredTasks(retention time.Duration) int {
+	now := time.Now()
+	cutoff := now.Add(-retention)
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	var deleted int
+	for id, t := range p.tasks {
+		// 只清理已完成/失败/取消的任务
+		status := t.GetStatus()
+		if status != v1.TaskStatus_TASK_COMPLETED &&
+			status != v1.TaskStatus_TASK_FAILED &&
+			status != v1.TaskStatus_TASK_CANCELLED {
+			continue
+		}
+
+		// 检查完成时间
+		finishedAt := t.GetFinishedAt()
+		if finishedAt.IsZero() {
+			continue // 没有完成时间，跳过
+		}
+
+		// 如果完成时间早于截止时间，删除
+		if finishedAt.Before(cutoff) {
+			delete(p.tasks, id)
+			deleted++
+		}
+	}
+
+	return deleted
 }

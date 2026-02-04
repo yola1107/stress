@@ -18,7 +18,9 @@ import (
 
 // 业务常量
 const (
-	cleanupTimeout = 10 * time.Minute
+	cleanupTimeout      = 10 * time.Minute
+	taskRetentionPeriod = 24 * time.Hour // 任务保留时长
+	taskCleanupInterval = 1 * time.Hour  // 清理任务执行间隔
 )
 
 // DataRepo 数据层接口：成员/订单/清理/任务ID计数
@@ -94,6 +96,9 @@ func NewUseCase(repo DataRepo, logger log.Logger, c *conf.Stress, notify notify.
 	if c.Member.AutoLoads {
 		go uc.runMemberLoader()
 	}
+
+	// 启动任务自动清理
+	go uc.runTaskCleaner()
 
 	cleanup := func() { uc.cancel() }
 	return uc, cleanup, nil
@@ -184,4 +189,25 @@ func (uc *UseCase) runMemberLoader() {
 		}
 	}
 	uc.log.Info("Member loading completed")
+}
+
+// runTaskCleaner 定时清理过期任务
+func (uc *UseCase) runTaskCleaner() {
+	ticker := time.NewTicker(taskCleanupInterval)
+	defer ticker.Stop()
+
+	uc.log.Infof("Task cleaner started, retention=%v, interval=%v", taskRetentionPeriod, taskCleanupInterval)
+
+	for {
+		select {
+		case <-uc.ctx.Done():
+			uc.log.Info("Task cleaner stopped")
+			return
+		case <-ticker.C:
+			deleted := uc.taskPool.CleanupExpiredTasks(taskRetentionPeriod)
+			if deleted > 0 {
+				uc.log.Infof("Task cleanup: deleted %d expired tasks (older than %v)", deleted, taskRetentionPeriod)
+			}
+		}
+	}
 }
