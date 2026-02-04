@@ -376,8 +376,4 @@ func (c *APIClient) Close() {
 	if c.http != nil {
 		c.http.CloseIdleConnections()
 	}
-	//// 清除protobuf转换器缓存
-	//if c.protobufChecker != nil {
-	//	c.protoConverterCache.Store(nil)
-	//}
 }

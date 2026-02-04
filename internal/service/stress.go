@@ -18,8 +18,6 @@ const (
 	errCodeCreateTask = 1
 	errCodeGetTask    = 2
 	errCodeCancelTask = 3
-
-	recordPathFmt = "/api/stress/tasks/%s/record"
 )
 
 // StressService is a stress test service.
@@ -61,15 +59,11 @@ func (s *StressService) ListTasks(ctx context.Context, in *v1.ListTasksRequest) 
 	all := s.uc.ListTasks()
 	tasks := make([]*v1.Task, 0, len(all))
 
-	status := v1.TaskStatus_TASK_UNSPECIFIED
-	if in != nil {
-		status = in.Status
-	}
 	for _, t := range all {
-		if status != v1.TaskStatus_TASK_UNSPECIFIED && t.GetStatus() != status {
+		if in.Status != v1.TaskStatus_TASK_UNSPECIFIED && t.GetStatus() != in.Status {
 			continue
 		}
-		tasks = append(tasks, s.buildTask(t))
+		tasks = append(tasks, s.toProtoTask(t))
 	}
 	return &v1.ListTasksResponse{Tasks: tasks, Total: int32(len(tasks))}, nil
 }
@@ -89,7 +83,7 @@ func (s *StressService) CreateTask(ctx context.Context, in *v1.CreateTaskRequest
 		s.log.Errorf("CreateTask failed: %v", err)
 		return &v1.CreateTaskResponse{Code: errCodeCreateTask, Message: err.Error()}, nil
 	}
-	return &v1.CreateTaskResponse{Code: 0, Message: "success", Task: s.buildTask(t)}, nil
+	return &v1.CreateTaskResponse{Code: 0, Message: "success", Task: s.toProtoTask(t)}, nil
 }
 
 // TaskInfo 获取任务详情
@@ -98,7 +92,7 @@ func (s *StressService) TaskInfo(ctx context.Context, in *v1.TaskInfoRequest) (*
 	if err != nil {
 		return &v1.TaskInfoResponse{Code: errCodeGetTask, Message: err.Error()}, nil
 	}
-	return &v1.TaskInfoResponse{Code: 0, Message: "success", Task: s.buildTask(t)}, nil
+	return &v1.TaskInfoResponse{Code: 0, Message: "success", Task: s.toProtoTask(t)}, nil
 }
 
 // CancelTask 取消任务
@@ -134,8 +128,7 @@ func (s *StressService) GetRecord(ctx context.Context, in *v1.RecordRequest) (*v
 		return &v1.RecordResponse{Code: errCodeGetTask, Message: err.Error()}, nil
 	}
 	return &v1.RecordResponse{
-		Code: 0, Message: "success",
-		Url: fmt.Sprintf(recordPathFmt, t.GetID()),
+		Url: t.GetRecordUrl(),
 	}, nil
 }
 
@@ -149,22 +142,14 @@ func (s *StressService) getTask(taskID string) (*task.Task, error) {
 	return nil, fmt.Errorf("task not found")
 }
 
-func (s *StressService) buildTask(t *task.Task) *v1.Task {
-	taskID := t.GetID()
-	now := timestamppb.Now()
-
-	// 优先使用 S3 URL，否则使用本地路径
-	recordUrl := t.GetRecordUrl()
-	if recordUrl == "" {
-		recordUrl = fmt.Sprintf(recordPathFmt, taskID)
-	}
-
+// toProtoTask 将业务层 Task 转换为 protobuf Task
+func (s *StressService) toProtoTask(t *task.Task) *v1.Task {
 	return &v1.Task{
-		TaskId:    taskID,
+		TaskId:    t.GetID(),
 		Status:    t.GetStatus(),
 		Config:    t.GetConfig(),
-		RecordUrl: recordUrl,
+		RecordUrl: t.GetRecordUrl(),
 		CreatedAt: timestamppb.New(t.GetCreatedAt()),
-		UpdatedAt: now,
+		UpdatedAt: timestamppb.Now(),
 	}
 }

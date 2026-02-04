@@ -162,8 +162,6 @@ func (s *Session) executeStep(ctx context.Context, client *APIClient, task *task
 			atomic.StoreInt32(&s.TryTimes, 0)
 		}
 		return err
-	case SessionStateCompleted, SessionStateFailed:
-		return nil
 	default:
 		return fmt.Errorf("unknown state: %v", s.State)
 	}
