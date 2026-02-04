@@ -3,7 +3,6 @@ package statistics
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +14,8 @@ const (
 	OutputDir = "./rtp_charts"
 )
 
+var chromeCache string
+
 // Point 图表数据点
 type Point struct {
 	X    float64 // 订单数（万）
@@ -22,10 +23,10 @@ type Point struct {
 	Time string  // 时间
 }
 
-// Result 生成结果
-type Result struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
+// GenerateResult 生成结果
+type GenerateResult struct {
+	HTMLContent string // HTML 内容
+	FilePath    string // 文件路径（saveLocal=false 时为空）
 }
 
 // Generator 图表生成器
@@ -34,6 +35,7 @@ type Generator struct {
 }
 
 // NewGenerator 创建图表生成器
+// dir: 输出目录，为空时使用默认值
 func NewGenerator(dir string) *Generator {
 	if dir == "" {
 		dir = OutputDir
@@ -42,13 +44,10 @@ func NewGenerator(dir string) *Generator {
 }
 
 // Generate 生成图表
-func (g *Generator) Generate(pts []Point, taskId, gameName, merchant string) (string, error) {
+// saveLocal: 是否保存本地文件（HTML/PNG）
+func (g *Generator) Generate(pts []Point, taskId, gameName, merchant string, saveLocal bool) (*GenerateResult, error) {
 	if len(pts) == 0 {
-		return "", fmt.Errorf("no data")
-	}
-
-	if err := os.MkdirAll(g.outputDir, 0755); err != nil {
-		return "", err
+		return nil, fmt.Errorf("no data")
 	}
 
 	x, y, t := make([]float64, len(pts)), make([]float64, len(pts)), make([]string, len(pts))
@@ -70,60 +69,29 @@ func (g *Generator) Generate(pts []Point, taskId, gameName, merchant string) (st
 	yJ, _ := json.Marshal(y)
 	tJ, _ := json.Marshal(t)
 
-	path := filepath.Join(g.outputDir, fmt.Sprintf("%s.html", taskId))
 	html := fmt.Sprintf(chartTpl, gameName, merchant, gameName, "普通", string(xJ), string(yJ), string(tJ), xMax, yMin, yMax, merchant, gameName, "普通")
+
+	result := &GenerateResult{
+		HTMLContent: html,
+	}
+
+	if !saveLocal {
+		return result, nil
+	}
+
+	// 保存本地文件
+	if err := os.MkdirAll(g.outputDir, 0755); err != nil {
+		return nil, err
+	}
+
+	path := filepath.Join(g.outputDir, fmt.Sprintf("%s.html", taskId))
 	if err := os.WriteFile(path, []byte(html), 0644); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	renderPNG(path)
-	return path, nil
-}
-
-// GenerateBatch 批量生成图表
-func (g *Generator) GenerateBatch(gameData map[string][]Point, merchant string) *Result {
-	if len(gameData) == 0 {
-		return &Result{Message: "无数据"}
-	}
-
-	var ok, fail []string
-	for gameName, pts := range gameData {
-		if len(pts) == 0 {
-			fail = append(fail, gameName+" 无数据")
-			continue
-		}
-		path, err := g.Generate(pts, gameName, gameName, merchant)
-		if err != nil {
-			fail = append(fail, gameName+" 生成失败")
-			continue
-		}
-
-		ext := "HTML"
-		if _, e := os.Stat(toPng(path)); e == nil {
-			ext = "HTML+PNG"
-		}
-		ok = append(ok, fmt.Sprintf("%s(%s)", gameName, ext))
-		slog.Info("完成", "game", gameName)
-	}
-
-	return buildResult(ok, fail)
-}
-
-func buildResult(ok, fail []string) *Result {
-	var msg string
-	if len(ok) > 0 {
-		msg = "成功: " + strings.Join(ok, ", ")
-	}
-	if len(fail) > 0 {
-		if msg != "" {
-			msg += "; "
-		}
-		msg += "失败: " + strings.Join(fail, ", ")
-	}
-	if msg == "" {
-		msg = "无游戏处理"
-	}
-	return &Result{Success: len(ok) > 0, Message: msg}
+	result.FilePath = path
+	return result, nil
 }
 
 func toPng(html string) string {
@@ -149,8 +117,6 @@ func renderPNG(htmlPath string) {
 		_ = exec.Command(chrome, args...).Run()
 	}
 }
-
-var chromeCache string
 
 func findChrome() string {
 	if chromeCache != "" {

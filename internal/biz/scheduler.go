@@ -2,6 +2,7 @@ package biz
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -268,15 +269,8 @@ func (uc *UseCase) fillOrderStats(ctx context.Context, report *v1.TaskCompletion
 }
 
 func (uc *UseCase) sendS3Bucket(ctx context.Context, taskId, gameName string, scope OrderScope) {
-	// 检查图表配置
+	// 检查图表配置是否启用
 	if uc.conf.Chart == nil || !uc.conf.Chart.Enabled {
-		uc.log.Debug("Chart generation disabled, skipping")
-		return
-	}
-
-	// 检查是否需要生成本地文件
-	if !uc.conf.Chart.GenerateLocal {
-		uc.log.Debug("Local file generation disabled, skipping chart generation")
 		return
 	}
 
@@ -286,46 +280,28 @@ func (uc *UseCase) sendS3Bucket(ctx context.Context, taskId, gameName string, sc
 		return
 	}
 
-	// 生成图表文件
-	htmlPath, err := uc.chartGen.Generate(pts, taskId, gameName, scope.Merchant)
+	// 生成图表（一次生成，同时获取 HTML 内容和文件路径）
+	result, err := uc.chartGen.Generate(pts, taskId, gameName, scope.Merchant, uc.conf.Chart.GenerateLocal)
 	if err != nil {
 		uc.log.Errorf("failed to generate chart: %v", err)
 		return
 	}
 
-	// 检查是否需要上传到S3
-	if !uc.conf.Chart.UploadToS3 {
-		uc.log.Infof("Chart generated locally at: %s, S3 upload disabled", htmlPath)
-		return
+	// 记录本地保存结果
+	if uc.conf.Chart.GenerateLocal && result.FilePath != "" {
+		uc.log.Infof("Chart saved locally at: %s", result.FilePath)
 	}
 
-	//// 读取HTML文件内容
-	//htmlContent, err := os.ReadFile(htmlPath)
-	//if err != nil {
-	//	uc.log.Errorf("failed to read HTML file: %v", err)
-	//	return
-	//}
-	//
-	//// 上传HTML文件到S3
-	//htmlKey := fmt.Sprintf("charts/%s/%s.html", scope.Merchant, taskId)
-	//htmlUrl, err := uc.s3.UploadBytes(ctx, "", htmlKey, "text/html; charset=utf-8", htmlContent)
-	//if err != nil {
-	//	uc.log.Errorf("failed to upload HTML to S3: %v", err)
-	//} else {
-	//	uc.log.Infof("HTML uploaded to S3: %s", htmlUrl)
-	//}
-	//
-	//// 如果存在PNG文件也上传
-	//pngPath := strings.TrimSuffix(htmlPath, ".html") + ".png"
-	//if pngContent, err := os.ReadFile(pngPath); err == nil {
-	//	pngKey := fmt.Sprintf("charts/%s/%s.png", scope.Merchant, taskId)
-	//	pngUrl, err := uc.s3.UploadBytes(ctx, "", pngKey, "image/png", pngContent)
-	//	if err != nil {
-	//		uc.log.Errorf("failed to upload PNG to S3: %v", err)
-	//	} else {
-	//		uc.log.Infof("PNG uploaded to S3: %s", pngUrl)
-	//	}
-	//}
+	// 上传到 S3
+	if uc.conf.Chart.UploadToS3 && result.HTMLContent != "" {
+		htmlKey := fmt.Sprintf("charts/%s/%s.html", scope.Merchant, taskId)
+		htmlUrl, err := uc.repo.UploadBytes(ctx, "", htmlKey, "text/html; charset=utf-8", []byte(result.HTMLContent))
+		if err != nil {
+			uc.log.Errorf("failed to upload HTML to S3: %v", err)
+		} else {
+			uc.log.Infof("Chart uploaded to S3: %s", htmlUrl)
+		}
+	}
 }
 
 // sendNotification 发送飞书通知

@@ -75,14 +75,12 @@ message Stress {
         string webhook_url    = 3;  // 飞书 Webhook 地址
         string signing_secret = 4;  // 签名密钥，配置后启用加签
     }
-
     // 图表生成与S3上传配置
     message Chart {
         bool enabled        = 1;  // 总开关
         bool generate_local = 2;  // 是否生成本地文件（HTML/PNG）
         bool upload_to_s3   = 3;  // 是否上传到S3
     }
-
     // 成员数据加载配置
     message Member {
         bool auto_loads       = 1;
@@ -91,14 +89,13 @@ message Stress {
         int32 max_load_total  = 4;
         string member_prefix  = 5;
     }
-
     // 启动配置（API和认证配置）
     message Launch {
-        string merchant       = 1;
-        string api_url        = 2 [(validate.rules).string = { min_len: 1 }];
-        string launch_url     = 3 [(validate.rules).string = { min_len: 1 }];
-        bool sign_required    = 4;
-        repeated string sites = 5;  // SITE标识，用于Redis清理
+        repeated string sites = 1;  // SITE标识，用于Redis清理
+        string merchant       = 2;//
+        string api_url        = 3;  // API地址
+        string launch_url     = 4;  // 启动地址
+        bool sign_required    = 5;
     }
 
     Notify notify = 1;

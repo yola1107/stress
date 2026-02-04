@@ -2,7 +2,6 @@ package biz
 
 import (
 	"context"
-	"io"
 	"strconv"
 	"time"
 
@@ -43,18 +42,9 @@ type DataRepo interface {
 	// 任务ID生成
 	NextTaskID(ctx context.Context, gameID int64) (string, error)
 
-	// s3
-	UploadFile(ctx context.Context, bucket, key, contentType string, body io.Reader) (string, error)
+	// S3 上传
 	UploadBytes(ctx context.Context, bucket, key, contentType string, data []byte) (string, error)
-	//// s3上传
-	//S3Uploader
 }
-
-//// S3Uploader S3上传器接口
-//type S3Uploader interface {
-//	UploadFile(ctx context.Context, bucket, key, contentType string, body io.Reader) (string, error)
-//	UploadBytes(ctx context.Context, bucket, key, contentType string, data []byte) (string, error)
-//}
 
 // OrderScope 订单查询范围
 type OrderScope struct {
@@ -79,7 +69,6 @@ type UseCase struct {
 
 	notify   notify.Notifier
 	chartGen *statistics.Generator
-	//s3       S3Uploader
 }
 
 // NewUseCase 创建 UseCase
@@ -96,7 +85,6 @@ func NewUseCase(repo DataRepo, logger log.Logger, c *conf.Stress, notify notify.
 		memberPool: member.NewMemberPool(),
 		notify:     notify,
 		chartGen:   statistics.NewGenerator(""),
-		//s3:         s3,
 	}
 
 	// 启动时自清理：Redis site:* + 订单表，避免上次压测残留

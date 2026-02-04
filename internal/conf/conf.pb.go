@@ -922,11 +922,11 @@ func (x *Stress_Member) GetMemberPrefix() string {
 // 启动配置（API和认证配置）
 type Stress_Launch struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Merchant      string                 `protobuf:"bytes,1,opt,name=merchant,proto3" json:"merchant,omitempty"`
-	ApiUrl        string                 `protobuf:"bytes,2,opt,name=api_url,json=apiUrl,proto3" json:"api_url,omitempty"`
-	LaunchUrl     string                 `protobuf:"bytes,3,opt,name=launch_url,json=launchUrl,proto3" json:"launch_url,omitempty"`
-	SignRequired  bool                   `protobuf:"varint,4,opt,name=sign_required,json=signRequired,proto3" json:"sign_required,omitempty"`
-	Sites         []string               `protobuf:"bytes,5,rep,name=sites,proto3" json:"sites,omitempty"` // SITE标识，用于Redis清理
+	Sites         []string               `protobuf:"bytes,1,rep,name=sites,proto3" json:"sites,omitempty"`                          // SITE标识，用于Redis清理
+	Merchant      string                 `protobuf:"bytes,2,opt,name=merchant,proto3" json:"merchant,omitempty"`                    //
+	ApiUrl        string                 `protobuf:"bytes,3,opt,name=api_url,json=apiUrl,proto3" json:"api_url,omitempty"`          // API地址
+	LaunchUrl     string                 `protobuf:"bytes,4,opt,name=launch_url,json=launchUrl,proto3" json:"launch_url,omitempty"` // 启动地址
+	SignRequired  bool                   `protobuf:"varint,5,opt,name=sign_required,json=signRequired,proto3" json:"sign_required,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -961,6 +961,13 @@ func (*Stress_Launch) Descriptor() ([]byte, []int) {
 	return file_conf_conf_proto_rawDescGZIP(), []int{4, 3}
 }
 
+func (x *Stress_Launch) GetSites() []string {
+	if x != nil {
+		return x.Sites
+	}
+	return nil
+}
+
 func (x *Stress_Launch) GetMerchant() string {
 	if x != nil {
 		return x.Merchant
@@ -987,13 +994,6 @@ func (x *Stress_Launch) GetSignRequired() bool {
 		return x.SignRequired
 	}
 	return false
-}
-
-func (x *Stress_Launch) GetSites() []string {
-	if x != nil {
-		return x.Sites
-	}
-	return nil
 }
 
 var File_conf_conf_proto protoreflect.FileDescriptor
@@ -1047,7 +1047,7 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\x03app\x18\x03 \x01(\tR\x03app\x12\x16\n" +
 	"\x06prefix\x18\x04 \x01(\tR\x06prefix\x12\x10\n" +
 	"\x03dir\x18\x05 \x01(\tR\x03dir\x12\x12\n" +
-	"\x04file\x18\x06 \x01(\bR\x04file\"\xae\x06\n" +
+	"\x04file\x18\x06 \x01(\bR\x04file\"\x9c\x06\n" +
 	"\x06Stress\x121\n" +
 	"\x06notify\x18\x01 \x01(\v2\x19.kratos.api.Stress.NotifyR\x06notify\x12.\n" +
 	"\x05chart\x18\x02 \x01(\v2\x18.kratos.api.Stress.ChartR\x05chart\x121\n" +
@@ -1070,14 +1070,14 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\finterval_sec\x18\x02 \x01(\x05R\vintervalSec\x12&\n" +
 	"\x0fbatch_load_size\x18\x03 \x01(\x05R\rbatchLoadSize\x12$\n" +
 	"\x0emax_load_total\x18\x04 \x01(\x05R\fmaxLoadTotal\x12#\n" +
-	"\rmember_prefix\x18\x05 \x01(\tR\fmemberPrefix\x1a\xa9\x01\n" +
-	"\x06Launch\x12\x1a\n" +
-	"\bmerchant\x18\x01 \x01(\tR\bmerchant\x12 \n" +
-	"\aapi_url\x18\x02 \x01(\tB\a\xfaB\x04r\x02\x10\x01R\x06apiUrl\x12&\n" +
+	"\rmember_prefix\x18\x05 \x01(\tR\fmemberPrefix\x1a\x97\x01\n" +
+	"\x06Launch\x12\x14\n" +
+	"\x05sites\x18\x01 \x03(\tR\x05sites\x12\x1a\n" +
+	"\bmerchant\x18\x02 \x01(\tR\bmerchant\x12\x17\n" +
+	"\aapi_url\x18\x03 \x01(\tR\x06apiUrl\x12\x1d\n" +
 	"\n" +
-	"launch_url\x18\x03 \x01(\tB\a\xfaB\x04r\x02\x10\x01R\tlaunchUrl\x12#\n" +
-	"\rsign_required\x18\x04 \x01(\bR\fsignRequired\x12\x14\n" +
-	"\x05sites\x18\x05 \x03(\tR\x05sitesB\x1bZ\x19stress/internal/conf;confb\x06proto3"
+	"launch_url\x18\x04 \x01(\tR\tlaunchUrl\x12#\n" +
+	"\rsign_required\x18\x05 \x01(\bR\fsignRequiredB\x1bZ\x19stress/internal/conf;confb\x06proto3"
 
 var (
 	file_conf_conf_proto_rawDescOnce sync.Once

@@ -84,11 +84,11 @@ type APIClient struct {
 	game                base.IGame
 	protobufChecker     func(gameID int64) bool
 	protoConverterCache atomic.Value
-	launchCfg           *conf.Launch
+	launchCfg           *conf.Stress_Launch
 }
 
 func NewAPIClient(httpClient *http.Client, secretProvider base.SecretProvider,
-	game base.IGame, protobufChecker func(gameID int64) bool, launchCfg *conf.Launch) *APIClient {
+	game base.IGame, protobufChecker func(gameID int64) bool, launchCfg *conf.Stress_Launch) *APIClient {
 	return &APIClient{
 		http:            httpClient,
 		secret:          secretProvider,
