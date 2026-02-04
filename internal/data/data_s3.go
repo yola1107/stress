@@ -59,7 +59,8 @@ func NewS3Bucket(c *conf.Data, logger log.Logger) (*S3Bucket, func(), error) {
 }
 
 // UploadFile 上传文件到S3
-func (s *S3Bucket) UploadFile(ctx context.Context, bucket, key, contentType string, body io.Reader) (string, error) {
+func (r *dataRepo) UploadFile(ctx context.Context, bucket, key, contentType string, body io.Reader) (string, error) {
+	s := r.data.s3Bucket
 	if bucket == "" {
 		bucket = s.bucket
 	}
@@ -80,6 +81,6 @@ func (s *S3Bucket) UploadFile(ctx context.Context, bucket, key, contentType stri
 }
 
 // UploadBytes 上传字节数组到S3
-func (s *S3Bucket) UploadBytes(ctx context.Context, bucket, key, contentType string, data []byte) (string, error) {
-	return s.UploadFile(ctx, bucket, key, contentType, bytes.NewReader(data))
+func (r *dataRepo) UploadBytes(ctx context.Context, bucket, key, contentType string, data []byte) (string, error) {
+	return r.UploadFile(ctx, bucket, key, contentType, bytes.NewReader(data))
 }

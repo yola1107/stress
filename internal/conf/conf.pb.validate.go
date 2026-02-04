@@ -145,11 +145,11 @@ func (m *Bootstrap) validate(all bool) error {
 	}
 
 	if all {
-		switch v := interface{}(m.GetLaunch()).(type) {
+		switch v := interface{}(m.GetStress()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {
 				errors = append(errors, BootstrapValidationError{
-					field:  "Launch",
+					field:  "Stress",
 					reason: "embedded message failed validation",
 					cause:  err,
 				})
@@ -157,45 +157,16 @@ func (m *Bootstrap) validate(all bool) error {
 		case interface{ Validate() error }:
 			if err := v.Validate(); err != nil {
 				errors = append(errors, BootstrapValidationError{
-					field:  "Launch",
+					field:  "Stress",
 					reason: "embedded message failed validation",
 					cause:  err,
 				})
 			}
 		}
-	} else if v, ok := interface{}(m.GetLaunch()).(interface{ Validate() error }); ok {
+	} else if v, ok := interface{}(m.GetStress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
-				field:  "Launch",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
-	if all {
-		switch v := interface{}(m.GetNotify()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, BootstrapValidationError{
-					field:  "Notify",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, BootstrapValidationError{
-					field:  "Notify",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetNotify()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BootstrapValidationError{
-				field:  "Notify",
+				field:  "Stress",
 				reason: "embedded message failed validation",
 				cause:  err,
 			}
@@ -759,48 +730,156 @@ var _ interface {
 	ErrorName() string
 } = LogValidationError{}
 
-// Validate checks the field values on Notify with the rules defined in the
+// Validate checks the field values on Stress with the rules defined in the
 // proto definition for this message. If any rules are violated, the first
 // error encountered is returned, or nil if there are no violations.
-func (m *Notify) Validate() error {
+func (m *Stress) Validate() error {
 	return m.validate(false)
 }
 
-// ValidateAll checks the field values on Notify with the rules defined in the
+// ValidateAll checks the field values on Stress with the rules defined in the
 // proto definition for this message. If any rules are violated, the result is
-// a list of violation errors wrapped in NotifyMultiError, or nil if none found.
-func (m *Notify) ValidateAll() error {
+// a list of violation errors wrapped in StressMultiError, or nil if none found.
+func (m *Stress) ValidateAll() error {
 	return m.validate(true)
 }
 
-func (m *Notify) validate(all bool) error {
+func (m *Stress) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
 	var errors []error
 
-	// no validation rules for Enabled
+	if all {
+		switch v := interface{}(m.GetNotify()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, StressValidationError{
+					field:  "Notify",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, StressValidationError{
+					field:  "Notify",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetNotify()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return StressValidationError{
+				field:  "Notify",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
-	// no validation rules for Prefix
+	if all {
+		switch v := interface{}(m.GetChart()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, StressValidationError{
+					field:  "Chart",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, StressValidationError{
+					field:  "Chart",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetChart()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return StressValidationError{
+				field:  "Chart",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
-	// no validation rules for WebhookUrl
+	if all {
+		switch v := interface{}(m.GetMember()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, StressValidationError{
+					field:  "Member",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, StressValidationError{
+					field:  "Member",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMember()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return StressValidationError{
+				field:  "Member",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
-	// no validation rules for SigningSecret
+	if all {
+		switch v := interface{}(m.GetLaunch()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, StressValidationError{
+					field:  "Launch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, StressValidationError{
+					field:  "Launch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLaunch()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return StressValidationError{
+				field:  "Launch",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	if len(errors) > 0 {
-		return NotifyMultiError(errors)
+		return StressMultiError(errors)
 	}
 
 	return nil
 }
 
-// NotifyMultiError is an error wrapping multiple validation errors returned by
-// Notify.ValidateAll() if the designated constraints aren't met.
-type NotifyMultiError []error
+// StressMultiError is an error wrapping multiple validation errors returned by
+// Stress.ValidateAll() if the designated constraints aren't met.
+type StressMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
-func (m NotifyMultiError) Error() string {
+func (m StressMultiError) Error() string {
 	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
@@ -809,11 +888,11 @@ func (m NotifyMultiError) Error() string {
 }
 
 // AllErrors returns a list of validation violation errors.
-func (m NotifyMultiError) AllErrors() []error { return m }
+func (m StressMultiError) AllErrors() []error { return m }
 
-// NotifyValidationError is the validation error returned by Notify.Validate if
+// StressValidationError is the validation error returned by Stress.Validate if
 // the designated constraints aren't met.
-type NotifyValidationError struct {
+type StressValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -821,22 +900,22 @@ type NotifyValidationError struct {
 }
 
 // Field function returns field value.
-func (e NotifyValidationError) Field() string { return e.field }
+func (e StressValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e NotifyValidationError) Reason() string { return e.reason }
+func (e StressValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e NotifyValidationError) Cause() error { return e.cause }
+func (e StressValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e NotifyValidationError) Key() bool { return e.key }
+func (e StressValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e NotifyValidationError) ErrorName() string { return "NotifyValidationError" }
+func (e StressValidationError) ErrorName() string { return "StressValidationError" }
 
 // Error satisfies the builtin error interface
-func (e NotifyValidationError) Error() string {
+func (e StressValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -848,14 +927,14 @@ func (e NotifyValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sNotify.%s: %s%s",
+		"invalid %sStress.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = NotifyValidationError{}
+var _ error = StressValidationError{}
 
 var _ interface {
 	Field() string
@@ -863,141 +942,7 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = NotifyValidationError{}
-
-// Validate checks the field values on Launch with the rules defined in the
-// proto definition for this message. If any rules are violated, the first
-// error encountered is returned, or nil if there are no violations.
-func (m *Launch) Validate() error {
-	return m.validate(false)
-}
-
-// ValidateAll checks the field values on Launch with the rules defined in the
-// proto definition for this message. If any rules are violated, the result is
-// a list of violation errors wrapped in LaunchMultiError, or nil if none found.
-func (m *Launch) ValidateAll() error {
-	return m.validate(true)
-}
-
-func (m *Launch) validate(all bool) error {
-	if m == nil {
-		return nil
-	}
-
-	var errors []error
-
-	// no validation rules for AutoLoads
-
-	// no validation rules for IntervalSec
-
-	// no validation rules for BatchLoadSize
-
-	// no validation rules for MaxLoadTotal
-
-	// no validation rules for MemberPrefix
-
-	// no validation rules for Merchant
-
-	if utf8.RuneCountInString(m.GetApiUrl()) < 1 {
-		err := LaunchValidationError{
-			field:  "ApiUrl",
-			reason: "value length must be at least 1 runes",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
-	if utf8.RuneCountInString(m.GetLaunchUrl()) < 1 {
-		err := LaunchValidationError{
-			field:  "LaunchUrl",
-			reason: "value length must be at least 1 runes",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
-	// no validation rules for SignRequired
-
-	if len(errors) > 0 {
-		return LaunchMultiError(errors)
-	}
-
-	return nil
-}
-
-// LaunchMultiError is an error wrapping multiple validation errors returned by
-// Launch.ValidateAll() if the designated constraints aren't met.
-type LaunchMultiError []error
-
-// Error returns a concatenation of all the error messages it wraps.
-func (m LaunchMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
-	for _, err := range m {
-		msgs = append(msgs, err.Error())
-	}
-	return strings.Join(msgs, "; ")
-}
-
-// AllErrors returns a list of validation violation errors.
-func (m LaunchMultiError) AllErrors() []error { return m }
-
-// LaunchValidationError is the validation error returned by Launch.Validate if
-// the designated constraints aren't met.
-type LaunchValidationError struct {
-	field  string
-	reason string
-	cause  error
-	key    bool
-}
-
-// Field function returns field value.
-func (e LaunchValidationError) Field() string { return e.field }
-
-// Reason function returns reason value.
-func (e LaunchValidationError) Reason() string { return e.reason }
-
-// Cause function returns cause value.
-func (e LaunchValidationError) Cause() error { return e.cause }
-
-// Key function returns key value.
-func (e LaunchValidationError) Key() bool { return e.key }
-
-// ErrorName returns error name.
-func (e LaunchValidationError) ErrorName() string { return "LaunchValidationError" }
-
-// Error satisfies the builtin error interface
-func (e LaunchValidationError) Error() string {
-	cause := ""
-	if e.cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.cause)
-	}
-
-	key := ""
-	if e.key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sLaunch.%s: %s%s",
-		key,
-		e.field,
-		e.reason,
-		cause)
-}
-
-var _ error = LaunchValidationError{}
-
-var _ interface {
-	Field() string
-	Reason() string
-	Key() bool
-	Cause() error
-	ErrorName() string
-} = LaunchValidationError{}
+} = StressValidationError{}
 
 // Validate checks the field values on Server_HTTP with the rules defined in
 // the proto definition for this message. If any rules are violated, the first
@@ -1555,12 +1500,6 @@ func (m *Data_S3) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for Enabled
-
-	// no validation rules for UploadHtml
-
-	// no validation rules for UploadPng
-
 	// no validation rules for Region
 
 	// no validation rules for AccessKeyId
@@ -1647,3 +1586,452 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = Data_S3ValidationError{}
+
+// Validate checks the field values on Stress_Notify with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *Stress_Notify) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Stress_Notify with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in Stress_NotifyMultiError, or
+// nil if none found.
+func (m *Stress_Notify) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Stress_Notify) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Enabled
+
+	// no validation rules for Prefix
+
+	// no validation rules for WebhookUrl
+
+	// no validation rules for SigningSecret
+
+	if len(errors) > 0 {
+		return Stress_NotifyMultiError(errors)
+	}
+
+	return nil
+}
+
+// Stress_NotifyMultiError is an error wrapping multiple validation errors
+// returned by Stress_Notify.ValidateAll() if the designated constraints
+// aren't met.
+type Stress_NotifyMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Stress_NotifyMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Stress_NotifyMultiError) AllErrors() []error { return m }
+
+// Stress_NotifyValidationError is the validation error returned by
+// Stress_Notify.Validate if the designated constraints aren't met.
+type Stress_NotifyValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e Stress_NotifyValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e Stress_NotifyValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e Stress_NotifyValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e Stress_NotifyValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e Stress_NotifyValidationError) ErrorName() string { return "Stress_NotifyValidationError" }
+
+// Error satisfies the builtin error interface
+func (e Stress_NotifyValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sStress_Notify.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = Stress_NotifyValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = Stress_NotifyValidationError{}
+
+// Validate checks the field values on Stress_Chart with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *Stress_Chart) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Stress_Chart with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in Stress_ChartMultiError, or
+// nil if none found.
+func (m *Stress_Chart) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Stress_Chart) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Enabled
+
+	// no validation rules for GenerateLocal
+
+	// no validation rules for UploadToS3
+
+	if len(errors) > 0 {
+		return Stress_ChartMultiError(errors)
+	}
+
+	return nil
+}
+
+// Stress_ChartMultiError is an error wrapping multiple validation errors
+// returned by Stress_Chart.ValidateAll() if the designated constraints aren't met.
+type Stress_ChartMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Stress_ChartMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Stress_ChartMultiError) AllErrors() []error { return m }
+
+// Stress_ChartValidationError is the validation error returned by
+// Stress_Chart.Validate if the designated constraints aren't met.
+type Stress_ChartValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e Stress_ChartValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e Stress_ChartValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e Stress_ChartValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e Stress_ChartValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e Stress_ChartValidationError) ErrorName() string { return "Stress_ChartValidationError" }
+
+// Error satisfies the builtin error interface
+func (e Stress_ChartValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sStress_Chart.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = Stress_ChartValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = Stress_ChartValidationError{}
+
+// Validate checks the field values on Stress_Member with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *Stress_Member) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Stress_Member with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in Stress_MemberMultiError, or
+// nil if none found.
+func (m *Stress_Member) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Stress_Member) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for AutoLoads
+
+	// no validation rules for IntervalSec
+
+	// no validation rules for BatchLoadSize
+
+	// no validation rules for MaxLoadTotal
+
+	// no validation rules for MemberPrefix
+
+	if len(errors) > 0 {
+		return Stress_MemberMultiError(errors)
+	}
+
+	return nil
+}
+
+// Stress_MemberMultiError is an error wrapping multiple validation errors
+// returned by Stress_Member.ValidateAll() if the designated constraints
+// aren't met.
+type Stress_MemberMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Stress_MemberMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Stress_MemberMultiError) AllErrors() []error { return m }
+
+// Stress_MemberValidationError is the validation error returned by
+// Stress_Member.Validate if the designated constraints aren't met.
+type Stress_MemberValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e Stress_MemberValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e Stress_MemberValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e Stress_MemberValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e Stress_MemberValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e Stress_MemberValidationError) ErrorName() string { return "Stress_MemberValidationError" }
+
+// Error satisfies the builtin error interface
+func (e Stress_MemberValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sStress_Member.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = Stress_MemberValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = Stress_MemberValidationError{}
+
+// Validate checks the field values on Stress_Launch with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *Stress_Launch) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Stress_Launch with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in Stress_LaunchMultiError, or
+// nil if none found.
+func (m *Stress_Launch) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Stress_Launch) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Merchant
+
+	if utf8.RuneCountInString(m.GetApiUrl()) < 1 {
+		err := Stress_LaunchValidationError{
+			field:  "ApiUrl",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if utf8.RuneCountInString(m.GetLaunchUrl()) < 1 {
+		err := Stress_LaunchValidationError{
+			field:  "LaunchUrl",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	// no validation rules for SignRequired
+
+	if len(errors) > 0 {
+		return Stress_LaunchMultiError(errors)
+	}
+
+	return nil
+}
+
+// Stress_LaunchMultiError is an error wrapping multiple validation errors
+// returned by Stress_Launch.ValidateAll() if the designated constraints
+// aren't met.
+type Stress_LaunchMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Stress_LaunchMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Stress_LaunchMultiError) AllErrors() []error { return m }
+
+// Stress_LaunchValidationError is the validation error returned by
+// Stress_Launch.Validate if the designated constraints aren't met.
+type Stress_LaunchValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e Stress_LaunchValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e Stress_LaunchValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e Stress_LaunchValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e Stress_LaunchValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e Stress_LaunchValidationError) ErrorName() string { return "Stress_LaunchValidationError" }
+
+// Error satisfies the builtin error interface
+func (e Stress_LaunchValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sStress_Launch.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = Stress_LaunchValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = Stress_LaunchValidationError{}

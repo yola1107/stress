@@ -10,8 +10,7 @@ message Bootstrap {
     Server server = 1;
     Data data     = 2;
     Log log       = 3;
-    Launch launch = 4;
-    Notify notify = 5;
+    Stress stress = 4;
 }
 
 message Server {
@@ -45,14 +44,11 @@ message Data {
         google.protobuf.Duration write_timeout = 6;
     }
     message S3 {
-        bool enabled             = 1;  // S3总开关
-        bool upload_html         = 2;  // HTML文件上传开关
-        bool upload_png          = 3;  // PNG文件上传开关
-        string region            = 4;
-        string access_key_id     = 5;
-        string secret_access_key = 6;
-        string bucket            = 7;
-        string endpoint          = 8;
+        string region            = 1;
+        string access_key_id     = 2;
+        string secret_access_key = 3;
+        string bucket            = 4;
+        string endpoint          = 5;
     }
 
     Database database       = 1;
@@ -70,23 +66,43 @@ message Log {
     bool file     = 6;
 }
 
-// 通知（飞书 Webhook）
-message Notify {
-    bool enabled          = 1;  // 开关，false 时不发送
-    string prefix         = 2;  // 消息前缀，如 [stress] 用于区分来源
-    string webhook_url    = 3;  // 飞书 Webhook 地址
-    string signing_secret = 4;  // 签名密钥，配置后启用加签（与 feishu-test.sh 一致）
-}
+// 压测系统配置
+message Stress {
+    // 通知（飞书 Webhook）
+    message Notify {
+        bool enabled          = 1;  // 开关，false 时不发送
+        string prefix         = 2;  // 消息前缀，如 [stress] 用于区分来源
+        string webhook_url    = 3;  // 飞书 Webhook 地址
+        string signing_secret = 4;  // 签名密钥，配置后启用加签
+    }
 
-message Launch {
-    bool auto_loads       = 1;
-    int32 interval_sec    = 2;
-    int32 batch_load_size = 3;
-    int32 max_load_total  = 4;
-    string member_prefix  = 5;
-    repeated string sites = 6;                                             // SITE 标识，用于清理 Redis/测试环境（如 egame50001）
-    string merchant       = 7;                                             // 商户名称
-    string api_url        = 8 [(validate.rules).string = { min_len: 1 }];  // API地址
-    string launch_url     = 9 [(validate.rules).string = { min_len: 1 }];  // 启动地址
-    bool sign_required    = 10;                                            // 是否需要签名
+    // 图表生成与S3上传配置
+    message Chart {
+        bool enabled        = 1;  // 总开关
+        bool generate_local = 2;  // 是否生成本地文件（HTML/PNG）
+        bool upload_to_s3   = 3;  // 是否上传到S3
+    }
+
+    // 成员数据加载配置
+    message Member {
+        bool auto_loads       = 1;
+        int32 interval_sec    = 2;
+        int32 batch_load_size = 3;
+        int32 max_load_total  = 4;
+        string member_prefix  = 5;
+    }
+
+    // 启动配置（API和认证配置）
+    message Launch {
+        string merchant       = 1;
+        string api_url        = 2 [(validate.rules).string = { min_len: 1 }];
+        string launch_url     = 3 [(validate.rules).string = { min_len: 1 }];
+        bool sign_required    = 4;
+        repeated string sites = 5;  // SITE标识，用于Redis清理
+    }
+
+    Notify notify = 1;
+    Chart chart   = 2;
+    Member member = 3;
+    Launch launch = 4;
 }

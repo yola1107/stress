@@ -28,8 +28,7 @@ type Bootstrap struct {
 	Server        *Server                `protobuf:"bytes,1,opt,name=server,proto3" json:"server,omitempty"`
 	Data          *Data                  `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 	Log           *Log                   `protobuf:"bytes,3,opt,name=log,proto3" json:"log,omitempty"`
-	Launch        *Launch                `protobuf:"bytes,4,opt,name=launch,proto3" json:"launch,omitempty"`
-	Notify        *Notify                `protobuf:"bytes,5,opt,name=notify,proto3" json:"notify,omitempty"`
+	Stress        *Stress                `protobuf:"bytes,4,opt,name=stress,proto3" json:"stress,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -85,16 +84,9 @@ func (x *Bootstrap) GetLog() *Log {
 	return nil
 }
 
-func (x *Bootstrap) GetLaunch() *Launch {
+func (x *Bootstrap) GetStress() *Stress {
 	if x != nil {
-		return x.Launch
-	}
-	return nil
-}
-
-func (x *Bootstrap) GetNotify() *Notify {
-	if x != nil {
-		return x.Notify
+		return x.Stress
 	}
 	return nil
 }
@@ -303,31 +295,31 @@ func (x *Log) GetFile() bool {
 	return false
 }
 
-// 通知（飞书 Webhook）
-type Notify struct {
+// 压测系统配置
+type Stress struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Enabled       bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`                                 // 开关，false 时不发送
-	Prefix        string                 `protobuf:"bytes,2,opt,name=prefix,proto3" json:"prefix,omitempty"`                                    // 消息前缀，如 [stress] 用于区分来源
-	WebhookUrl    string                 `protobuf:"bytes,3,opt,name=webhook_url,json=webhookUrl,proto3" json:"webhook_url,omitempty"`          // 飞书 Webhook 地址
-	SigningSecret string                 `protobuf:"bytes,4,opt,name=signing_secret,json=signingSecret,proto3" json:"signing_secret,omitempty"` // 签名密钥，配置后启用加签（与 feishu-test.sh 一致）
+	Notify        *Stress_Notify         `protobuf:"bytes,1,opt,name=notify,proto3" json:"notify,omitempty"`
+	Chart         *Stress_Chart          `protobuf:"bytes,2,opt,name=chart,proto3" json:"chart,omitempty"`
+	Member        *Stress_Member         `protobuf:"bytes,3,opt,name=member,proto3" json:"member,omitempty"`
+	Launch        *Stress_Launch         `protobuf:"bytes,4,opt,name=launch,proto3" json:"launch,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Notify) Reset() {
-	*x = Notify{}
+func (x *Stress) Reset() {
+	*x = Stress{}
 	mi := &file_conf_conf_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Notify) String() string {
+func (x *Stress) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Notify) ProtoMessage() {}
+func (*Stress) ProtoMessage() {}
 
-func (x *Notify) ProtoReflect() protoreflect.Message {
+func (x *Stress) ProtoReflect() protoreflect.Message {
 	mi := &file_conf_conf_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -339,153 +331,37 @@ func (x *Notify) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Notify.ProtoReflect.Descriptor instead.
-func (*Notify) Descriptor() ([]byte, []int) {
+// Deprecated: Use Stress.ProtoReflect.Descriptor instead.
+func (*Stress) Descriptor() ([]byte, []int) {
 	return file_conf_conf_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *Notify) GetEnabled() bool {
+func (x *Stress) GetNotify() *Stress_Notify {
 	if x != nil {
-		return x.Enabled
-	}
-	return false
-}
-
-func (x *Notify) GetPrefix() string {
-	if x != nil {
-		return x.Prefix
-	}
-	return ""
-}
-
-func (x *Notify) GetWebhookUrl() string {
-	if x != nil {
-		return x.WebhookUrl
-	}
-	return ""
-}
-
-func (x *Notify) GetSigningSecret() string {
-	if x != nil {
-		return x.SigningSecret
-	}
-	return ""
-}
-
-type Launch struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AutoLoads     bool                   `protobuf:"varint,1,opt,name=auto_loads,json=autoLoads,proto3" json:"auto_loads,omitempty"`
-	IntervalSec   int32                  `protobuf:"varint,2,opt,name=interval_sec,json=intervalSec,proto3" json:"interval_sec,omitempty"`
-	BatchLoadSize int32                  `protobuf:"varint,3,opt,name=batch_load_size,json=batchLoadSize,proto3" json:"batch_load_size,omitempty"`
-	MaxLoadTotal  int32                  `protobuf:"varint,4,opt,name=max_load_total,json=maxLoadTotal,proto3" json:"max_load_total,omitempty"`
-	MemberPrefix  string                 `protobuf:"bytes,5,opt,name=member_prefix,json=memberPrefix,proto3" json:"member_prefix,omitempty"`
-	Sites         []string               `protobuf:"bytes,6,rep,name=sites,proto3" json:"sites,omitempty"`                                     // SITE 标识，用于清理 Redis/测试环境（如 egame50001）
-	Merchant      string                 `protobuf:"bytes,7,opt,name=merchant,proto3" json:"merchant,omitempty"`                               // 商户名称
-	ApiUrl        string                 `protobuf:"bytes,8,opt,name=api_url,json=apiUrl,proto3" json:"api_url,omitempty"`                     // API地址
-	LaunchUrl     string                 `protobuf:"bytes,9,opt,name=launch_url,json=launchUrl,proto3" json:"launch_url,omitempty"`            // 启动地址
-	SignRequired  bool                   `protobuf:"varint,10,opt,name=sign_required,json=signRequired,proto3" json:"sign_required,omitempty"` // 是否需要签名
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Launch) Reset() {
-	*x = Launch{}
-	mi := &file_conf_conf_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Launch) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Launch) ProtoMessage() {}
-
-func (x *Launch) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Launch.ProtoReflect.Descriptor instead.
-func (*Launch) Descriptor() ([]byte, []int) {
-	return file_conf_conf_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *Launch) GetAutoLoads() bool {
-	if x != nil {
-		return x.AutoLoads
-	}
-	return false
-}
-
-func (x *Launch) GetIntervalSec() int32 {
-	if x != nil {
-		return x.IntervalSec
-	}
-	return 0
-}
-
-func (x *Launch) GetBatchLoadSize() int32 {
-	if x != nil {
-		return x.BatchLoadSize
-	}
-	return 0
-}
-
-func (x *Launch) GetMaxLoadTotal() int32 {
-	if x != nil {
-		return x.MaxLoadTotal
-	}
-	return 0
-}
-
-func (x *Launch) GetMemberPrefix() string {
-	if x != nil {
-		return x.MemberPrefix
-	}
-	return ""
-}
-
-func (x *Launch) GetSites() []string {
-	if x != nil {
-		return x.Sites
+		return x.Notify
 	}
 	return nil
 }
 
-func (x *Launch) GetMerchant() string {
+func (x *Stress) GetChart() *Stress_Chart {
 	if x != nil {
-		return x.Merchant
+		return x.Chart
 	}
-	return ""
+	return nil
 }
 
-func (x *Launch) GetApiUrl() string {
+func (x *Stress) GetMember() *Stress_Member {
 	if x != nil {
-		return x.ApiUrl
+		return x.Member
 	}
-	return ""
+	return nil
 }
 
-func (x *Launch) GetLaunchUrl() string {
+func (x *Stress) GetLaunch() *Stress_Launch {
 	if x != nil {
-		return x.LaunchUrl
+		return x.Launch
 	}
-	return ""
-}
-
-func (x *Launch) GetSignRequired() bool {
-	if x != nil {
-		return x.SignRequired
-	}
-	return false
+	return nil
 }
 
 type Server_HTTP struct {
@@ -499,7 +375,7 @@ type Server_HTTP struct {
 
 func (x *Server_HTTP) Reset() {
 	*x = Server_HTTP{}
-	mi := &file_conf_conf_proto_msgTypes[6]
+	mi := &file_conf_conf_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -511,7 +387,7 @@ func (x *Server_HTTP) String() string {
 func (*Server_HTTP) ProtoMessage() {}
 
 func (x *Server_HTTP) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[6]
+	mi := &file_conf_conf_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -559,7 +435,7 @@ type Server_GRPC struct {
 
 func (x *Server_GRPC) Reset() {
 	*x = Server_GRPC{}
-	mi := &file_conf_conf_proto_msgTypes[7]
+	mi := &file_conf_conf_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -571,7 +447,7 @@ func (x *Server_GRPC) String() string {
 func (*Server_GRPC) ProtoMessage() {}
 
 func (x *Server_GRPC) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[7]
+	mi := &file_conf_conf_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -620,7 +496,7 @@ type Data_Database struct {
 
 func (x *Data_Database) Reset() {
 	*x = Data_Database{}
-	mi := &file_conf_conf_proto_msgTypes[8]
+	mi := &file_conf_conf_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -632,7 +508,7 @@ func (x *Data_Database) String() string {
 func (*Data_Database) ProtoMessage() {}
 
 func (x *Data_Database) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[8]
+	mi := &file_conf_conf_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -690,7 +566,7 @@ type Data_Redis struct {
 
 func (x *Data_Redis) Reset() {
 	*x = Data_Redis{}
-	mi := &file_conf_conf_proto_msgTypes[9]
+	mi := &file_conf_conf_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -702,7 +578,7 @@ func (x *Data_Redis) String() string {
 func (*Data_Redis) ProtoMessage() {}
 
 func (x *Data_Redis) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[9]
+	mi := &file_conf_conf_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -762,21 +638,18 @@ func (x *Data_Redis) GetWriteTimeout() *durationpb.Duration {
 
 type Data_S3 struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
-	Enabled         bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`                         // S3总开关
-	UploadHtml      bool                   `protobuf:"varint,2,opt,name=upload_html,json=uploadHtml,proto3" json:"upload_html,omitempty"` // HTML文件上传开关
-	UploadPng       bool                   `protobuf:"varint,3,opt,name=upload_png,json=uploadPng,proto3" json:"upload_png,omitempty"`    // PNG文件上传开关
-	Region          string                 `protobuf:"bytes,4,opt,name=region,proto3" json:"region,omitempty"`
-	AccessKeyId     string                 `protobuf:"bytes,5,opt,name=access_key_id,json=accessKeyId,proto3" json:"access_key_id,omitempty"`
-	SecretAccessKey string                 `protobuf:"bytes,6,opt,name=secret_access_key,json=secretAccessKey,proto3" json:"secret_access_key,omitempty"`
-	Bucket          string                 `protobuf:"bytes,7,opt,name=bucket,proto3" json:"bucket,omitempty"`
-	Endpoint        string                 `protobuf:"bytes,8,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
+	Region          string                 `protobuf:"bytes,1,opt,name=region,proto3" json:"region,omitempty"`
+	AccessKeyId     string                 `protobuf:"bytes,2,opt,name=access_key_id,json=accessKeyId,proto3" json:"access_key_id,omitempty"`
+	SecretAccessKey string                 `protobuf:"bytes,3,opt,name=secret_access_key,json=secretAccessKey,proto3" json:"secret_access_key,omitempty"`
+	Bucket          string                 `protobuf:"bytes,4,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	Endpoint        string                 `protobuf:"bytes,5,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Data_S3) Reset() {
 	*x = Data_S3{}
-	mi := &file_conf_conf_proto_msgTypes[10]
+	mi := &file_conf_conf_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -788,7 +661,7 @@ func (x *Data_S3) String() string {
 func (*Data_S3) ProtoMessage() {}
 
 func (x *Data_S3) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[10]
+	mi := &file_conf_conf_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -802,27 +675,6 @@ func (x *Data_S3) ProtoReflect() protoreflect.Message {
 // Deprecated: Use Data_S3.ProtoReflect.Descriptor instead.
 func (*Data_S3) Descriptor() ([]byte, []int) {
 	return file_conf_conf_proto_rawDescGZIP(), []int{2, 2}
-}
-
-func (x *Data_S3) GetEnabled() bool {
-	if x != nil {
-		return x.Enabled
-	}
-	return false
-}
-
-func (x *Data_S3) GetUploadHtml() bool {
-	if x != nil {
-		return x.UploadHtml
-	}
-	return false
-}
-
-func (x *Data_S3) GetUploadPng() bool {
-	if x != nil {
-		return x.UploadPng
-	}
-	return false
 }
 
 func (x *Data_S3) GetRegion() string {
@@ -860,18 +712,301 @@ func (x *Data_S3) GetEndpoint() string {
 	return ""
 }
 
+// 通知（飞书 Webhook）
+type Stress_Notify struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Enabled       bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`                                 // 开关，false 时不发送
+	Prefix        string                 `protobuf:"bytes,2,opt,name=prefix,proto3" json:"prefix,omitempty"`                                    // 消息前缀，如 [stress] 用于区分来源
+	WebhookUrl    string                 `protobuf:"bytes,3,opt,name=webhook_url,json=webhookUrl,proto3" json:"webhook_url,omitempty"`          // 飞书 Webhook 地址
+	SigningSecret string                 `protobuf:"bytes,4,opt,name=signing_secret,json=signingSecret,proto3" json:"signing_secret,omitempty"` // 签名密钥，配置后启用加签
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Stress_Notify) Reset() {
+	*x = Stress_Notify{}
+	mi := &file_conf_conf_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Stress_Notify) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Stress_Notify) ProtoMessage() {}
+
+func (x *Stress_Notify) ProtoReflect() protoreflect.Message {
+	mi := &file_conf_conf_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Stress_Notify.ProtoReflect.Descriptor instead.
+func (*Stress_Notify) Descriptor() ([]byte, []int) {
+	return file_conf_conf_proto_rawDescGZIP(), []int{4, 0}
+}
+
+func (x *Stress_Notify) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *Stress_Notify) GetPrefix() string {
+	if x != nil {
+		return x.Prefix
+	}
+	return ""
+}
+
+func (x *Stress_Notify) GetWebhookUrl() string {
+	if x != nil {
+		return x.WebhookUrl
+	}
+	return ""
+}
+
+func (x *Stress_Notify) GetSigningSecret() string {
+	if x != nil {
+		return x.SigningSecret
+	}
+	return ""
+}
+
+// 图表生成与S3上传配置
+type Stress_Chart struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Enabled       bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`                                  // 总开关
+	GenerateLocal bool                   `protobuf:"varint,2,opt,name=generate_local,json=generateLocal,proto3" json:"generate_local,omitempty"` // 是否生成本地文件（HTML/PNG）
+	UploadToS3    bool                   `protobuf:"varint,3,opt,name=upload_to_s3,json=uploadToS3,proto3" json:"upload_to_s3,omitempty"`        // 是否上传到S3
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Stress_Chart) Reset() {
+	*x = Stress_Chart{}
+	mi := &file_conf_conf_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Stress_Chart) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Stress_Chart) ProtoMessage() {}
+
+func (x *Stress_Chart) ProtoReflect() protoreflect.Message {
+	mi := &file_conf_conf_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Stress_Chart.ProtoReflect.Descriptor instead.
+func (*Stress_Chart) Descriptor() ([]byte, []int) {
+	return file_conf_conf_proto_rawDescGZIP(), []int{4, 1}
+}
+
+func (x *Stress_Chart) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *Stress_Chart) GetGenerateLocal() bool {
+	if x != nil {
+		return x.GenerateLocal
+	}
+	return false
+}
+
+func (x *Stress_Chart) GetUploadToS3() bool {
+	if x != nil {
+		return x.UploadToS3
+	}
+	return false
+}
+
+// 成员数据加载配置
+type Stress_Member struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AutoLoads     bool                   `protobuf:"varint,1,opt,name=auto_loads,json=autoLoads,proto3" json:"auto_loads,omitempty"`
+	IntervalSec   int32                  `protobuf:"varint,2,opt,name=interval_sec,json=intervalSec,proto3" json:"interval_sec,omitempty"`
+	BatchLoadSize int32                  `protobuf:"varint,3,opt,name=batch_load_size,json=batchLoadSize,proto3" json:"batch_load_size,omitempty"`
+	MaxLoadTotal  int32                  `protobuf:"varint,4,opt,name=max_load_total,json=maxLoadTotal,proto3" json:"max_load_total,omitempty"`
+	MemberPrefix  string                 `protobuf:"bytes,5,opt,name=member_prefix,json=memberPrefix,proto3" json:"member_prefix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Stress_Member) Reset() {
+	*x = Stress_Member{}
+	mi := &file_conf_conf_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Stress_Member) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Stress_Member) ProtoMessage() {}
+
+func (x *Stress_Member) ProtoReflect() protoreflect.Message {
+	mi := &file_conf_conf_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Stress_Member.ProtoReflect.Descriptor instead.
+func (*Stress_Member) Descriptor() ([]byte, []int) {
+	return file_conf_conf_proto_rawDescGZIP(), []int{4, 2}
+}
+
+func (x *Stress_Member) GetAutoLoads() bool {
+	if x != nil {
+		return x.AutoLoads
+	}
+	return false
+}
+
+func (x *Stress_Member) GetIntervalSec() int32 {
+	if x != nil {
+		return x.IntervalSec
+	}
+	return 0
+}
+
+func (x *Stress_Member) GetBatchLoadSize() int32 {
+	if x != nil {
+		return x.BatchLoadSize
+	}
+	return 0
+}
+
+func (x *Stress_Member) GetMaxLoadTotal() int32 {
+	if x != nil {
+		return x.MaxLoadTotal
+	}
+	return 0
+}
+
+func (x *Stress_Member) GetMemberPrefix() string {
+	if x != nil {
+		return x.MemberPrefix
+	}
+	return ""
+}
+
+// 启动配置（API和认证配置）
+type Stress_Launch struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Merchant      string                 `protobuf:"bytes,1,opt,name=merchant,proto3" json:"merchant,omitempty"`
+	ApiUrl        string                 `protobuf:"bytes,2,opt,name=api_url,json=apiUrl,proto3" json:"api_url,omitempty"`
+	LaunchUrl     string                 `protobuf:"bytes,3,opt,name=launch_url,json=launchUrl,proto3" json:"launch_url,omitempty"`
+	SignRequired  bool                   `protobuf:"varint,4,opt,name=sign_required,json=signRequired,proto3" json:"sign_required,omitempty"`
+	Sites         []string               `protobuf:"bytes,5,rep,name=sites,proto3" json:"sites,omitempty"` // SITE标识，用于Redis清理
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Stress_Launch) Reset() {
+	*x = Stress_Launch{}
+	mi := &file_conf_conf_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Stress_Launch) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Stress_Launch) ProtoMessage() {}
+
+func (x *Stress_Launch) ProtoReflect() protoreflect.Message {
+	mi := &file_conf_conf_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Stress_Launch.ProtoReflect.Descriptor instead.
+func (*Stress_Launch) Descriptor() ([]byte, []int) {
+	return file_conf_conf_proto_rawDescGZIP(), []int{4, 3}
+}
+
+func (x *Stress_Launch) GetMerchant() string {
+	if x != nil {
+		return x.Merchant
+	}
+	return ""
+}
+
+func (x *Stress_Launch) GetApiUrl() string {
+	if x != nil {
+		return x.ApiUrl
+	}
+	return ""
+}
+
+func (x *Stress_Launch) GetLaunchUrl() string {
+	if x != nil {
+		return x.LaunchUrl
+	}
+	return ""
+}
+
+func (x *Stress_Launch) GetSignRequired() bool {
+	if x != nil {
+		return x.SignRequired
+	}
+	return false
+}
+
+func (x *Stress_Launch) GetSites() []string {
+	if x != nil {
+		return x.Sites
+	}
+	return nil
+}
+
 var File_conf_conf_proto protoreflect.FileDescriptor
 
 const file_conf_conf_proto_rawDesc = "" +
 	"\n" +
 	"\x0fconf/conf.proto\x12\n" +
-	"kratos.api\x1a\x1egoogle/protobuf/duration.proto\x1a\x17validate/validate.proto\"\xd8\x01\n" +
+	"kratos.api\x1a\x1egoogle/protobuf/duration.proto\x1a\x17validate/validate.proto\"\xac\x01\n" +
 	"\tBootstrap\x12*\n" +
 	"\x06server\x18\x01 \x01(\v2\x12.kratos.api.ServerR\x06server\x12$\n" +
 	"\x04data\x18\x02 \x01(\v2\x10.kratos.api.DataR\x04data\x12!\n" +
 	"\x03log\x18\x03 \x01(\v2\x0f.kratos.api.LogR\x03log\x12*\n" +
-	"\x06launch\x18\x04 \x01(\v2\x12.kratos.api.LaunchR\x06launch\x12*\n" +
-	"\x06notify\x18\x05 \x01(\v2\x12.kratos.api.NotifyR\x06notify\"\xb8\x02\n" +
+	"\x06stress\x18\x04 \x01(\v2\x12.kratos.api.StressR\x06stress\"\xb8\x02\n" +
 	"\x06Server\x12+\n" +
 	"\x04http\x18\x01 \x01(\v2\x17.kratos.api.Server.HTTPR\x04http\x12+\n" +
 	"\x04grpc\x18\x02 \x01(\v2\x17.kratos.api.Server.GRPCR\x04grpc\x1ai\n" +
@@ -882,7 +1017,7 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\x04GRPC\x12\x18\n" +
 	"\anetwork\x18\x01 \x01(\tR\anetwork\x12\x12\n" +
 	"\x04addr\x18\x02 \x01(\tR\x04addr\x123\n" +
-	"\atimeout\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\atimeout\"\xba\x06\n" +
+	"\atimeout\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\atimeout\"\xe0\x05\n" +
 	"\x04Data\x125\n" +
 	"\bdatabase\x18\x01 \x01(\v2\x19.kratos.api.Data.DatabaseR\bdatabase\x12@\n" +
 	"\x0eorder_database\x18\x02 \x01(\v2\x19.kratos.api.Data.DatabaseR\rorderDatabase\x12,\n" +
@@ -899,45 +1034,50 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\bpassword\x18\x03 \x01(\tR\bpassword\x12\x0e\n" +
 	"\x02db\x18\x04 \x01(\x05R\x02db\x12<\n" +
 	"\fread_timeout\x18\x05 \x01(\v2\x19.google.protobuf.DurationR\vreadTimeout\x12>\n" +
-	"\rwrite_timeout\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\fwriteTimeout\x1a\xfa\x01\n" +
-	"\x02S3\x12\x18\n" +
-	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x1f\n" +
-	"\vupload_html\x18\x02 \x01(\bR\n" +
-	"uploadHtml\x12\x1d\n" +
-	"\n" +
-	"upload_png\x18\x03 \x01(\bR\tuploadPng\x12\x16\n" +
-	"\x06region\x18\x04 \x01(\tR\x06region\x12\"\n" +
-	"\raccess_key_id\x18\x05 \x01(\tR\vaccessKeyId\x12*\n" +
-	"\x11secret_access_key\x18\x06 \x01(\tR\x0fsecretAccessKey\x12\x16\n" +
-	"\x06bucket\x18\a \x01(\tR\x06bucket\x12\x1a\n" +
-	"\bendpoint\x18\b \x01(\tR\bendpoint\"\x7f\n" +
+	"\rwrite_timeout\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\fwriteTimeout\x1a\xa0\x01\n" +
+	"\x02S3\x12\x16\n" +
+	"\x06region\x18\x01 \x01(\tR\x06region\x12\"\n" +
+	"\raccess_key_id\x18\x02 \x01(\tR\vaccessKeyId\x12*\n" +
+	"\x11secret_access_key\x18\x03 \x01(\tR\x0fsecretAccessKey\x12\x16\n" +
+	"\x06bucket\x18\x04 \x01(\tR\x06bucket\x12\x1a\n" +
+	"\bendpoint\x18\x05 \x01(\tR\bendpoint\"\x7f\n" +
 	"\x03Log\x12\x12\n" +
 	"\x04mode\x18\x01 \x01(\x05R\x04mode\x12\x14\n" +
 	"\x05level\x18\x02 \x01(\tR\x05level\x12\x10\n" +
 	"\x03app\x18\x03 \x01(\tR\x03app\x12\x16\n" +
 	"\x06prefix\x18\x04 \x01(\tR\x06prefix\x12\x10\n" +
 	"\x03dir\x18\x05 \x01(\tR\x03dir\x12\x12\n" +
-	"\x04file\x18\x06 \x01(\bR\x04file\"\x82\x01\n" +
+	"\x04file\x18\x06 \x01(\bR\x04file\"\xae\x06\n" +
+	"\x06Stress\x121\n" +
+	"\x06notify\x18\x01 \x01(\v2\x19.kratos.api.Stress.NotifyR\x06notify\x12.\n" +
+	"\x05chart\x18\x02 \x01(\v2\x18.kratos.api.Stress.ChartR\x05chart\x121\n" +
+	"\x06member\x18\x03 \x01(\v2\x19.kratos.api.Stress.MemberR\x06member\x121\n" +
+	"\x06launch\x18\x04 \x01(\v2\x19.kratos.api.Stress.LaunchR\x06launch\x1a\x82\x01\n" +
 	"\x06Notify\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x16\n" +
 	"\x06prefix\x18\x02 \x01(\tR\x06prefix\x12\x1f\n" +
 	"\vwebhook_url\x18\x03 \x01(\tR\n" +
 	"webhookUrl\x12%\n" +
-	"\x0esigning_secret\x18\x04 \x01(\tR\rsigningSecret\"\xde\x02\n" +
-	"\x06Launch\x12\x1d\n" +
+	"\x0esigning_secret\x18\x04 \x01(\tR\rsigningSecret\x1aj\n" +
+	"\x05Chart\x12\x18\n" +
+	"\aenabled\x18\x01 \x01(\bR\aenabled\x12%\n" +
+	"\x0egenerate_local\x18\x02 \x01(\bR\rgenerateLocal\x12 \n" +
+	"\fupload_to_s3\x18\x03 \x01(\bR\n" +
+	"uploadToS3\x1a\xbd\x01\n" +
+	"\x06Member\x12\x1d\n" +
 	"\n" +
 	"auto_loads\x18\x01 \x01(\bR\tautoLoads\x12!\n" +
 	"\finterval_sec\x18\x02 \x01(\x05R\vintervalSec\x12&\n" +
 	"\x0fbatch_load_size\x18\x03 \x01(\x05R\rbatchLoadSize\x12$\n" +
 	"\x0emax_load_total\x18\x04 \x01(\x05R\fmaxLoadTotal\x12#\n" +
-	"\rmember_prefix\x18\x05 \x01(\tR\fmemberPrefix\x12\x14\n" +
-	"\x05sites\x18\x06 \x03(\tR\x05sites\x12\x1a\n" +
-	"\bmerchant\x18\a \x01(\tR\bmerchant\x12 \n" +
-	"\aapi_url\x18\b \x01(\tB\a\xfaB\x04r\x02\x10\x01R\x06apiUrl\x12&\n" +
+	"\rmember_prefix\x18\x05 \x01(\tR\fmemberPrefix\x1a\xa9\x01\n" +
+	"\x06Launch\x12\x1a\n" +
+	"\bmerchant\x18\x01 \x01(\tR\bmerchant\x12 \n" +
+	"\aapi_url\x18\x02 \x01(\tB\a\xfaB\x04r\x02\x10\x01R\x06apiUrl\x12&\n" +
 	"\n" +
-	"launch_url\x18\t \x01(\tB\a\xfaB\x04r\x02\x10\x01R\tlaunchUrl\x12#\n" +
-	"\rsign_required\x18\n" +
-	" \x01(\bR\fsignRequiredB\x1bZ\x19stress/internal/conf;confb\x06proto3"
+	"launch_url\x18\x03 \x01(\tB\a\xfaB\x04r\x02\x10\x01R\tlaunchUrl\x12#\n" +
+	"\rsign_required\x18\x04 \x01(\bR\fsignRequired\x12\x14\n" +
+	"\x05sites\x18\x05 \x03(\tR\x05sitesB\x1bZ\x19stress/internal/conf;confb\x06proto3"
 
 var (
 	file_conf_conf_proto_rawDescOnce sync.Once
@@ -951,42 +1091,48 @@ func file_conf_conf_proto_rawDescGZIP() []byte {
 	return file_conf_conf_proto_rawDescData
 }
 
-var file_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_conf_conf_proto_goTypes = []any{
 	(*Bootstrap)(nil),           // 0: kratos.api.Bootstrap
 	(*Server)(nil),              // 1: kratos.api.Server
 	(*Data)(nil),                // 2: kratos.api.Data
 	(*Log)(nil),                 // 3: kratos.api.Log
-	(*Notify)(nil),              // 4: kratos.api.Notify
-	(*Launch)(nil),              // 5: kratos.api.Launch
-	(*Server_HTTP)(nil),         // 6: kratos.api.Server.HTTP
-	(*Server_GRPC)(nil),         // 7: kratos.api.Server.GRPC
-	(*Data_Database)(nil),       // 8: kratos.api.Data.Database
-	(*Data_Redis)(nil),          // 9: kratos.api.Data.Redis
-	(*Data_S3)(nil),             // 10: kratos.api.Data.S3
-	(*durationpb.Duration)(nil), // 11: google.protobuf.Duration
+	(*Stress)(nil),              // 4: kratos.api.Stress
+	(*Server_HTTP)(nil),         // 5: kratos.api.Server.HTTP
+	(*Server_GRPC)(nil),         // 6: kratos.api.Server.GRPC
+	(*Data_Database)(nil),       // 7: kratos.api.Data.Database
+	(*Data_Redis)(nil),          // 8: kratos.api.Data.Redis
+	(*Data_S3)(nil),             // 9: kratos.api.Data.S3
+	(*Stress_Notify)(nil),       // 10: kratos.api.Stress.Notify
+	(*Stress_Chart)(nil),        // 11: kratos.api.Stress.Chart
+	(*Stress_Member)(nil),       // 12: kratos.api.Stress.Member
+	(*Stress_Launch)(nil),       // 13: kratos.api.Stress.Launch
+	(*durationpb.Duration)(nil), // 14: google.protobuf.Duration
 }
 var file_conf_conf_proto_depIdxs = []int32{
 	1,  // 0: kratos.api.Bootstrap.server:type_name -> kratos.api.Server
 	2,  // 1: kratos.api.Bootstrap.data:type_name -> kratos.api.Data
 	3,  // 2: kratos.api.Bootstrap.log:type_name -> kratos.api.Log
-	5,  // 3: kratos.api.Bootstrap.launch:type_name -> kratos.api.Launch
-	4,  // 4: kratos.api.Bootstrap.notify:type_name -> kratos.api.Notify
-	6,  // 5: kratos.api.Server.http:type_name -> kratos.api.Server.HTTP
-	7,  // 6: kratos.api.Server.grpc:type_name -> kratos.api.Server.GRPC
-	8,  // 7: kratos.api.Data.database:type_name -> kratos.api.Data.Database
-	8,  // 8: kratos.api.Data.order_database:type_name -> kratos.api.Data.Database
-	9,  // 9: kratos.api.Data.redis:type_name -> kratos.api.Data.Redis
-	10, // 10: kratos.api.Data.s3:type_name -> kratos.api.Data.S3
-	11, // 11: kratos.api.Server.HTTP.timeout:type_name -> google.protobuf.Duration
-	11, // 12: kratos.api.Server.GRPC.timeout:type_name -> google.protobuf.Duration
-	11, // 13: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
-	11, // 14: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	4,  // 3: kratos.api.Bootstrap.stress:type_name -> kratos.api.Stress
+	5,  // 4: kratos.api.Server.http:type_name -> kratos.api.Server.HTTP
+	6,  // 5: kratos.api.Server.grpc:type_name -> kratos.api.Server.GRPC
+	7,  // 6: kratos.api.Data.database:type_name -> kratos.api.Data.Database
+	7,  // 7: kratos.api.Data.order_database:type_name -> kratos.api.Data.Database
+	8,  // 8: kratos.api.Data.redis:type_name -> kratos.api.Data.Redis
+	9,  // 9: kratos.api.Data.s3:type_name -> kratos.api.Data.S3
+	10, // 10: kratos.api.Stress.notify:type_name -> kratos.api.Stress.Notify
+	11, // 11: kratos.api.Stress.chart:type_name -> kratos.api.Stress.Chart
+	12, // 12: kratos.api.Stress.member:type_name -> kratos.api.Stress.Member
+	13, // 13: kratos.api.Stress.launch:type_name -> kratos.api.Stress.Launch
+	14, // 14: kratos.api.Server.HTTP.timeout:type_name -> google.protobuf.Duration
+	14, // 15: kratos.api.Server.GRPC.timeout:type_name -> google.protobuf.Duration
+	14, // 16: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
+	14, // 17: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_conf_conf_proto_init() }
@@ -1000,7 +1146,7 @@ func file_conf_conf_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_conf_conf_proto_rawDesc), len(file_conf_conf_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -42,13 +42,19 @@ type DataRepo interface {
 
 	// 任务ID生成
 	NextTaskID(ctx context.Context, gameID int64) (string, error)
-}
 
-// S3Uploader S3上传器接口
-type S3Uploader interface {
+	// s3
 	UploadFile(ctx context.Context, bucket, key, contentType string, body io.Reader) (string, error)
 	UploadBytes(ctx context.Context, bucket, key, contentType string, data []byte) (string, error)
+	//// s3上传
+	//S3Uploader
 }
+
+//// S3Uploader S3上传器接口
+//type S3Uploader interface {
+//	UploadFile(ctx context.Context, bucket, key, contentType string, body io.Reader) (string, error)
+//	UploadBytes(ctx context.Context, bucket, key, contentType string, data []byte) (string, error)
+//}
 
 // OrderScope 订单查询范围
 type OrderScope struct {
@@ -66,36 +72,38 @@ type UseCase struct {
 
 	repo       DataRepo
 	log        *log.Helper
-	c          *conf.Launch
+	conf       *conf.Stress
 	gamePool   *game.Pool
 	taskPool   *task.Pool
 	memberPool *member.Pool
 
 	notify   notify.Notifier
 	chartGen *statistics.Generator
+	//s3       S3Uploader
 }
 
 // NewUseCase 创建 UseCase
-func NewUseCase(repo DataRepo, logger log.Logger, c *conf.Launch, notify notify.Notifier) (*UseCase, func(), error) {
+func NewUseCase(repo DataRepo, logger log.Logger, c *conf.Stress, notify notify.Notifier) (*UseCase, func(), error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	uc := &UseCase{
 		ctx:        ctx,
 		cancel:     cancel,
 		repo:       repo,
 		log:        log.NewHelper(logger),
-		c:          c,
+		conf:       c,
 		gamePool:   game.NewPool(),
 		taskPool:   task.NewTaskPool(),
 		memberPool: member.NewMemberPool(),
 		notify:     notify,
 		chartGen:   statistics.NewGenerator(""),
+		//s3:         s3,
 	}
 
 	// 启动时自清理：Redis site:* + 订单表，避免上次压测残留
 	uc.cleanOnStartup()
 
 	// 启动成员自动加载
-	if c.AutoLoads {
+	if c.Member.AutoLoads {
 		go uc.runMemberLoader()
 	}
 
@@ -123,6 +131,11 @@ func (uc *UseCase) ListTasks() []*task.Task {
 	return uc.taskPool.List()
 }
 
+// GetStressConfig 获取压测配置
+func (uc *UseCase) GetStressConfig() *conf.Stress {
+	return uc.conf
+}
+
 // GetMemberStats 玩家池统计
 func (uc *UseCase) GetMemberStats() (idle, allocated, total int) {
 	return uc.memberPool.Stats()
@@ -133,7 +146,7 @@ func (uc *UseCase) cleanOnStartup() {
 	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
 
-	if err := uc.repo.CleanRedisBySites(ctx, uc.c.Sites); err != nil {
+	if err := uc.repo.CleanRedisBySites(ctx, uc.conf.Launch.Sites); err != nil {
 		uc.log.Warnf("startup clean Redis: %v", err)
 	}
 	if err := uc.repo.CleanGameOrderTable(ctx); err != nil {
@@ -150,16 +163,16 @@ func (uc *UseCase) runMemberLoader() {
 		memberBalance    = 10000
 		memberNameOffset = 1000
 	)
-	ticker := time.NewTicker(time.Duration(uc.c.IntervalSec) * time.Second)
+	ticker := time.NewTicker(time.Duration(uc.conf.Member.IntervalSec) * time.Second)
 	defer ticker.Stop()
 
 	var loaded int32
-	for loaded < uc.c.MaxLoadTotal {
+	for loaded < uc.conf.Member.MaxLoadTotal {
 		select {
 		case <-uc.ctx.Done():
 			return
 		case <-ticker.C:
-			n := min(memberLoadBatch, uc.c.MaxLoadTotal-loaded)
+			n := min(memberLoadBatch, uc.conf.Member.MaxLoadTotal-loaded)
 			if n <= 0 {
 				continue
 			}
@@ -167,7 +180,7 @@ func (uc *UseCase) runMemberLoader() {
 			for i := int32(0); i < n; i++ {
 				loaded++
 				batch[i] = member.Info{
-					Name:    uc.c.MemberPrefix + strconv.FormatInt(int64(loaded+memberNameOffset), 10),
+					Name:    uc.conf.Member.MemberPrefix + strconv.FormatInt(int64(loaded+memberNameOffset), 10),
 					Balance: memberBalance,
 				}
 			}

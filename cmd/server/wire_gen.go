@@ -24,7 +24,7 @@ import (
 // Injectors from wire.go:
 
 // wireApp init kratos application.
-func wireApp(confServer *conf.Server, confData *conf.Data, launch *conf.Launch, confNotify *conf.Notify, logger log.Logger) (*kratos.App, func(), error) {
+func wireApp(confServer *conf.Server, confData *conf.Data, stress *conf.Stress, logger log.Logger) (*kratos.App, func(), error) {
 	engine, cleanup, err := data.NewMysql(confData, logger)
 	if err != nil {
 		return nil, nil, err
@@ -48,8 +48,8 @@ func wireApp(confServer *conf.Server, confData *conf.Data, launch *conf.Launch, 
 		return nil, nil, err
 	}
 	dataRepo := data.NewDataRepo(dataData, logger)
-	notifier := notify.NewFeishu(confNotify)
-	useCase, cleanup5, err := biz.NewUseCase(dataRepo, logger, launch, notifier)
+	notifier := notify.NewFeishu(stress)
+	useCase, cleanup5, err := biz.NewUseCase(dataRepo, logger, stress, notifier)
 	if err != nil {
 		cleanup4()
 		cleanup3()

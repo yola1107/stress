@@ -28,18 +28,18 @@ type Feishu struct {
 	Client        *http.Client
 }
 
-func NewFeishu(c *conf.Notify) Notifier {
-	if c == nil || !c.Enabled {
+func NewFeishu(c *conf.Stress) Notifier {
+	if c == nil || c.Notify == nil {
 		return Noop{}
 	}
-	webhookURL := strings.TrimSpace(c.GetWebhookUrl())
+	webhookURL := strings.TrimSpace(c.Notify.WebhookUrl)
 	if webhookURL == "" {
 		return Noop{}
 	}
 	return &Feishu{
 		WebhookURL:    webhookURL,
-		SigningSecret: strings.TrimSpace(c.GetSigningSecret()),
-		Prefix:        strings.TrimSpace(c.GetPrefix()),
+		SigningSecret: strings.TrimSpace(c.Notify.SigningSecret),
+		Prefix:        strings.TrimSpace(c.Notify.Prefix),
 		Client:        &http.Client{Timeout: 10 * time.Second},
 	}
 }

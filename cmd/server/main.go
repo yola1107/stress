@@ -73,7 +73,7 @@ func main() {
 	})
 	defer logger.Sync()
 
-	app, cleanup, err := wireApp(bc.Server, bc.Data, bc.Launch, bc.Notify, logger)
+	app, cleanup, err := wireApp(bc.Server, bc.Data, bc.Stress, logger)
 	if err != nil {
 		panic(err)
 	}

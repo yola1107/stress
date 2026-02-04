@@ -41,22 +41,29 @@ data:
     bucket: "bucket"
     endpoint: ""
 
-notify:
-  enabled: false        # 开关，false 时不发送飞书通知
-  prefix: "[stress]"    # 消息前缀，用于区分来源
-  webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/6223fc9e-58c6-4526-b463-140820b5e7c9"      # 飞书 Webhook 地址
-  signing_secret: "HOyyTFJVwq05KjGwFR5isc"   # 签名密钥，配置后启用加签
+# 压测系统配置
+stress:
+  notify:
+    enabled: false
+    prefix: "[stress]"
+    webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/6223fc9e-58c6-4526-b463-140820b5e7c9"
+    signing_secret: "HOyyTFJVwq05KjGwFR5isc"
+  chart:
+    enabled: true # 是否启用图表生成及s3上传
+    generate_local: true # 是否生成本地文件（HTML/PNG图表）
+    upload_to_s3: false # 是否上传到S3存储
+  member:
+    auto_loads: true
+    interval_sec: 1
+    batch_load_size: 1000
+    max_load_total: 3000
+    member_prefix: "gopgct"
+  launch:
+    sites: ["egame50001"]
+    merchant: "Jack23"
+    api_url: "http://192.168.10.72:8825"
+    launch_url: "http://192.168.10.72:8825"
+    sign_required: false
 
-launch:
-  auto_loads: true
-  interval_sec: 1
-  batch_load_size: 1000
-  max_load_total: 3000
-  member_prefix: "gopgct"
-  sites: ["egame50001"]
-  merchant: "Jack23"
-  sign_required: false
-  api_url: "http://192.168.10.72:8825"
-  launch_url: "http://192.168.10.72:8825"
 
 

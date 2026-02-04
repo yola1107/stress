@@ -2,7 +2,6 @@ package biz
 
 import (
 	"context"
-	"stress/pkg/xgo"
 	"sync"
 	"time"
 
@@ -13,9 +12,9 @@ import (
 	"stress/internal/biz/task"
 	"stress/internal/biz/user"
 	"stress/internal/notify"
+	"stress/pkg/xgo"
 
 	"github.com/go-kratos/kratos/v2/errors"
-	"github.com/go-kratos/kratos/v2/log"
 	"github.com/panjf2000/ants/v2"
 )
 
@@ -68,7 +67,7 @@ func (uc *UseCase) ExecuteTask(t *task.Task, c *v1.TaskConfig, members []member.
 
 	g, _ := uc.GetGame(c.GameId)
 	httpClient := user.NewHTTPClient(capacity)
-	apiClient := user.NewAPIClient(httpClient, user.NoopSecretProvider, g, uc.gamePool.RequireProtobuf, uc.c)
+	apiClient := user.NewAPIClient(httpClient, user.NoopSecretProvider, g, uc.gamePool.RequireProtobuf, uc.conf.Launch)
 	antsPool, _ := ants.NewPool(capacity)
 
 	// 创建DB写入完成channel
@@ -230,7 +229,7 @@ func (uc *UseCase) ReportTask(t *task.Task, completed bool) {
 
 	scope := OrderScope{
 		GameID:     report.GameId,
-		Merchant:   uc.c.GetMerchant(),
+		Merchant:   uc.conf.Launch.Merchant,
 		StartTime:  t.GetCreatedAt(),
 		EndTime:    t.GetFinishedAt(),
 		ExcludeAmt: t.GetConfig().BetOrder.BaseMoney,
@@ -269,16 +268,74 @@ func (uc *UseCase) fillOrderStats(ctx context.Context, report *v1.TaskCompletion
 }
 
 func (uc *UseCase) sendS3Bucket(ctx context.Context, taskId, gameName string, scope OrderScope) {
-	pts, _ := uc.repo.QueryGameOrderPoints(ctx, scope)
-
-	_, err := uc.chartGen.Generate(pts, taskId, gameName, scope.Merchant)
-	if err != nil {
-		log.Errorf("failed to build chart: %v", err)
+	// 检查图表配置
+	if uc.conf.Chart == nil || !uc.conf.Chart.Enabled {
+		uc.log.Debug("Chart generation disabled, skipping")
+		return
 	}
+
+	// 检查是否需要生成本地文件
+	if !uc.conf.Chart.GenerateLocal {
+		uc.log.Debug("Local file generation disabled, skipping chart generation")
+		return
+	}
+
+	pts, err := uc.repo.QueryGameOrderPoints(ctx, scope)
+	if err != nil {
+		uc.log.Errorf("failed to query game order points: %v", err)
+		return
+	}
+
+	// 生成图表文件
+	htmlPath, err := uc.chartGen.Generate(pts, taskId, gameName, scope.Merchant)
+	if err != nil {
+		uc.log.Errorf("failed to generate chart: %v", err)
+		return
+	}
+
+	// 检查是否需要上传到S3
+	if !uc.conf.Chart.UploadToS3 {
+		uc.log.Infof("Chart generated locally at: %s, S3 upload disabled", htmlPath)
+		return
+	}
+
+	//// 读取HTML文件内容
+	//htmlContent, err := os.ReadFile(htmlPath)
+	//if err != nil {
+	//	uc.log.Errorf("failed to read HTML file: %v", err)
+	//	return
+	//}
+	//
+	//// 上传HTML文件到S3
+	//htmlKey := fmt.Sprintf("charts/%s/%s.html", scope.Merchant, taskId)
+	//htmlUrl, err := uc.s3.UploadBytes(ctx, "", htmlKey, "text/html; charset=utf-8", htmlContent)
+	//if err != nil {
+	//	uc.log.Errorf("failed to upload HTML to S3: %v", err)
+	//} else {
+	//	uc.log.Infof("HTML uploaded to S3: %s", htmlUrl)
+	//}
+	//
+	//// 如果存在PNG文件也上传
+	//pngPath := strings.TrimSuffix(htmlPath, ".html") + ".png"
+	//if pngContent, err := os.ReadFile(pngPath); err == nil {
+	//	pngKey := fmt.Sprintf("charts/%s/%s.png", scope.Merchant, taskId)
+	//	pngUrl, err := uc.s3.UploadBytes(ctx, "", pngKey, "image/png", pngContent)
+	//	if err != nil {
+	//		uc.log.Errorf("failed to upload PNG to S3: %v", err)
+	//	} else {
+	//		uc.log.Infof("PNG uploaded to S3: %s", pngUrl)
+	//	}
+	//}
 }
 
 // sendNotification 发送飞书通知
 func (uc *UseCase) sendNotification(ctx context.Context, report *v1.TaskCompletionReport) {
+	// 检查通知配置
+	if uc.conf.Notify == nil || !uc.conf.Notify.Enabled {
+		uc.log.Debug("Notifications disabled, skipping notification")
+		return
+	}
+
 	if uc.notify == nil {
 		return
 	}
@@ -296,7 +353,7 @@ func (uc *UseCase) performEnvironmentCleanup(t *task.Task) {
 	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
 	// 清理Redis缓存
-	if err := uc.repo.CleanRedisBySites(ctx, uc.c.Sites); err != nil {
+	if err := uc.repo.CleanRedisBySites(ctx, uc.conf.Launch.Sites); err != nil {
 		uc.log.Errorf("[%s] Redis cleanup: %v", taskID, err)
 	}
 	// 删除测试订单数据
@@ -305,12 +362,11 @@ func (uc *UseCase) performEnvironmentCleanup(t *task.Task) {
 	}
 }
 
-// buildOrderScopeFromTask 从任务构建订单范围
 func (uc *UseCase) buildOrderScopeFromTask(t *task.Task) OrderScope {
 	cfg := t.GetConfig()
 	s := OrderScope{
 		GameID:    cfg.GameId,
-		Merchant:  uc.c.GetMerchant(),
+		Merchant:  uc.conf.Launch.Merchant,
 		StartTime: t.GetCreatedAt(),
 		EndTime:   t.GetFinishedAt(),
 	}
