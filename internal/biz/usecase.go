@@ -3,12 +3,12 @@ package biz
 import (
 	"context"
 	"strconv"
+	"stress/internal/biz/stats"
 	"time"
 
 	"stress/internal/biz/game"
 	"stress/internal/biz/game/base"
 	"stress/internal/biz/member"
-	"stress/internal/biz/stats/statistics"
 	"stress/internal/biz/task"
 	"stress/internal/conf"
 	"stress/internal/notify"
@@ -39,7 +39,7 @@ type DataRepo interface {
 	GetGameOrderCount(ctx context.Context) (int64, error)
 	GetOrderCountByScope(ctx context.Context, scope OrderScope) (int64, error)
 	GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
-	QueryGameOrderPoints(ctx context.Context, scope OrderScope) ([]statistics.Point, error)
+	QueryGameOrderPoints(ctx context.Context, scope OrderScope) ([]stats.Point, error)
 
 	// 任务ID生成
 	NextTaskID(ctx context.Context, gameID int64) (string, error)
@@ -70,7 +70,7 @@ type UseCase struct {
 	memberPool *member.Pool
 
 	notify   notify.Notifier
-	chartGen *statistics.Generator
+	chartGen *stats.Generator
 }
 
 // NewUseCase 创建 UseCase
@@ -86,11 +86,11 @@ func NewUseCase(repo DataRepo, logger log.Logger, c *conf.Stress, notify notify.
 		taskPool:   task.NewTaskPool(),
 		memberPool: member.NewMemberPool(),
 		notify:     notify,
-		chartGen:   statistics.NewGenerator(""),
+		chartGen:   stats.NewGenerator(""),
 	}
 
 	// 启动时自清理：Redis site:* + 订单表，避免上次压测残留
-	uc.cleanOnStartup()
+	uc.runStartupClean()
 
 	// 启动成员自动加载
 	if c.Member.AutoLoads {
@@ -134,8 +134,8 @@ func (uc *UseCase) GetMemberStats() (idle, allocated, total int) {
 	return uc.memberPool.Stats()
 }
 
-// cleanOnStartup 启动时清理 Redis 与订单表
-func (uc *UseCase) cleanOnStartup() {
+// runStartupClean 启动时清理 Redis 与订单表
+func (uc *UseCase) runStartupClean() {
 	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
 

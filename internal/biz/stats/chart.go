@@ -1,4 +1,147 @@
-package statistics
+package stats
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+
+	jsoniter "github.com/json-iterator/go"
+)
+
+const (
+	sampleMax = 5000 // 最大采样数
+	OutputDir = "./rtp_charts"
+)
+
+var chromeCache string
+
+// Point 图表数据点
+type Point struct {
+	X    float64 // 订单数（万）
+	Y    float64 // 盈利率
+	Time string  // 时间
+}
+
+// GenerateResult 生成结果
+type GenerateResult struct {
+	HTMLContent string // HTML 内容
+	FilePath    string // 文件路径（saveLocal=false 时为空）
+}
+
+// Generator 图表生成器
+type Generator struct {
+	outputDir string
+}
+
+// NewGenerator 创建图表生成器
+// dir: 输出目录，为空时使用默认值
+func NewGenerator(dir string) *Generator {
+	if dir == "" {
+		dir = OutputDir
+	}
+	return &Generator{outputDir: dir}
+}
+
+// Generate 生成图表
+// saveLocal: 是否保存本地文件（HTML/PNG）
+func (g *Generator) Generate(pts []Point, taskId, gameName, merchant string, saveLocal bool) (*GenerateResult, error) {
+	if len(pts) == 0 {
+		return nil, fmt.Errorf("no data")
+	}
+
+	x, y, t := make([]float64, len(pts)), make([]float64, len(pts)), make([]string, len(pts))
+	xMax, yMin, yMax := 0.0, pts[0].Y, pts[0].Y
+	for i, p := range pts {
+		x[i], y[i], t[i] = p.X, p.Y, p.Time
+		if p.X > xMax {
+			xMax = p.X
+		}
+		if p.Y < yMin {
+			yMin = p.Y
+		}
+		if p.Y > yMax {
+			yMax = p.Y
+		}
+	}
+
+	xJ, _ := jsoniter.Marshal(x)
+	yJ, _ := jsoniter.Marshal(y)
+	tJ, _ := jsoniter.Marshal(t)
+
+	html := fmt.Sprintf(chartTpl, gameName, merchant, gameName, "普通", string(xJ), string(yJ), string(tJ), xMax, yMin, yMax, merchant, gameName, "普通")
+
+	result := &GenerateResult{
+		HTMLContent: html,
+	}
+
+	if !saveLocal {
+		return result, nil
+	}
+
+	// 保存本地文件
+	if err := os.MkdirAll(g.outputDir, 0755); err != nil {
+		return nil, err
+	}
+
+	path := filepath.Join(g.outputDir, fmt.Sprintf("%s.html", taskId))
+	if err := os.WriteFile(path, []byte(html), 0644); err != nil {
+		return nil, err
+	}
+
+	renderPNG(path)
+	result.FilePath = path
+	return result, nil
+}
+
+func toPng(html string) string {
+	return strings.TrimSuffix(html, ".html") + ".png"
+}
+
+func renderPNG(htmlPath string) {
+	chrome := findChrome()
+	if chrome == "" {
+		return
+	}
+	absH, _ := filepath.Abs(htmlPath)
+	absP, _ := filepath.Abs(toPng(htmlPath))
+	args := []string{
+		"--headless=new", "--disable-gpu", "--hide-scrollbars",
+		"--window-size=1720,920", "--force-device-scale-factor=2",
+		"--run-all-compositor-stages-before-draw", "--virtual-time-budget=8000",
+		"--disable-web-security", "--no-sandbox",
+		"--screenshot=" + absP, "file://" + absH,
+	}
+	if exec.Command(chrome, args...).Run() != nil {
+		args[0] = "--headless"
+		_ = exec.Command(chrome, args...).Run()
+	}
+}
+
+func findChrome() string {
+	if chromeCache != "" {
+		return chromeCache
+	}
+	for _, p := range []string{
+		"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+		"/usr/bin/google-chrome",
+		"/usr/bin/chromium",
+		"/usr/bin/chromium-browser",
+	} {
+		if _, err := os.Stat(p); err == nil {
+			chromeCache = p
+			return p
+		}
+	}
+	for _, name := range []string{"google-chrome", "chromium"} {
+		if out, _ := exec.Command("which", name).Output(); len(out) > 0 {
+			chromeCache = strings.TrimSpace(string(out))
+			return chromeCache
+		}
+	}
+	return ""
+}
 
 const chartTpl = `<!DOCTYPE html>
 <html>

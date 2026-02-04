@@ -112,11 +112,11 @@ func (s *StressService) DeleteTask(ctx context.Context, in *v1.DeleteTaskRequest
 	t, err := s.getTask(in.TaskId)
 	if err != nil {
 		s.log.Errorf("DeleteTask task not found: %v", err)
-		return nil, err
+		return &emptypb.Empty{}, nil
 	}
 	if err := s.uc.DeleteTask(t.GetID()); err != nil {
 		s.log.Errorf("DeleteTask failed: %v", err)
-		return nil, err
+		return &emptypb.Empty{}, nil
 	}
 	return &emptypb.Empty{}, nil
 }
