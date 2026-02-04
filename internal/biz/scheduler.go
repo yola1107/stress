@@ -247,6 +247,11 @@ func (uc *UseCase) ReportTask(t *task.Task, completed bool) {
 	// 汇总订单数据 Statistics 数据上报给s3
 	uc.sendS3Bucket(ctx, report.TaskId, report.GameName, scope)
 
+	// 填充图表 URL（从 Task 获取）
+	if t, ok := uc.taskPool.Get(report.TaskId); ok {
+		report.Url = t.GetRecordUrl()
+	}
+
 	// 飞书通知
 	uc.sendNotification(ctx, report)
 
@@ -299,7 +304,11 @@ func (uc *UseCase) sendS3Bucket(ctx context.Context, taskId, gameName string, sc
 		if err != nil {
 			uc.log.Errorf("failed to upload HTML to S3: %v", err)
 		} else {
-			uc.log.Infof("Chart uploaded to S3: %s", htmlUrl)
+			uc.log.Infof("[%s] Chart uploaded to S3: %s", taskId, htmlUrl)
+			// 更新 Task 的 record_url
+			if t, ok := uc.taskPool.Get(taskId); ok {
+				t.SetRecordUrl(htmlUrl)
+			}
 		}
 	}
 }

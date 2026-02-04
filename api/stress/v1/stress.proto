@@ -218,5 +218,5 @@ message TaskCompletionReport {
     int64 failed         = 16;  // 失败成员数
     int64 failed_reqs    = 17;  // 失败请求数
     double progress_pct  = 18;  // 进度 % (process/target*100, 上限 100)
-    string png_url       = 19;  // PNG图表URL
+    string url           = 19;  // 图表URL
 }

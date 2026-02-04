@@ -1207,7 +1207,7 @@ type TaskCompletionReport struct {
 	Failed        int64                  `protobuf:"varint,16,opt,name=failed,proto3" json:"failed,omitempty"`                                    // 失败成员数
 	FailedReqs    int64                  `protobuf:"varint,17,opt,name=failed_reqs,json=failedReqs,proto3" json:"failed_reqs,omitempty"`          // 失败请求数
 	ProgressPct   float64                `protobuf:"fixed64,18,opt,name=progress_pct,json=progressPct,proto3" json:"progress_pct,omitempty"`      // 进度 % (process/target*100, 上限 100)
-	PngUrl        string                 `protobuf:"bytes,19,opt,name=png_url,json=pngUrl,proto3" json:"png_url,omitempty"`                       // PNG图表URL
+	Url           string                 `protobuf:"bytes,19,opt,name=url,proto3" json:"url,omitempty"`                                           // 图表URL
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1368,9 +1368,9 @@ func (x *TaskCompletionReport) GetProgressPct() float64 {
 	return 0
 }
 
-func (x *TaskCompletionReport) GetPngUrl() string {
+func (x *TaskCompletionReport) GetUrl() string {
 	if x != nil {
-		return x.PngUrl
+		return x.Url
 	}
 	return ""
 }
@@ -1453,7 +1453,7 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xa8\x04\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xa1\x04\n" +
 	"\x14TaskCompletionReport\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x17\n" +
 	"\agame_id\x18\x02 \x01(\x03R\x06gameId\x12\x1b\n" +
@@ -1476,8 +1476,8 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\x06failed\x18\x10 \x01(\x03R\x06failed\x12\x1f\n" +
 	"\vfailed_reqs\x18\x11 \x01(\x03R\n" +
 	"failedReqs\x12!\n" +
-	"\fprogress_pct\x18\x12 \x01(\x01R\vprogressPct\x12\x17\n" +
-	"\apng_url\x18\x13 \x01(\tR\x06pngUrl*\x7f\n" +
+	"\fprogress_pct\x18\x12 \x01(\x01R\vprogressPct\x12\x10\n" +
+	"\x03url\x18\x13 \x01(\tR\x03url*\x7f\n" +
 	"\n" +
 	"TaskStatus\x12\x14\n" +
 	"\x10TASK_UNSPECIFIED\x10\x00\x12\x10\n" +

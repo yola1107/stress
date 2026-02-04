@@ -35,11 +35,11 @@ data:
     read_timeout: 0.5s
     write_timeout: 0.5s
   s3:
-    region: ""
-    access_key_id: ""
-    secret_access_key: ""
-    bucket: "bucket"
-    endpoint: ""
+    region: "ap-northeast-1"
+    access_key_id: "YOUR_ACCESS_KEY"
+    secret_access_key: "YOUR_SECRET_KEY"
+    bucket: "your-bucket"
+    endpoint: "https://s3.amazonaws.com"  # 可选，不填则使用 AWS 默认
 
 # 压测系统配置
 stress:

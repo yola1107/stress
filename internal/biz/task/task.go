@@ -30,6 +30,7 @@ type Task struct {
 	status      v1.TaskStatus
 	config      *v1.TaskConfig
 	bonusConfig *v1.BetBonusConfig
+	recordUrl   string // S3 HTML 图表 URL
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -114,6 +115,19 @@ func (t *Task) GetFinishedAt() time.Time {
 	finishedAt := t.finishedAt
 	t.mu.RUnlock()
 	return finishedAt
+}
+
+func (t *Task) SetRecordUrl(url string) {
+	t.mu.Lock()
+	t.recordUrl = url
+	t.mu.Unlock()
+}
+
+func (t *Task) GetRecordUrl() string {
+	t.mu.RLock()
+	url := t.recordUrl
+	t.mu.RUnlock()
+	return url
 }
 
 func (t *Task) Cancel() error {

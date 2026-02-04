@@ -152,11 +152,18 @@ func (s *StressService) getTask(taskID string) (*task.Task, error) {
 func (s *StressService) buildTask(t *task.Task) *v1.Task {
 	taskID := t.GetID()
 	now := timestamppb.Now()
+
+	// 优先使用 S3 URL，否则使用本地路径
+	recordUrl := t.GetRecordUrl()
+	if recordUrl == "" {
+		recordUrl = fmt.Sprintf(recordPathFmt, taskID)
+	}
+
 	return &v1.Task{
 		TaskId:    taskID,
 		Status:    t.GetStatus(),
 		Config:    t.GetConfig(),
-		RecordUrl: fmt.Sprintf(recordPathFmt, taskID),
+		RecordUrl: recordUrl,
 		CreatedAt: timestamppb.New(t.GetCreatedAt()),
 		UpdatedAt: now,
 	}

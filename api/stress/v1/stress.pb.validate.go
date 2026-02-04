@@ -2569,7 +2569,7 @@ func (m *TaskCompletionReport) validate(all bool) error {
 
 	// no validation rules for ProgressPct
 
-	// no validation rules for PngUrl
+	// no validation rules for Url
 
 	if len(errors) > 0 {
 		return TaskCompletionReportMultiError(errors)

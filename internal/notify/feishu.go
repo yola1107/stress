@@ -132,7 +132,9 @@ func BuildTaskCompletionMessage(r *v1.TaskCompletionReport) *Message {
 		fmt.Sprintf("**完成成员**：%d", r.Completed),
 		fmt.Sprintf("**失败成员**：%d", r.Failed),
 		fmt.Sprintf("**失败请求**：%d", r.FailedReqs),
-		fmt.Sprintf("**S3-URL= %q", "https://empty"),
+	}
+	if r.Url != "" {
+		lines = append(lines, fmt.Sprintf("**图表地址**：%s", r.Url))
 	}
 	return &Message{Title: "压测任务结束", Content: strings.Join(lines, "\n")}
 }
