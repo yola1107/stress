@@ -105,19 +105,14 @@ func newMysqlFromConf(c *conf.Data_Database, logger log.Logger, label string) (*
 		l.Errorf("failed opening %s db: %v", label, err)
 		return nil, nil, errors.Newf(500, "DB_OPEN_FAILED", "failed opening %s db: %v", label, err)
 	}
-	maxIdleConns := int(c.MaxIdleConns)
-	if maxIdleConns <= 0 {
-		maxIdleConns = 10
-	}
-	db.SetMaxIdleConns(maxIdleConns)
-	maxOpenConns := int(c.MaxOpenConns)
-	if maxOpenConns <= 0 {
-		maxOpenConns = 100
-	}
-	db.SetMaxOpenConns(maxOpenConns)
+
+	// 设置连接池参数
+	db.SetMaxIdleConns(defaultInt(c.MaxIdleConns, 10))
+	db.SetMaxOpenConns(defaultInt(c.MaxOpenConns, 100))
 	if db.DB() != nil {
 		db.DB().SetConnMaxLifetime(5 * time.Minute)
 	}
+
 	if err := db.Ping(); err != nil {
 		l.Errorf("failed pinging, db=%q, err=%v", label, err)
 		_ = db.Close()
@@ -131,4 +126,12 @@ func newMysqlFromConf(c *conf.Data_Database, logger log.Logger, label string) (*
 	}
 	l.Infof("MySQL connection established successfully. db=%q", label)
 	return db, cleanup, nil
+}
+
+// defaultInt 返回配置值或默认值
+func defaultInt(value int32, defaultValue int) int {
+	if v := int(value); v > 0 {
+		return v
+	}
+	return defaultValue
 }

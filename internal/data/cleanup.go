@@ -77,7 +77,7 @@ func (r *dataRepo) scanAndDelete(ctx context.Context, pattern string, client pip
 }
 
 // CleanRedisBySite 清理 Redis 中 site:* 的键
-func (r *dataRepo) CleanRedisBySite(ctx context.Context, site, _ string) error {
+func (r *dataRepo) CleanRedisBySite(ctx context.Context, site string) error {
 	pattern := site + ":*"
 	rdb := r.data.rdb
 	totalDeleted := 0
@@ -114,8 +114,6 @@ func (r *dataRepo) CleanRedisBySites(ctx context.Context, sites []string) error 
 		return nil
 	}
 
-	//r.log.Infof("Redis Cleaning for %d sites: %v", len(sites), sites)
-
 	// 使用 errgroup 进行并发控制
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(10) // 限制并发数量
@@ -123,7 +121,7 @@ func (r *dataRepo) CleanRedisBySites(ctx context.Context, sites []string) error 
 	for _, site := range sites {
 		site := site
 		g.Go(func() error {
-			return r.CleanRedisBySite(gctx, site, "")
+			return r.CleanRedisBySite(gctx, site)
 		})
 	}
 
