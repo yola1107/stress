@@ -142,12 +142,22 @@ func (uc *UseCase) monitorOrderWriteCompletion(t *task.Task, done chan<- struct{
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
+	// 增加超时保护，防止死循环（5分钟超时）
+	timeout := time.NewTimer(5 * time.Minute)
+	defer timeout.Stop()
+
 	for {
-		if orderCount, err := uc.repo.GetGameOrderCount(context.Background()); err == nil && orderCount >= t.GetStep() {
+		select {
+		case <-timeout.C:
+			uc.log.Warnf("[%s] monitorOrderWriteCompletion timeout, forced closing", t.GetID())
 			close(done)
 			return
+		case <-ticker.C:
+			if orderCount, err := uc.repo.GetGameOrderCount(context.Background()); err == nil && orderCount >= t.GetStep() {
+				close(done)
+				return
+			}
 		}
-		<-ticker.C
 	}
 }
 
