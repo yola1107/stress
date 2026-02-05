@@ -288,10 +288,10 @@ components:
                     type: string
                 createdAt:
                     type: string
-                    format: date-time
+                finishAt:
+                    type: string
                 updatedAt:
                     type: string
-                    format: date-time
             description: 任务完整信息
         stress.v1.TaskConfig:
             type: object

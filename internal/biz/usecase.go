@@ -3,9 +3,9 @@ package biz
 import (
 	"context"
 	"strconv"
-	"stress/internal/biz/chart"
 	"time"
 
+	"stress/internal/biz/chart"
 	"stress/internal/biz/game"
 	"stress/internal/biz/game/base"
 	"stress/internal/biz/member"

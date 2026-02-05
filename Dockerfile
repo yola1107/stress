@@ -1,11 +1,5 @@
 FROM 192.168.10.67/egame/alpine:3.16
 
-RUN apk add --no-cache tzdata || true && \
-    if [ -f /usr/share/zoneinfo/Asia/Shanghai ]; then \
-        cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
-        echo "Asia/Shanghai" > /etc/timezone; \
-    fi
-
 WORKDIR /app
 
 COPY server /app/server

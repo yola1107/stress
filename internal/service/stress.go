@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	v1 "stress/api/stress/v1"
 	"stress/internal/biz"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -149,7 +149,8 @@ func (s *StressService) toProtoTask(t *task.Task) *v1.Task {
 		Status:    t.GetStatus(),
 		Config:    t.GetConfig(),
 		RecordUrl: t.GetRecordUrl(),
-		CreatedAt: timestamppb.New(t.GetCreatedAt()),
-		UpdatedAt: timestamppb.Now(),
+		CreatedAt: t.GetCreatedAt().String(),
+		FinishAt:  t.GetFinishedAt().String(),
+		UpdatedAt: time.Now().String(),
 	}
 }

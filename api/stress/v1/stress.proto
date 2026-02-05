@@ -5,7 +5,7 @@ package stress.v1;
 import "google/api/annotations.proto";
 import "validate/validate.proto";
 import "google/protobuf/empty.proto";
-import "google/protobuf/timestamp.proto";
+//import "google/protobuf/timestamp.proto";
 
 option go_package = "stress/api/stress/v1;v1";
 
@@ -189,13 +189,14 @@ message BetBonusConfig {
 
 // 任务完整信息
 message Task {
-    string task_id                       = 1;  // 任务ID
-    string description                   = 2;  // 任务描述
-    TaskStatus status                    = 3;  // 任务状态
-    TaskConfig config                    = 4;  // 任务配置
-    string record_url                    = 5;  // 任务结果地址
-    google.protobuf.Timestamp created_at = 8;  // 创建时间
-    google.protobuf.Timestamp updated_at = 9;  // 更新时间
+    string task_id     = 1;   // 任务ID
+    string description = 2;   // 任务描述
+    TaskStatus status  = 3;   // 任务状态
+    TaskConfig config  = 4;   // 任务配置
+    string record_url  = 5;   // 任务结果地址
+    string created_at  = 8;   // 创建时间
+    string finish_at   = 9;   // 创建时间
+    string updated_at  = 10;  // 更新时间
 }
 
 // 任务完成/统计报告（供 Prometheus、飞书通知、API 统一复用）

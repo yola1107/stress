@@ -186,6 +186,28 @@ func encCfg(file bool) zapcore.EncoderConfig {
 	return cfg
 }
 
+/*func encCfg(file bool) zapcore.EncoderConfig {
+	cfg := zap.NewProductionEncoderConfig()
+	cfg.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+		enc.AppendString(t.Format(time.RFC3339))
+	}
+	cfg.EncodeCaller = func(c zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
+		enc.AppendString(c.TrimmedPath())
+	}
+	cfg.ConsoleSeparator = " "
+
+	// 开发模式使用彩色输出，生产模式使用JSON结构化输出
+	if !file && os.Getenv("LOG_FORMAT") != "json" {
+		cfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		cfg.EncodeCaller = zapcore.FullCallerEncoder
+	} else {
+		// 生产环境或明确要求JSON格式时使用结构化输出
+		cfg.EncodeLevel = zapcore.CapitalLevelEncoder
+		cfg.EncodeCaller = zapcore.ShortCallerEncoder
+	}
+	return cfg
+}*/
+
 func calculateSkip() int {
 	pc := make([]uintptr, 8)
 	n := runtime.Callers(3, pc) // 调整跳过层数
