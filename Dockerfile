@@ -1,24 +1,19 @@
-FROM golang:1.19 AS builder
+FROM 192.168.10.67/egame/alpine:3.16
 
-COPY . /src
-WORKDIR /src
-
-RUN GOPROXY=https://goproxy.cn make build
-
-FROM debian:stable-slim
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-		ca-certificates  \
-        netbase \
-        && rm -rf /var/lib/apt/lists/ \
-        && apt-get autoremove -y && apt-get autoclean -y
-
-COPY --from=builder /src/bin /app
+RUN apk add --no-cache tzdata || true && \
+    if [ -f /usr/share/zoneinfo/Asia/Shanghai ]; then \
+        cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+        echo "Asia/Shanghai" > /etc/timezone; \
+    fi
 
 WORKDIR /app
 
-EXPOSE 8000
-EXPOSE 9000
-VOLUME /data/conf
+COPY server /app/server
+RUN chmod +x /app/server
 
-CMD ["./server", "-conf", "/data/conf"]
+EXPOSE 8001
+EXPOSE 9001
+
+VOLUME /app/configs
+
+CMD ["/app/server", "-conf", "/app/configs"]

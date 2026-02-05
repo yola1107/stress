@@ -1,0 +1,43 @@
+# Git
+.git/
+.gitignore
+.gitlab-ci.yml
+
+# Build artifacts
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.qoder/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project temp
+stats/
+docs/
+rtp_charts/
+vendor/
+
+# Dependencies
+go.sum
+go.mod
+
+# Config (will be mounted at runtime)
+configs/
+
+# Keep only the server binary
+!server

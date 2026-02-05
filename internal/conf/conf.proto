@@ -92,9 +92,9 @@ message Stress {
     // 启动配置（API和认证配置）
     message Launch {
         repeated string sites = 1;  // SITE标识，用于Redis清理
-        string merchant       = 2;//
-        string api_url        = 3;  // API地址
-        string launch_url     = 4;  // 启动地址
+        string merchant       = 2;  //
+        string api_url        = 3[(validate.rules).string = { min_len: 1 }];  // API地址
+        string launch_url     = 4[(validate.rules).string = { min_len: 1 }];  // 启动地址
         bool sign_required    = 5;
     }
 

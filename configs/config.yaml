@@ -6,9 +6,9 @@ server:
     addr: 0.0.0.0:9001
     timeout: 1s
 log:
-  mode: 0 # 0为开发模式(控制台颜色输出)，1为生产模式(写入文件)
+  mode: 1 # 0为开发模式(控制台颜色输出)，1为生产模式(写入文件)
   level: "debug"
-  app: "kratos-app"
+  app: "stress"
   dir: "./logs"
   file: false
 
@@ -49,9 +49,9 @@ stress:
     webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/6223fc9e-58c6-4526-b463-140820b5e7c9"
     signing_secret: "HOyyTFJVwq05KjGwFR5isc"
   chart:
-    enabled: true # 是否启用图表生成及s3上传
-    generate_local: true # 是否生成本地文件（HTML/PNG图表）
-    upload_to_s3: false # 是否上传到S3存储
+    enabled: true          # 是否启用图表生成及s3上传
+    generate_local: false  # 是否生成本地文件（HTML/PNG图表）
+    upload_to_s3: false     # 是否上传到S3存储
   member:
     auto_loads: true
     interval_sec: 1

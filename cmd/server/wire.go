@@ -7,6 +7,7 @@ package main
 
 import (
 	"stress/internal/biz"
+	"stress/internal/biz/chart"
 	"stress/internal/conf"
 	"stress/internal/data"
 	"stress/internal/notify"
@@ -20,5 +21,5 @@ import (
 
 // wireApp init kratos application.
 func wireApp(*conf.Server, *conf.Data, *conf.Stress, log.Logger) (*kratos.App, func(), error) {
-	panic(wire.Build(server.ProviderSet, data.ProviderSet, biz.ProviderSet, notify.ProviderSet, service.ProviderSet, newApp))
+	panic(wire.Build(server.ProviderSet, data.ProviderSet, biz.ProviderSet, notify.ProviderSet, chart.ProviderSet, service.ProviderSet, newApp))
 }

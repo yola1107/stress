@@ -1,0 +1,92 @@
+variables:
+  REPO_HARBOR: "192.168.10.67"
+  REPO_HARBOR_USER: "admin"
+  REPO_HARBOR_PASS: "P8jF3sH6vQ1yL5nT"
+  REPO_PATH: "egame"
+  REPO_PROJECT: "stress"
+  APP_BINARY: "server"
+  CONTAINER_NAME: "stress-${CI_COMMIT_REF_SLUG}"
+  IMAGE_VERSION: "${CI_COMMIT_REF_SLUG}-v0.0.1"
+
+default:
+  interruptible: true   # 允许被新 pipeline 中断
+
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible  # 新提交时自动取消旧的可中断 job
+
+stages:
+  - build
+  - deploy
+
+build:
+  stage: build
+  interruptible: true
+  tags:
+    - dzz-tools-runner
+  image: 192.168.10.67/egame/ci-tools:go1.24.5-podman
+  script:
+    - export STORAGE_DRIVER=vfs
+    - mkdir -p bin/
+    - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=${CI_COMMIT_SHORT_SHA}" -o ./bin/$APP_BINARY ./cmd/server
+    - mv ./bin/$APP_BINARY ./$APP_BINARY
+    - podman login --tls-verify=false -u "$REPO_HARBOR_USER" -p "$REPO_HARBOR_PASS" $REPO_HARBOR
+    - podman build --tls-verify=false -t $REPO_HARBOR/$REPO_PATH/$REPO_PROJECT:$IMAGE_VERSION .
+    - podman push --tls-verify=false $REPO_HARBOR/$REPO_PATH/$REPO_PROJECT:$IMAGE_VERSION
+    - rm -f $APP_BINARY
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+deploy:
+  stage: deploy
+  interruptible: true
+  resource_group: "${REPO_PROJECT}-${CI_COMMIT_REF_SLUG}"   # 使用环境变量动态生成
+  tags:
+    - dzz-tools-runner
+  image: 192.168.10.67/egame/alpine:3.16
+  variables:
+    DEPLOY_HOST: "192.168.10.72"
+    DEPLOY_USER: "aa"
+    DEPLOY_PASSWORD: "ABC123"
+    APP_PATH: "/data/stress"
+
+  script:
+    - |
+      # 先复制配置文件到目标服务器
+      sshpass -p "$DEPLOY_PASSWORD" ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_HOST "
+        echo '$DEPLOY_PASSWORD' | sudo -S mkdir -p $APP_PATH/{configs,logs}
+      "
+      sshpass -p "$DEPLOY_PASSWORD" scp -o StrictHostKeyChecking=no configs/config.yaml $DEPLOY_USER@$DEPLOY_HOST:/tmp/config.yaml
+      sshpass -p "$DEPLOY_PASSWORD" ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_HOST "
+        set -e
+        echo '$DEPLOY_PASSWORD' | sudo -S mv /tmp/config.yaml $APP_PATH/configs/  
+        echo '$DEPLOY_PASSWORD' | sudo -S docker login -u $REPO_HARBOR_USER -p $REPO_HARBOR_PASS $REPO_HARBOR  
+        echo '$DEPLOY_PASSWORD' | sudo -S docker pull $REPO_HARBOR/$REPO_PATH/$REPO_PROJECT:$IMAGE_VERSION  
+        if echo '$DEPLOY_PASSWORD' | sudo -S docker ps -a --filter name=$CONTAINER_NAME --quiet | grep -q .; then
+          echo '$DEPLOY_PASSWORD' | sudo -S docker stop $CONTAINER_NAME 2>/dev/null || true
+          echo '$DEPLOY_PASSWORD' | sudo -S docker rm $CONTAINER_NAME 2>/dev/null || true
+          sleep 1
+        fi
+        
+        echo '启动新容器...'
+        echo '$DEPLOY_PASSWORD' | sudo -S docker run -d \
+          --name $CONTAINER_NAME \
+          --restart=unless-stopped \
+          --ulimit nofile=1048576:1048576 \
+          -p 8001:8001 \
+          -p 9001:9001 \
+          -v $APP_PATH/configs:/app/configs \
+          -v $APP_PATH/logs:/app/logs \
+          $REPO_HARBOR/$REPO_PATH/$REPO_PROJECT:$IMAGE_VERSION  
+        
+        sleep 2
+        echo '$DEPLOY_PASSWORD' | sudo -S docker ps --filter name=$CONTAINER_NAME
+        echo '$DEPLOY_PASSWORD' | sudo -S docker logs $CONTAINER_NAME 2>&1 | tail -10
+      "
+  needs:
+    - job: build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+
+

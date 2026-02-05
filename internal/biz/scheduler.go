@@ -272,7 +272,7 @@ func (uc *UseCase) sendS3Bucket(ctx context.Context, t *task.Task, report *v1.Ta
 		return
 	}
 
-	result, err := uc.chartGen.Generate(pts, report.TaskId, report.GameName, scope.Merchant, uc.conf.Chart.GenerateLocal)
+	result, err := uc.chart.Generate(pts, report.TaskId, report.GameName, scope.Merchant, uc.conf.Chart.GenerateLocal)
 	if err != nil {
 		uc.log.Errorf("failed to generate chart: %v", err)
 		return
@@ -280,7 +280,7 @@ func (uc *UseCase) sendS3Bucket(ctx context.Context, t *task.Task, report *v1.Ta
 
 	// 上传到 S3
 	if uc.conf.Chart.UploadToS3 && result.HTMLContent != "" {
-		htmlKey := fmt.Sprintf("charts/%s/%s.html", scope.Merchant, report.TaskId)
+		htmlKey := fmt.Sprintf("charts/%s.html", report.TaskId)
 		htmlUrl, err := uc.repo.UploadBytes(ctx, "", htmlKey, "text/html; charset=utf-8", []byte(result.HTMLContent))
 		if err != nil {
 			uc.log.Errorf("failed to upload HTML to S3: %v", err)

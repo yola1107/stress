@@ -1934,9 +1934,27 @@ func (m *Stress_Launch) validate(all bool) error {
 
 	// no validation rules for Merchant
 
-	// no validation rules for ApiUrl
+	if utf8.RuneCountInString(m.GetApiUrl()) < 1 {
+		err := Stress_LaunchValidationError{
+			field:  "ApiUrl",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
-	// no validation rules for LaunchUrl
+	if utf8.RuneCountInString(m.GetLaunchUrl()) < 1 {
+		err := Stress_LaunchValidationError{
+			field:  "LaunchUrl",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	// no validation rules for SignRequired
 

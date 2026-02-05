@@ -3,7 +3,7 @@ package biz
 import (
 	"context"
 	"strconv"
-	"stress/internal/biz/stats"
+	"stress/internal/biz/chart"
 	"time"
 
 	"stress/internal/biz/game"
@@ -39,7 +39,7 @@ type DataRepo interface {
 	GetGameOrderCount(ctx context.Context) (int64, error)
 	GetOrderCountByScope(ctx context.Context, scope OrderScope) (int64, error)
 	GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
-	QueryGameOrderPoints(ctx context.Context, scope OrderScope) ([]stats.Point, error)
+	QueryGameOrderPoints(ctx context.Context, scope OrderScope) ([]chart.Point, error)
 
 	// 任务ID生成
 	NextTaskID(ctx context.Context, gameID int64) (string, error)
@@ -69,12 +69,12 @@ type UseCase struct {
 	taskPool   *task.Pool
 	memberPool *member.Pool
 
-	notify   notify.Notifier
-	chartGen *stats.Generator
+	notify notify.Notifier
+	chart  chart.IGenerator
 }
 
 // NewUseCase 创建 UseCase
-func NewUseCase(repo DataRepo, logger log.Logger, c *conf.Stress, notify notify.Notifier) (*UseCase, func(), error) {
+func NewUseCase(repo DataRepo, logger log.Logger, c *conf.Stress, notify notify.Notifier, chart chart.IGenerator) (*UseCase, func(), error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	uc := &UseCase{
 		ctx:        ctx,
@@ -86,7 +86,7 @@ func NewUseCase(repo DataRepo, logger log.Logger, c *conf.Stress, notify notify.
 		taskPool:   task.NewTaskPool(),
 		memberPool: member.NewMemberPool(),
 		notify:     notify,
-		chartGen:   stats.NewGenerator(""),
+		chart:      chart,
 	}
 
 	// 启动时自清理：Redis site:* + 订单表，避免上次压测残留
@@ -151,8 +151,8 @@ func (uc *UseCase) runStartupClean() {
 func (uc *UseCase) runMemberLoader() {
 	const (
 		memberLoadBatch  = 1000
-		memberBalance    = 10000
 		memberNameOffset = 1000
+		memberBalance    = 10000
 	)
 
 	ticker := time.NewTicker(time.Duration(uc.conf.Member.IntervalSec) * time.Second)
@@ -200,7 +200,7 @@ func (uc *UseCase) runTaskCleaner() {
 	for {
 		select {
 		case <-uc.ctx.Done():
-			uc.log.Info("Task cleaner stopped")
+			uc.log.Info("closing task cleaner")
 			return
 		case <-ticker.C:
 			deleted := uc.taskPool.CleanupExpiredTasks(taskRetentionPeriod)

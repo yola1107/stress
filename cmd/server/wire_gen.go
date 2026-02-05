@@ -10,6 +10,7 @@ import (
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
 	"stress/internal/biz"
+	"stress/internal/biz/chart"
 	"stress/internal/conf"
 	"stress/internal/data"
 	"stress/internal/notify"
@@ -49,7 +50,8 @@ func wireApp(confServer *conf.Server, confData *conf.Data, stress *conf.Stress, 
 	}
 	dataRepo := data.NewDataRepo(dataData, logger)
 	notifier := notify.NewFeishu(stress)
-	useCase, cleanup5, err := biz.NewUseCase(dataRepo, logger, stress, notifier)
+	iGenerator := chart.NewGenerator(stress)
+	useCase, cleanup5, err := biz.NewUseCase(dataRepo, logger, stress, notifier, iGenerator)
 	if err != nil {
 		cleanup4()
 		cleanup3()

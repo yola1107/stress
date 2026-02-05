@@ -3,10 +3,10 @@ package data
 import (
 	"context"
 	"fmt"
-	"stress/internal/biz/stats"
 	"time"
 
 	"stress/internal/biz"
+	"stress/internal/biz/chart"
 
 	"github.com/go-kratos/kratos/v2/log"
 )
@@ -18,7 +18,7 @@ const (
 
 var locSH, _ = time.LoadLocation("Asia/Shanghai")
 
-func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope biz.OrderScope) ([]stats.Point, error) {
+func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope biz.OrderScope) ([]chart.Point, error) {
 	if r.data.order == nil {
 		return nil, fmt.Errorf("order database not configured")
 	}
@@ -48,7 +48,7 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope biz.OrderScop
 		return nil, fmt.Errorf("get total orders failed: %w", err)
 	}
 	if totalOrders == 0 {
-		return []stats.Point{}, nil
+		return []chart.Point{}, nil
 	}
 
 	step := totalOrders / sampleMax
@@ -72,7 +72,7 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope biz.OrderScop
 		firstPointSaved  bool
 	)
 
-	sampledPts := make([]stats.Point, 0, sampleMax+2)
+	sampledPts := make([]chart.Point, 0, sampleMax+2)
 
 	// flush 函数：处理一个完整的数据点
 	flush := func(pointOrders int64, pointTime int64, isLast bool) {
@@ -100,7 +100,7 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope biz.OrderScop
 
 		// 采样条件：第一个点、最后一个点、等距点
 		if pointOrders == 1 || isLast || (pointOrders-1)%step == 0 {
-			sampledPts = append(sampledPts, stats.Point{
+			sampledPts = append(sampledPts, chart.Point{
 				X:    float64(pointOrders) / orderUnit,
 				Y:    rate,
 				Time: time.Unix(pointTime, 0).In(locSH).Format(timeLayout),
@@ -184,9 +184,9 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope biz.OrderScop
 }
 
 // 确保首尾点正确（简化版）
-func ensureEdgePoints(points []stats.Point, totalOrders int64,
+func ensureEdgePoints(points []chart.Point, totalOrders int64,
 	firstOrders int64, firstTime int64, firstCumBet, firstCumWin float64,
-	finalCumBet, finalCumWin float64, lastTime int64) []stats.Point {
+	finalCumBet, finalCumWin float64, lastTime int64) []chart.Point {
 
 	if len(points) == 0 || totalOrders <= 0 {
 		return points
@@ -204,7 +204,7 @@ func ensureEdgePoints(points []stats.Point, totalOrders int64,
 		hasLast = true
 	}
 
-	result := make([]stats.Point, 0, len(points)+2)
+	result := make([]chart.Point, 0, len(points)+2)
 
 	// 添加第一个点（如果需要）
 	if !hasFirst && firstOrders > 0 {
@@ -212,7 +212,7 @@ func ensureEdgePoints(points []stats.Point, totalOrders int64,
 		if firstCumBet > 0 {
 			firstRate = (firstCumBet - firstCumWin) / firstCumBet
 		}
-		result = append(result, stats.Point{
+		result = append(result, chart.Point{
 			X:    float64(firstOrders) / orderUnit,
 			Y:    firstRate,
 			Time: time.Unix(firstTime, 0).In(locSH).Format(timeLayout),
@@ -228,7 +228,7 @@ func ensureEdgePoints(points []stats.Point, totalOrders int64,
 		if finalCumBet > 0 {
 			lastRate = (finalCumBet - finalCumWin) / finalCumBet
 		}
-		result = append(result, stats.Point{
+		result = append(result, chart.Point{
 			X:    float64(totalOrders) / orderUnit,
 			Y:    lastRate,
 			Time: time.Unix(lastTime, 0).In(locSH).Format(timeLayout),
@@ -239,12 +239,12 @@ func ensureEdgePoints(points []stats.Point, totalOrders int64,
 }
 
 // uniformTruncate 均匀截断采样点
-func uniformTruncate(points []stats.Point, maxPoints int) []stats.Point {
+func uniformTruncate(points []chart.Point, maxPoints int) []chart.Point {
 	if len(points) <= maxPoints {
 		return points
 	}
 	n := len(points)
-	result := make([]stats.Point, 0, maxPoints)
+	result := make([]chart.Point, 0, maxPoints)
 	result = append(result, points[0])
 	step := (n - 1) / (maxPoints - 1)
 	if step < 1 {

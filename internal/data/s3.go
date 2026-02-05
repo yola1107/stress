@@ -5,31 +5,30 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"time"
 
 	"stress/internal/conf"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-kratos/kratos/v2/log"
 )
 
 const (
-	maxRetries    = 3                // 最大重试次数
-	retryDelay    = time.Second      // 基础重试延迟
-	uploadTimeout = 30 * time.Second // 单次上传超时
+	maxRetries    = 3
+	retryDelay    = time.Second
+	uploadTimeout = 30 * time.Second
 )
 
-// S3Bucket S3上传器实现
 type S3Bucket struct {
 	client *s3.Client
 	bucket string
+	region string
 	logger *log.Helper
 }
 
-// NewS3Bucket 创建S3上传器
 func NewS3Bucket(c *conf.Data, logger log.Logger) (*S3Bucket, func(), error) {
 	l := log.NewHelper(logger)
 
@@ -37,7 +36,6 @@ func NewS3Bucket(c *conf.Data, logger log.Logger) (*S3Bucket, func(), error) {
 		return nil, nil, fmt.Errorf("s3 config is nil")
 	}
 
-	// 配置选项
 	configOptions := []func(*config.LoadOptions) error{
 		config.WithRegion(c.S3.Region),
 		config.WithCredentialsProvider(aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
@@ -48,7 +46,6 @@ func NewS3Bucket(c *conf.Data, logger log.Logger) (*S3Bucket, func(), error) {
 		})),
 	}
 
-	// 如果配置了自定义 endpoint，添加 endpoint resolver
 	if c.S3.Endpoint != "" {
 		configOptions = append(configOptions, config.WithEndpointResolverWithOptions(
 			aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
@@ -72,6 +69,7 @@ func NewS3Bucket(c *conf.Data, logger log.Logger) (*S3Bucket, func(), error) {
 	uploader := &S3Bucket{
 		client: client,
 		bucket: c.S3.Bucket,
+		region: c.S3.Region,
 		logger: l,
 	}
 
@@ -82,14 +80,12 @@ func NewS3Bucket(c *conf.Data, logger log.Logger) (*S3Bucket, func(), error) {
 	return uploader, cleanup, nil
 }
 
-// UploadFile 上传文件到S3（带重试机制）
 func (r *dataRepo) UploadFile(ctx context.Context, bucket, key, contentType string, body io.Reader) (string, error) {
 	s := r.data.s3Bucket
 	if bucket == "" {
 		bucket = s.bucket
 	}
 
-	// 读取到内存以支持重试
 	data, err := io.ReadAll(body)
 	if err != nil {
 		return "", fmt.Errorf("failed to read body: %w", err)
@@ -103,22 +99,61 @@ func (r *dataRepo) UploadFile(ctx context.Context, bucket, key, contentType stri
 		}
 
 		uploadCtx, cancel := context.WithTimeout(ctx, uploadTimeout)
-		uploader := manager.NewUploader(s.client)
-		result, err := uploader.Upload(uploadCtx, &s3.PutObjectInput{
+
+		presignClient := s3.NewPresignClient(s.client)
+		putInput := &s3.PutObjectInput{
 			Bucket:      aws.String(bucket),
 			Key:         aws.String(key),
-			Body:        bytes.NewReader(data),
 			ContentType: aws.String(contentType),
-		})
-		cancel()
-
-		if err == nil {
-			s.logger.Infof("S3 upload success: bucket=%s, key=%s, url=%s", bucket, key, result.Location)
-			return result.Location, nil
 		}
 
-		lastErr = err
-		s.logger.Warnf("Upload attempt %d/%d failed: %v", i+1, maxRetries, err)
+		presignPutResult, err := presignClient.PresignPutObject(uploadCtx, putInput, s3.WithPresignExpires(time.Hour*24*3))
+		if err != nil {
+			cancel()
+			lastErr = fmt.Errorf("failed to generate presigned PUT URL: %w", err)
+			s.logger.Warnf("Upload attempt %d/%d (presign PUT failed): %v", i+1, maxRetries, err)
+			continue
+		}
+
+		req, err := http.NewRequestWithContext(uploadCtx, "PUT", presignPutResult.URL, bytes.NewReader(data))
+		if err != nil {
+			cancel()
+			lastErr = err
+			s.logger.Warnf("Upload attempt %d/%d (request creation failed): %v", i+1, maxRetries, err)
+			continue
+		}
+		req.Header.Set("Content-Type", contentType)
+
+		resp, err := http.DefaultClient.Do(req)
+		cancel()
+
+		if err != nil {
+			lastErr = err
+			s.logger.Warnf("Upload attempt %d/%d (HTTP request failed): %v", i+1, maxRetries, err)
+			continue
+		}
+
+		respBody, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+			lastErr = fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, string(respBody))
+			s.logger.Warnf("Upload attempt %d/%d failed: %v", i+1, maxRetries, lastErr)
+			continue
+		}
+
+		presignGetResult, err := presignClient.PresignGetObject(context.Background(), &s3.GetObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+		})
+		if err != nil {
+			lastErr = fmt.Errorf("failed to generate presigned GET URL: %w", err)
+			s.logger.Warnf("Failed to generate presigned GET URL: %v", err)
+			continue
+		}
+
+		s.logger.Infof("S3 upload success: bucket=%s, key=%s, presigned_url=%s", bucket, key, presignGetResult.URL)
+		return presignGetResult.URL, nil
 	}
 
 	return "", fmt.Errorf("upload failed after %d attempts: %w", maxRetries, lastErr)
