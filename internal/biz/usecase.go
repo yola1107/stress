@@ -38,7 +38,7 @@ type DataRepo interface {
 	// 订单统计查询
 	GetGameOrderCount(ctx context.Context) (int64, error)
 	GetOrderCountByScope(ctx context.Context, scope task.OrderScope) (int64, error)
-	GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
+	GetDetailedOrderAmounts(ctx context.Context, scope task.OrderScope) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
 	QueryGameOrderPoints(ctx context.Context, scope task.OrderScope) ([]chart.Point, error)
 
 	// 任务ID生成

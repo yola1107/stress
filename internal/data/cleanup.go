@@ -228,7 +228,7 @@ func (r *dataRepo) DeleteOrdersByScope(ctx context.Context, scope task.OrderScop
 }
 
 // GetDetailedOrderAmounts 查询详细的订单统计信息（总下注/总奖金/下注订单数/奖励订单数）
-func (r *dataRepo) GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error) {
+func (r *dataRepo) GetDetailedOrderAmounts(ctx context.Context, scope task.OrderScope) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error) {
 	if r.data.order == nil {
 		return 0, 0, 0, 0, fmt.Errorf("order database not configured")
 	}
@@ -238,6 +238,9 @@ func (r *dataRepo) GetDetailedOrderAmounts(ctx context.Context) (totalBet, total
 		BetOrderCount   int64 `xorm:"bet_order_count"`
 		BonusOrderCount int64 `xorm:"bonus_order_count"`
 	}
+
+	where, args := buildOrderWhere(scope)
+
 	// amount/bonus_amount 为 decimal(16,4)，*10000 转为整型
 	// 通过 bonus_amount > 0 判断是否为奖励订单
 	_, err = r.data.order.Context(ctx).SQL(`
@@ -246,8 +249,7 @@ func (r *dataRepo) GetDetailedOrderAmounts(ctx context.Context) (totalBet, total
 			COALESCE(ROUND(SUM(bonus_amount)*10000), 0) as total_win,
 			COUNT(*) as bet_order_count,
 			COALESCE(SUM(CASE WHEN bonus_amount > 0 THEN 1 ELSE 0 END), 0) as bonus_order_count
-		FROM game_order
-	`).Get(&result)
+		FROM game_order WHERE `+where, args...).Get(&result)
 	if err != nil {
 		return 0, 0, 0, 0, fmt.Errorf("query detailed order amounts: %w", err)
 	}

@@ -31,7 +31,7 @@ type ExecDeps struct {
 // OrderRepo 订单数据接口
 type OrderRepo interface {
 	GetGameOrderCount(ctx context.Context) (int64, error)
-	GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
+	GetDetailedOrderAmounts(ctx context.Context, scope OrderScope) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
 	QueryGameOrderPoints(ctx context.Context, scope OrderScope) ([]chart.Point, error)
 	UploadBytes(ctx context.Context, bucket, key, contentType string, data []byte) (string, error)
 	CleanRedisBySites(ctx context.Context, sites []string) error
@@ -202,7 +202,8 @@ func (t *Task) report(deps *ExecDeps, completed bool) {
 	rpt := t.Snapshot(time.Now())
 
 	// 填充订单统计
-	if totalBet, totalWin, betOrderCount, _, err := deps.Repo.GetDetailedOrderAmounts(ctx); err == nil {
+	scope := t.buildOrderScope(deps)
+	if totalBet, totalWin, betOrderCount, _, err := deps.Repo.GetDetailedOrderAmounts(ctx, scope); err == nil {
 		rpt.TotalBet, rpt.TotalWin, rpt.OrderCount = totalBet, totalWin, betOrderCount
 		if totalBet > 0 {
 			rpt.RtpPct = float64(totalWin*100) / float64(totalBet)
