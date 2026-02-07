@@ -8,6 +8,4 @@ RUN chmod +x /app/server
 EXPOSE 8001
 EXPOSE 9001
 
-VOLUME /app/configs
-
 CMD ["/app/server", "-conf", "/app/configs"]

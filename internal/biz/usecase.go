@@ -33,28 +33,19 @@ type DataRepo interface {
 
 	// 订单表操作
 	CleanGameOrderTable(ctx context.Context) error
-	DeleteOrdersByScope(ctx context.Context, scope OrderScope) (int64, error)
+	DeleteOrdersByScope(ctx context.Context, scope task.OrderScope) (int64, error)
 
 	// 订单统计查询
 	GetGameOrderCount(ctx context.Context) (int64, error)
-	GetOrderCountByScope(ctx context.Context, scope OrderScope) (int64, error)
+	GetOrderCountByScope(ctx context.Context, scope task.OrderScope) (int64, error)
 	GetDetailedOrderAmounts(ctx context.Context) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
-	QueryGameOrderPoints(ctx context.Context, scope OrderScope) ([]chart.Point, error)
+	QueryGameOrderPoints(ctx context.Context, scope task.OrderScope) ([]chart.Point, error)
 
 	// 任务ID生成
 	NextTaskID(ctx context.Context, gameID int64) (string, error)
 
 	// S3 上传
 	UploadBytes(ctx context.Context, bucket, key, contentType string, data []byte) (string, error)
-}
-
-// OrderScope 订单查询范围
-type OrderScope struct {
-	GameID     int64
-	Merchant   string
-	StartTime  time.Time
-	EndTime    time.Time
-	ExcludeAmt float64
 }
 
 // UseCase 编排层：通过 DataRepo + 领域池（Game/Task/Member）编排业务
@@ -71,6 +62,8 @@ type UseCase struct {
 
 	notify notify.Notifier
 	chart  chart.IGenerator
+
+	scheduleCh chan struct{} // 调度触发信号
 }
 
 // NewUseCase 创建 UseCase
@@ -87,7 +80,11 @@ func NewUseCase(repo DataRepo, logger log.Logger, c *conf.Stress, notify notify.
 		memberPool: member.NewMemberPool(),
 		notify:     notify,
 		chart:      chart,
+		scheduleCh: make(chan struct{}, 1),
 	}
+
+	// 启动调度器
+	go uc.scheduleLoop()
 
 	// 启动时自清理：Redis site:* + 订单表，避免上次压测残留
 	uc.runStartupClean()
@@ -184,7 +181,7 @@ func (uc *UseCase) runMemberLoader() {
 			uc.memberPool.AddIdle(batch)
 			_, _, total := uc.memberPool.Stats()
 			uc.log.Infof("Loaded %d members, total: %d", len(batch), total)
-			uc.Schedule()
+			uc.WakeScheduler()
 		}
 	}
 	uc.log.Info("Member loading completed")

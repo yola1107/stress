@@ -11,7 +11,6 @@ import (
 	"stress/internal/biz/game/base"
 	"stress/pkg/xgo"
 
-	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 )
 
@@ -21,82 +20,75 @@ const (
 
 // Task 压测任务实体（领域模型）
 type Task struct {
-	mu         sync.RWMutex
-	id         string
-	game       base.IGame
-	createdAt  time.Time
-	finishedAt time.Time
-
-	status      v1.TaskStatus
-	config      *v1.TaskConfig
-	bonusConfig *v1.BetBonusConfig
-	recordUrl   string // S3 HTML 图表 URL
+	mu        sync.RWMutex
+	id        string
+	game      base.IGame
+	config    *v1.TaskConfig
+	status    v1.TaskStatus
+	createdAt time.Time
+	startAt   time.Time // 实际开始执行时间
+	finishAt  time.Time
+	bonus     *v1.BetBonusConfig
+	record    string // S3 HTML 图表 URL
 
 	ctx    context.Context
 	cancel context.CancelFunc
+	wg     sync.WaitGroup
+	log    *log.Helper
 
-	// 统计原子计数
-	target    int64
-	process   int64
-	step      int64
-	duration  int64
-	active    int64
-	completed int64
-	failed    int64
-	errors    int64
+	stats Stats // 统计信息（线程安全）
+}
+
+// Stats TaskStats 任务统计信息（线程安全）
+type Stats struct {
+	Target    int64 // 目标请求数
+	Process   int64 // 已完成局数
+	Step      int64 // 总请求数
+	Duration  int64 // 总耗时（纳秒）
+	Active    int64 // 活跃成员数
+	Completed int64 // 成功完成的成员数
+	Failed    int64 // 失败的成员数
+	Errors    int64 // 错误次数
 }
 
 // NewTask 创建任务，parent 取消时任务会收到信号
-func NewTask(parent context.Context, id string, g base.IGame, cfg *v1.TaskConfig) (*Task, error) {
+func NewTask(parent context.Context, id string, g base.IGame, cfg *v1.TaskConfig, logger log.Logger) (*Task, error) {
 	if parent == nil {
 		parent = context.Background()
 	}
 	ctx, cancel := context.WithCancel(parent)
 	return &Task{
 		id:        id,
-		status:    v1.TaskStatus_TASK_PENDING,
-		config:    cfg,
-		createdAt: time.Now(),
 		game:      g,
+		config:    cfg,
+		status:    v1.TaskStatus_TASK_PENDING,
+		createdAt: time.Now(),
+		stats:     Stats{Target: int64(cfg.MemberCount) * int64(cfg.TimesPerMember)},
 		ctx:       ctx,
 		cancel:    cancel,
-		target:    int64(cfg.MemberCount) * int64(cfg.TimesPerMember),
+		log:       log.NewHelper(logger),
 	}, nil
 }
 
-func (t *Task) GetID() string {
-	return t.id
-}
-
-func (t *Task) Context() context.Context {
-	return t.ctx
-}
-
-func (t *Task) GetConfig() *v1.TaskConfig {
-	return t.config
-}
-
-func (t *Task) GetGame() base.IGame {
-	return t.game
-}
+func (t *Task) GetID() string             { return t.id }
+func (t *Task) Context() context.Context  { return t.ctx }
+func (t *Task) GetConfig() *v1.TaskConfig { return t.config }
+func (t *Task) GetGame() base.IGame       { return t.game }
+func (t *Task) GetCreatedAt() time.Time   { return t.createdAt }
 
 func (t *Task) GetBonusConfig() *v1.BetBonusConfig {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	return t.bonusConfig
+	return t.bonus
 }
 
-// SetBonusConfig 设置 BonusConfig
 func (t *Task) SetBonusConfig(b *v1.BetBonusConfig) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.bonusConfig = b
+	t.bonus = b
 }
 
-// AddActive 增加活跃成员数
-func (t *Task) AddActive(delta int64) {
-	atomic.AddInt64(&t.active, delta)
-}
+func (t *Task) AddActive(delta int64) { atomic.AddInt64(&t.stats.Active, delta) }
 
 func (t *Task) GetStatus() v1.TaskStatus {
 	t.mu.RLock()
@@ -110,7 +102,6 @@ func (t *Task) SetStatus(s v1.TaskStatus) {
 	t.status = s
 }
 
-// CompareAndSetStatus 原子地比较并设置状态（CAS操作）
 func (t *Task) CompareAndSetStatus(old, new v1.TaskStatus) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -121,44 +112,56 @@ func (t *Task) CompareAndSetStatus(old, new v1.TaskStatus) bool {
 	return false
 }
 
-func (t *Task) GetCreatedAt() time.Time {
-	return t.createdAt // 创建后不变，无需加锁
+func (t *Task) SetStartAt() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.startAt.IsZero() {
+		t.startAt = time.Now()
+	}
+}
+
+func (t *Task) GetStartAt() time.Time {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.startAt
 }
 
 func (t *Task) SetFinishAt() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.finishedAt = time.Now()
+	t.finishAt = time.Now()
 }
 
 func (t *Task) GetFinishedAt() time.Time {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	return t.finishedAt
+	return t.finishAt
 }
 
 func (t *Task) SetRecordUrl(url string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.recordUrl = url
+	t.record = url
 }
 
 func (t *Task) GetRecordUrl() string {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	return t.recordUrl
+	return t.record
 }
 
 func (t *Task) Cancel() error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	// 只允许从 PENDING 或 RUNNING 状态取消
 	if t.status != v1.TaskStatus_TASK_PENDING && t.status != v1.TaskStatus_TASK_RUNNING {
-		return errors.BadRequest("TASK_ALREADY_FINISHED", "task already finished or cancelled")
+		return fmt.Errorf("task already finished or cancelled, id: %s", t.id)
 	}
 
 	t.status = v1.TaskStatus_TASK_CANCELLED
+	if t.finishAt.IsZero() {
+		t.finishAt = time.Now()
+	}
 	t.Stop()
 	log.Infof("[%s] task cancelled", t.id)
 	return nil
@@ -172,42 +175,45 @@ func (t *Task) Stop() {
 
 // ============== 统计方法 =============================
 
-func (t *Task) GetStep() int64 {
-	return atomic.LoadInt64(&t.step)
-}
+func (t *Task) GetStep() int64   { return atomic.LoadInt64(&t.stats.Step) }
+func (t *Task) GetTarget() int64 { return atomic.LoadInt64(&t.stats.Target) }
 
 func (t *Task) AddBetOrder(d time.Duration, spinOver bool) {
-	atomic.AddInt64(&t.step, 1)
-	atomic.AddInt64(&t.duration, d.Nanoseconds())
+	atomic.AddInt64(&t.stats.Step, 1)
+	atomic.AddInt64(&t.stats.Duration, d.Nanoseconds())
 	if spinOver {
-		atomic.AddInt64(&t.process, 1) // 已完成局数
+		atomic.AddInt64(&t.stats.Process, 1)
 	}
 }
 
 func (t *Task) AddBetBonus(d time.Duration) {
-	atomic.AddInt64(&t.step, 1)
-	atomic.AddInt64(&t.duration, d.Nanoseconds())
+	atomic.AddInt64(&t.stats.Step, 1)
+	atomic.AddInt64(&t.stats.Duration, d.Nanoseconds())
 }
 
-func (t *Task) AddError(msg string) {
-	atomic.AddInt64(&t.errors, 1)
-}
+func (t *Task) AddError(msg string) { atomic.AddInt64(&t.stats.Errors, 1) }
 
 // getTaskMetrics 直接计算并返回任务指标
 func (t *Task) getTaskMetrics(now time.Time) (process, step, target int64, elapsed time.Duration, qps float64, avgLatency string, progressPct float64, remaining time.Duration) {
 	t.mu.RLock()
-	finishedAt := t.finishedAt
-	target = t.target
+	finishedAt := t.finishAt
+	startAt := t.startAt
 	t.mu.RUnlock()
 
-	process = atomic.LoadInt64(&t.process)
-	step = atomic.LoadInt64(&t.step)
-	duration := atomic.LoadInt64(&t.duration)
+	effectiveStart := startAt
+	if effectiveStart.IsZero() {
+		effectiveStart = t.createdAt
+	}
+
+	process = atomic.LoadInt64(&t.stats.Process)
+	step = atomic.LoadInt64(&t.stats.Step)
+	target = atomic.LoadInt64(&t.stats.Target)
+	duration := atomic.LoadInt64(&t.stats.Duration)
 
 	// 计算耗时
-	elapsed = now.Sub(t.createdAt)
+	elapsed = now.Sub(effectiveStart)
 	if !finishedAt.IsZero() {
-		elapsed = finishedAt.Sub(t.createdAt)
+		elapsed = finishedAt.Sub(effectiveStart)
 	}
 
 	// 计算QPS
@@ -243,10 +249,10 @@ func (t *Task) getTaskMetrics(now time.Time) (process, step, target int64, elaps
 func (t *Task) Snapshot(now time.Time) *v1.TaskCompletionReport {
 	process, step, target, elapsed, qps, avgLatency, progressPct, _ := t.getTaskMetrics(now)
 
-	active := atomic.LoadInt64(&t.active)
-	completed := atomic.LoadInt64(&t.completed)
-	failed := atomic.LoadInt64(&t.failed)
-	errors := atomic.LoadInt64(&t.errors)
+	active := atomic.LoadInt64(&t.stats.Active)
+	completed := atomic.LoadInt64(&t.stats.Completed)
+	failed := atomic.LoadInt64(&t.stats.Failed)
+	errors := atomic.LoadInt64(&t.stats.Errors)
 
 	return &v1.TaskCompletionReport{
 		TaskId:        t.id,
@@ -270,11 +276,11 @@ func (t *Task) Snapshot(now time.Time) *v1.TaskCompletionReport {
 
 // MarkSessionDone 标记会话执行完成
 func (t *Task) MarkSessionDone(ok bool) {
-	atomic.AddInt64(&t.active, -1)
+	atomic.AddInt64(&t.stats.Active, -1)
 	if ok {
-		atomic.AddInt64(&t.completed, 1)
+		atomic.AddInt64(&t.stats.Completed, 1)
 	} else {
-		atomic.AddInt64(&t.failed, 1)
+		atomic.AddInt64(&t.stats.Failed, 1)
 	}
 }
 
@@ -285,26 +291,11 @@ func (t *Task) printTaskProgress(isFinal bool) {
 
 	if isFinal {
 		log.Infof("[%s] 任务结束: 进度:%d/%d, 总步数:%d, 耗时:%v, QPS:%.2f, 平均延迟:%s",
-			t.id,
-			process,
-			target,
-			step,
-			elapsed,
-			qps,
-			avgLatency,
-		)
+			t.id, process, target, step, elapsed, qps, avgLatency)
 	} else {
 		log.Infof("[%s]: 进度:%d/%d(%.2f%%), 用时:%s, 剩余:%s, QPS:%.2f, step:%.2f, 延迟:%s",
-			t.id,
-			process,
-			target,
-			progressPct,
-			xgo.ShortDuration(elapsed),
-			xgo.ShortDuration(remaining),
-			qps,
-			float64(step)/elapsed.Seconds(),
-			avgLatency,
-		)
+			t.id, process, target, progressPct, xgo.ShortDuration(elapsed),
+			xgo.ShortDuration(remaining), qps, float64(step)/elapsed.Seconds(), avgLatency)
 	}
 }
 
@@ -324,4 +315,35 @@ func (t *Task) Monitor() {
 			t.printTaskProgress(false)
 		}
 	}
+}
+
+// ToProtoTask 将业务层 Task 转换为 protobuf Task
+func (t *Task) ToProtoTask() *v1.Task {
+	if t == nil {
+		return nil
+	}
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	var description string
+	if t.config != nil {
+		description = t.config.GetDescription()
+	}
+
+	ret := &v1.Task{
+		TaskId:      t.id,
+		Description: description,
+		Status:      int32(t.status),
+		Process:     atomic.LoadInt64(&t.stats.Process),
+		Config:      t.config,
+		RecordUrl:   t.record,
+		CreatedAt:   t.createdAt.Format(time.DateTime),
+	}
+	if !t.startAt.IsZero() {
+		ret.StartAt = t.startAt.Format(time.DateTime)
+	}
+	if !t.finishAt.IsZero() {
+		ret.FinishAt = t.finishAt.Format(time.DateTime)
+	}
+	return ret
 }

@@ -31,9 +31,10 @@ const (
 	TaskStatus_TASK_UNSPECIFIED TaskStatus = 0
 	TaskStatus_TASK_PENDING     TaskStatus = 1 // 等待中
 	TaskStatus_TASK_RUNNING     TaskStatus = 2 // 运行中
-	TaskStatus_TASK_COMPLETED   TaskStatus = 3 // 已完成
-	TaskStatus_TASK_FAILED      TaskStatus = 4 // 已失败
-	TaskStatus_TASK_CANCELLED   TaskStatus = 5 // 已取消
+	TaskStatus_TASK_PROCESSING  TaskStatus = 3 // 处理中（压测完成，正在生成报告）
+	TaskStatus_TASK_COMPLETED   TaskStatus = 4 // 已完成（报告已生成）
+	TaskStatus_TASK_FAILED      TaskStatus = 5 // 已失败
+	TaskStatus_TASK_CANCELLED   TaskStatus = 6 // 已取消
 )
 
 // Enum value maps for TaskStatus.
@@ -42,17 +43,19 @@ var (
 		0: "TASK_UNSPECIFIED",
 		1: "TASK_PENDING",
 		2: "TASK_RUNNING",
-		3: "TASK_COMPLETED",
-		4: "TASK_FAILED",
-		5: "TASK_CANCELLED",
+		3: "TASK_PROCESSING",
+		4: "TASK_COMPLETED",
+		5: "TASK_FAILED",
+		6: "TASK_CANCELLED",
 	}
 	TaskStatus_value = map[string]int32{
 		"TASK_UNSPECIFIED": 0,
 		"TASK_PENDING":     1,
 		"TASK_RUNNING":     2,
-		"TASK_COMPLETED":   3,
-		"TASK_FAILED":      4,
-		"TASK_CANCELLED":   5,
+		"TASK_PROCESSING":  3,
+		"TASK_COMPLETED":   4,
+		"TASK_FAILED":      5,
+		"TASK_CANCELLED":   6,
 	}
 )
 
@@ -265,7 +268,6 @@ func (x *ListGamesResponse) GetTotal() int32 {
 // --- 任务列表 ---
 type ListTasksRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Status        TaskStatus             `protobuf:"varint,1,opt,name=status,proto3,enum=stress.v1.TaskStatus" json:"status,omitempty"` // 状态过滤
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -298,13 +300,6 @@ func (x *ListTasksRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ListTasksRequest.ProtoReflect.Descriptor instead.
 func (*ListTasksRequest) Descriptor() ([]byte, []int) {
 	return file_stress_v1_stress_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *ListTasksRequest) GetStatus() TaskStatus {
-	if x != nil {
-		return x.Status
-	}
-	return TaskStatus_TASK_UNSPECIFIED
 }
 
 type ListTasksResponse struct {
@@ -1095,14 +1090,15 @@ func (x *BetBonusConfig) GetBonusSequence() []int64 {
 // 任务完整信息
 type Task struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`              // 任务ID
-	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`                  // 任务描述
-	Status        TaskStatus             `protobuf:"varint,3,opt,name=status,proto3,enum=stress.v1.TaskStatus" json:"status,omitempty"` // 任务状态
-	Config        *TaskConfig            `protobuf:"bytes,4,opt,name=config,proto3" json:"config,omitempty"`                            // 任务配置
-	RecordUrl     string                 `protobuf:"bytes,5,opt,name=record_url,json=recordUrl,proto3" json:"record_url,omitempty"`     // 任务结果地址
-	CreatedAt     string                 `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`     // 创建时间
-	FinishAt      string                 `protobuf:"bytes,9,opt,name=finish_at,json=finishAt,proto3" json:"finish_at,omitempty"`        // 创建时间
-	UpdatedAt     string                 `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`    // 更新时间
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`          // 任务ID
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`              // 任务描述
+	Status        int32                  `protobuf:"varint,3,opt,name=status,proto3" json:"status,omitempty"`                       // 任务状态
+	Process       int64                  `protobuf:"varint,4,opt,name=process,proto3" json:"process,omitempty"`                     // 已完成局数
+	Config        *TaskConfig            `protobuf:"bytes,5,opt,name=config,proto3" json:"config,omitempty"`                        // 任务配置
+	RecordUrl     string                 `protobuf:"bytes,6,opt,name=record_url,json=recordUrl,proto3" json:"record_url,omitempty"` // 任务结果地址
+	CreatedAt     string                 `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"` // 创建时间（上海时区）
+	StartAt       string                 `protobuf:"bytes,8,opt,name=start_at,json=startAt,proto3" json:"start_at,omitempty"`       // 开始时间（上海时区）
+	FinishAt      string                 `protobuf:"bytes,9,opt,name=finish_at,json=finishAt,proto3" json:"finish_at,omitempty"`    // 更新时间（上海时区）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1151,11 +1147,18 @@ func (x *Task) GetDescription() string {
 	return ""
 }
 
-func (x *Task) GetStatus() TaskStatus {
+func (x *Task) GetStatus() int32 {
 	if x != nil {
 		return x.Status
 	}
-	return TaskStatus_TASK_UNSPECIFIED
+	return 0
+}
+
+func (x *Task) GetProcess() int64 {
+	if x != nil {
+		return x.Process
+	}
+	return 0
 }
 
 func (x *Task) GetConfig() *TaskConfig {
@@ -1179,16 +1182,16 @@ func (x *Task) GetCreatedAt() string {
 	return ""
 }
 
-func (x *Task) GetFinishAt() string {
+func (x *Task) GetStartAt() string {
 	if x != nil {
-		return x.FinishAt
+		return x.StartAt
 	}
 	return ""
 }
 
-func (x *Task) GetUpdatedAt() string {
+func (x *Task) GetFinishAt() string {
 	if x != nil {
-		return x.UpdatedAt
+		return x.FinishAt
 	}
 	return ""
 }
@@ -1394,9 +1397,8 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\x10ListGamesRequest\"P\n" +
 	"\x11ListGamesResponse\x12%\n" +
 	"\x05games\x18\x01 \x03(\v2\x0f.stress.v1.GameR\x05games\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"A\n" +
-	"\x10ListTasksRequest\x12-\n" +
-	"\x06status\x18\x01 \x01(\x0e2\x15.stress.v1.TaskStatusR\x06status\"P\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\x12\n" +
+	"\x10ListTasksRequest\"P\n" +
 	"\x11ListTasksResponse\x12%\n" +
 	"\x05tasks\x18\x01 \x03(\v2\x0f.stress.v1.TaskR\x05tasks\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"L\n" +
@@ -1449,20 +1451,19 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\tbonus_num\x18\x02 \x01(\x03R\bbonusNum\x12\x1f\n" +
 	"\vrandom_nums\x18\x03 \x03(\x03R\n" +
 	"randomNums\x12%\n" +
-	"\x0ebonus_sequence\x18\x04 \x03(\x03R\rbonusSequence\"\x99\x02\n" +
+	"\x0ebonus_sequence\x18\x04 \x03(\x03R\rbonusSequence\"\x98\x02\n" +
 	"\x04Task\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12 \n" +
-	"\vdescription\x18\x02 \x01(\tR\vdescription\x12-\n" +
-	"\x06status\x18\x03 \x01(\x0e2\x15.stress.v1.TaskStatusR\x06status\x12-\n" +
-	"\x06config\x18\x04 \x01(\v2\x15.stress.v1.TaskConfigR\x06config\x12\x1d\n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\x05R\x06status\x12\x18\n" +
+	"\aprocess\x18\x04 \x01(\x03R\aprocess\x12-\n" +
+	"\x06config\x18\x05 \x01(\v2\x15.stress.v1.TaskConfigR\x06config\x12\x1d\n" +
 	"\n" +
-	"record_url\x18\x05 \x01(\tR\trecordUrl\x12\x1d\n" +
+	"record_url\x18\x06 \x01(\tR\trecordUrl\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\b \x01(\tR\tcreatedAt\x12\x1b\n" +
-	"\tfinish_at\x18\t \x01(\tR\bfinishAt\x12\x1d\n" +
-	"\n" +
-	"updated_at\x18\n" +
-	" \x01(\tR\tupdatedAt\"\xa1\x04\n" +
+	"created_at\x18\a \x01(\tR\tcreatedAt\x12\x19\n" +
+	"\bstart_at\x18\b \x01(\tR\astartAt\x12\x1b\n" +
+	"\tfinish_at\x18\t \x01(\tR\bfinishAt\"\xa1\x04\n" +
 	"\x14TaskCompletionReport\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x17\n" +
 	"\agame_id\x18\x02 \x01(\x03R\x06gameId\x12\x1b\n" +
@@ -1486,27 +1487,28 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\vfailed_reqs\x18\x11 \x01(\x03R\n" +
 	"failedReqs\x12!\n" +
 	"\fprogress_pct\x18\x12 \x01(\x01R\vprogressPct\x12\x10\n" +
-	"\x03url\x18\x13 \x01(\tR\x03url*\x7f\n" +
+	"\x03url\x18\x13 \x01(\tR\x03url*\x94\x01\n" +
 	"\n" +
 	"TaskStatus\x12\x14\n" +
 	"\x10TASK_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fTASK_PENDING\x10\x01\x12\x10\n" +
-	"\fTASK_RUNNING\x10\x02\x12\x12\n" +
-	"\x0eTASK_COMPLETED\x10\x03\x12\x0f\n" +
-	"\vTASK_FAILED\x10\x04\x12\x12\n" +
-	"\x0eTASK_CANCELLED\x10\x052\xc7\x06\n" +
+	"\fTASK_RUNNING\x10\x02\x12\x13\n" +
+	"\x0fTASK_PROCESSING\x10\x03\x12\x12\n" +
+	"\x0eTASK_COMPLETED\x10\x04\x12\x0f\n" +
+	"\vTASK_FAILED\x10\x05\x12\x12\n" +
+	"\x0eTASK_CANCELLED\x10\x062\xab\x06\n" +
 	"\rStressService\x12T\n" +
-	"\aPingReq\x12\x16.stress.v1.PingRequest\x1a\x14.stress.v1.PingReply\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/stress/ping/{name}\x12a\n" +
-	"\tListGames\x12\x1b.stress.v1.ListGamesRequest\x1a\x1c.stress.v1.ListGamesResponse\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/stress/ListGames\x12a\n" +
-	"\tListTasks\x12\x1b.stress.v1.ListTasksRequest\x1a\x1c.stress.v1.ListTasksResponse\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/stress/ListTasks\x12h\n" +
+	"\aPingReq\x12\x16.stress.v1.PingRequest\x1a\x14.stress.v1.PingReply\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/stress/ping/{name}\x12d\n" +
+	"\tListGames\x12\x1b.stress.v1.ListGamesRequest\x1a\x1c.stress.v1.ListGamesResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/stress/ListGames\x12d\n" +
+	"\tListTasks\x12\x1b.stress.v1.ListTasksRequest\x1a\x1c.stress.v1.ListTasksResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/stress/ListTasks\x12h\n" +
 	"\n" +
-	"CreateTask\x12\x1c.stress.v1.CreateTaskRequest\x1a\x1d.stress.v1.CreateTaskResponse\"\x1d\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/stress/CreateTask\x12g\n" +
-	"\bTaskInfo\x12\x1a.stress.v1.TaskInfoRequest\x1a\x1b.stress.v1.TaskInfoResponse\"\"\x82\xd3\xe4\x93\x02\x1c\x12\x1a/stress/TaskInfo/{task_id}\x12h\n" +
+	"CreateTask\x12\x1c.stress.v1.CreateTaskRequest\x1a\x1d.stress.v1.CreateTaskResponse\"\x1d\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/stress/CreateTask\x12`\n" +
+	"\bTaskInfo\x12\x1a.stress.v1.TaskInfoRequest\x1a\x1b.stress.v1.TaskInfoResponse\"\x1b\x82\xd3\xe4\x93\x02\x15:\x01*\"\x10/stress/TaskInfo\x12a\n" +
 	"\n" +
-	"DeleteTask\x12\x1c.stress.v1.DeleteTaskRequest\x1a\x16.google.protobuf.Empty\"$\x82\xd3\xe4\x93\x02\x1e*\x1c/stress/DeleteTask/{task_id}\x12r\n" +
+	"DeleteTask\x12\x1c.stress.v1.DeleteTaskRequest\x1a\x16.google.protobuf.Empty\"\x1d\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/stress/DeleteTask\x12h\n" +
 	"\n" +
-	"CancelTask\x12\x1c.stress.v1.CancelTaskRequest\x1a\x1d.stress.v1.CancelTaskResponse\"'\x82\xd3\xe4\x93\x02!:\x01*\"\x1c/stress/CancelTask/{task_id}\x12i\n" +
-	"\tGetRecord\x12\x18.stress.v1.RecordRequest\x1a\x19.stress.v1.RecordResponse\"'\x82\xd3\xe4\x93\x02!:\x01*\"\x1c/stress/TaskRecord/{task_id}B\x19Z\x17stress/api/stress/v1;v1b\x06proto3"
+	"CancelTask\x12\x1c.stress.v1.CancelTaskRequest\x1a\x1d.stress.v1.CancelTaskResponse\"\x1d\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/stress/CancelTask\x12_\n" +
+	"\tGetRecord\x12\x18.stress.v1.RecordRequest\x1a\x19.stress.v1.RecordResponse\"\x1d\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/stress/TaskRecordB\x19Z\x17stress/api/stress/v1;v1b\x06proto3"
 
 var (
 	file_stress_v1_stress_proto_rawDescOnce sync.Once
@@ -1549,36 +1551,34 @@ var file_stress_v1_stress_proto_goTypes = []any{
 }
 var file_stress_v1_stress_proto_depIdxs = []int32{
 	16, // 0: stress.v1.ListGamesResponse.games:type_name -> stress.v1.Game
-	0,  // 1: stress.v1.ListTasksRequest.status:type_name -> stress.v1.TaskStatus
-	20, // 2: stress.v1.ListTasksResponse.tasks:type_name -> stress.v1.Task
-	17, // 3: stress.v1.CreateTaskRequest.config:type_name -> stress.v1.TaskConfig
-	20, // 4: stress.v1.CreateTaskResponse.task:type_name -> stress.v1.Task
-	20, // 5: stress.v1.TaskInfoResponse.task:type_name -> stress.v1.Task
-	18, // 6: stress.v1.TaskConfig.bet_order:type_name -> stress.v1.BetOrderConfig
-	19, // 7: stress.v1.TaskConfig.bet_bonus:type_name -> stress.v1.BetBonusConfig
-	0,  // 8: stress.v1.Task.status:type_name -> stress.v1.TaskStatus
-	17, // 9: stress.v1.Task.config:type_name -> stress.v1.TaskConfig
-	1,  // 10: stress.v1.StressService.PingReq:input_type -> stress.v1.PingRequest
-	3,  // 11: stress.v1.StressService.ListGames:input_type -> stress.v1.ListGamesRequest
-	5,  // 12: stress.v1.StressService.ListTasks:input_type -> stress.v1.ListTasksRequest
-	7,  // 13: stress.v1.StressService.CreateTask:input_type -> stress.v1.CreateTaskRequest
-	9,  // 14: stress.v1.StressService.TaskInfo:input_type -> stress.v1.TaskInfoRequest
-	13, // 15: stress.v1.StressService.DeleteTask:input_type -> stress.v1.DeleteTaskRequest
-	11, // 16: stress.v1.StressService.CancelTask:input_type -> stress.v1.CancelTaskRequest
-	14, // 17: stress.v1.StressService.GetRecord:input_type -> stress.v1.RecordRequest
-	2,  // 18: stress.v1.StressService.PingReq:output_type -> stress.v1.PingReply
-	4,  // 19: stress.v1.StressService.ListGames:output_type -> stress.v1.ListGamesResponse
-	6,  // 20: stress.v1.StressService.ListTasks:output_type -> stress.v1.ListTasksResponse
-	8,  // 21: stress.v1.StressService.CreateTask:output_type -> stress.v1.CreateTaskResponse
-	10, // 22: stress.v1.StressService.TaskInfo:output_type -> stress.v1.TaskInfoResponse
-	22, // 23: stress.v1.StressService.DeleteTask:output_type -> google.protobuf.Empty
-	12, // 24: stress.v1.StressService.CancelTask:output_type -> stress.v1.CancelTaskResponse
-	15, // 25: stress.v1.StressService.GetRecord:output_type -> stress.v1.RecordResponse
-	18, // [18:26] is the sub-list for method output_type
-	10, // [10:18] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	20, // 1: stress.v1.ListTasksResponse.tasks:type_name -> stress.v1.Task
+	17, // 2: stress.v1.CreateTaskRequest.config:type_name -> stress.v1.TaskConfig
+	20, // 3: stress.v1.CreateTaskResponse.task:type_name -> stress.v1.Task
+	20, // 4: stress.v1.TaskInfoResponse.task:type_name -> stress.v1.Task
+	18, // 5: stress.v1.TaskConfig.bet_order:type_name -> stress.v1.BetOrderConfig
+	19, // 6: stress.v1.TaskConfig.bet_bonus:type_name -> stress.v1.BetBonusConfig
+	17, // 7: stress.v1.Task.config:type_name -> stress.v1.TaskConfig
+	1,  // 8: stress.v1.StressService.PingReq:input_type -> stress.v1.PingRequest
+	3,  // 9: stress.v1.StressService.ListGames:input_type -> stress.v1.ListGamesRequest
+	5,  // 10: stress.v1.StressService.ListTasks:input_type -> stress.v1.ListTasksRequest
+	7,  // 11: stress.v1.StressService.CreateTask:input_type -> stress.v1.CreateTaskRequest
+	9,  // 12: stress.v1.StressService.TaskInfo:input_type -> stress.v1.TaskInfoRequest
+	13, // 13: stress.v1.StressService.DeleteTask:input_type -> stress.v1.DeleteTaskRequest
+	11, // 14: stress.v1.StressService.CancelTask:input_type -> stress.v1.CancelTaskRequest
+	14, // 15: stress.v1.StressService.GetRecord:input_type -> stress.v1.RecordRequest
+	2,  // 16: stress.v1.StressService.PingReq:output_type -> stress.v1.PingReply
+	4,  // 17: stress.v1.StressService.ListGames:output_type -> stress.v1.ListGamesResponse
+	6,  // 18: stress.v1.StressService.ListTasks:output_type -> stress.v1.ListTasksResponse
+	8,  // 19: stress.v1.StressService.CreateTask:output_type -> stress.v1.CreateTaskResponse
+	10, // 20: stress.v1.StressService.TaskInfo:output_type -> stress.v1.TaskInfoResponse
+	22, // 21: stress.v1.StressService.DeleteTask:output_type -> google.protobuf.Empty
+	12, // 22: stress.v1.StressService.CancelTask:output_type -> stress.v1.CancelTaskResponse
+	15, // 23: stress.v1.StressService.GetRecord:output_type -> stress.v1.RecordResponse
+	16, // [16:24] is the sub-list for method output_type
+	8,  // [8:16] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_stress_v1_stress_proto_init() }

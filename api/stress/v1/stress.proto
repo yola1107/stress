@@ -14,9 +14,10 @@ enum TaskStatus {
     TASK_UNSPECIFIED = 0;
     TASK_PENDING     = 1;  // 等待中
     TASK_RUNNING     = 2;  // 运行中
-    TASK_COMPLETED   = 3;  // 已完成
-    TASK_FAILED      = 4;  // 已失败
-    TASK_CANCELLED   = 5;  // 已取消
+    TASK_PROCESSING  = 3;  // 处理中（压测完成，正在生成报告）
+    TASK_COMPLETED   = 4;  // 已完成（报告已生成）
+    TASK_FAILED      = 5;  // 已失败
+    TASK_CANCELLED   = 6;  // 已取消
 }
 
 service StressService {
@@ -30,14 +31,16 @@ service StressService {
     // 获取游戏列表
     rpc ListGames(ListGamesRequest) returns (ListGamesResponse) {
         option (google.api.http) = {
-            get: "/stress/ListGames"
+            post: "/stress/ListGames"
+            body: "*"
         };
     }
 
     // 获取任务列表
     rpc ListTasks(ListTasksRequest) returns (ListTasksResponse) {
         option (google.api.http) = {
-            get: "/stress/ListTasks"
+            post: "/stress/ListTasks"
+            body: "*"
         };
     }
 
@@ -52,21 +55,23 @@ service StressService {
     // 获取任务详情
     rpc TaskInfo(TaskInfoRequest) returns (TaskInfoResponse) {
         option (google.api.http) = {
-            get: "/stress/TaskInfo/{task_id}"
+            post: "/stress/TaskInfo"
+            body: "*"
         };
     }
 
     // 删除任务
     rpc DeleteTask(DeleteTaskRequest) returns (google.protobuf.Empty) {
         option (google.api.http) = {
-            delete: "/stress/DeleteTask/{task_id}"
+            post: "/stress/DeleteTask"
+            body: "*"
         };
     }
 
     // 取消任务
     rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse) {
         option (google.api.http) = {
-            post: "/stress/CancelTask/{task_id}"
+            post: "/stress/CancelTask"
             body: "*"
         };
     }
@@ -74,7 +79,7 @@ service StressService {
     // 获取任务结果
     rpc GetRecord(RecordRequest) returns (RecordResponse) {
         option (google.api.http) = {
-            post: "/stress/TaskRecord/{task_id}"
+            post: "/stress/TaskRecord"
             body: "*"
         };
     }
@@ -100,7 +105,7 @@ message ListGamesResponse {
 
 // --- 任务列表 ---
 message ListTasksRequest {
-    TaskStatus status = 1;  // 状态过滤
+    //    TaskStatus status = 1;  // 状态过滤
 }
 message ListTasksResponse {
     repeated Task tasks = 1;  // 任务列表
@@ -189,14 +194,15 @@ message BetBonusConfig {
 
 // 任务完整信息
 message Task {
-    string task_id     = 1;   // 任务ID
-    string description = 2;   // 任务描述
-    TaskStatus status  = 3;   // 任务状态
-    TaskConfig config  = 4;   // 任务配置
-    string record_url  = 5;   // 任务结果地址
-    string created_at  = 8;   // 创建时间
-    string finish_at   = 9;   // 创建时间
-    string updated_at  = 10;  // 更新时间
+    string task_id     = 1;  // 任务ID
+    string description = 2;  // 任务描述
+    int32 status       = 3;  // 任务状态
+    int64 process      = 4;  // 已完成局数
+    TaskConfig config  = 5;  // 任务配置
+    string record_url  = 6;  // 任务结果地址
+    string created_at  = 7;  // 创建时间（上海时区）
+    string start_at    = 8;  // 开始时间（上海时区）
+    string finish_at   = 9;  // 更新时间（上海时区）
 }
 
 // 任务完成/统计报告（供 Prometheus、飞书通知、API 统一复用）

@@ -49,7 +49,7 @@ func (p *Pool) List() []*Task {
 	p.mu.RUnlock()
 
 	sort.Slice(out, func(i, j int) bool {
-		return out[i].createdAt.After(out[j].createdAt)
+		return out[i].GetCreatedAt().After(out[j].GetCreatedAt())
 	})
 	return out
 }

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"stress/internal/biz"
 	"stress/internal/biz/chart"
+	"stress/internal/biz/task"
 
 	"github.com/go-kratos/kratos/v2/log"
 )
@@ -16,9 +16,7 @@ const (
 	timeLayout = "2006-01-02 15:04:05"
 )
 
-var locSH, _ = time.LoadLocation("Asia/Shanghai")
-
-func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope biz.OrderScope) ([]chart.Point, error) {
+func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope task.OrderScope) ([]chart.Point, error) {
 	if r.data.order == nil {
 		return nil, fmt.Errorf("order database not configured")
 	}
@@ -32,7 +30,6 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope biz.OrderScop
 		excludeAmount = 0.01
 	}
 
-	const batchSize = 500000
 	const sampleMax = 5000
 
 	type record struct {
@@ -49,6 +46,12 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope biz.OrderScop
 	}
 	if totalOrders == 0 {
 		return []chart.Point{}, nil
+	}
+
+	// 根据总订单数动态调整批次大小：小于600w用50w，否则用100w
+	batchSize := 500000
+	if totalOrders >= 6000000 {
+		batchSize = 1000000
 	}
 
 	step := totalOrders / sampleMax
@@ -103,7 +106,7 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope biz.OrderScop
 			sampledPts = append(sampledPts, chart.Point{
 				X:    float64(pointOrders) / orderUnit,
 				Y:    rate,
-				Time: time.Unix(pointTime, 0).In(locSH).Format(timeLayout),
+				Time: time.Unix(pointTime, 0).In(time.Local).Format(timeLayout),
 			})
 		}
 
@@ -183,7 +186,7 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope biz.OrderScop
 	return sampledPts, nil
 }
 
-// 确保首尾点正确（简化版）
+// 确保首尾点正确
 func ensureEdgePoints(points []chart.Point, totalOrders int64,
 	firstOrders int64, firstTime int64, firstCumBet, firstCumWin float64,
 	finalCumBet, finalCumWin float64, lastTime int64) []chart.Point {
@@ -215,7 +218,7 @@ func ensureEdgePoints(points []chart.Point, totalOrders int64,
 		result = append(result, chart.Point{
 			X:    float64(firstOrders) / orderUnit,
 			Y:    firstRate,
-			Time: time.Unix(firstTime, 0).In(locSH).Format(timeLayout),
+			Time: time.Unix(firstTime, 0).In(time.Local).Format(timeLayout),
 		})
 	}
 
@@ -231,7 +234,7 @@ func ensureEdgePoints(points []chart.Point, totalOrders int64,
 		result = append(result, chart.Point{
 			X:    float64(totalOrders) / orderUnit,
 			Y:    lastRate,
-			Time: time.Unix(lastTime, 0).In(locSH).Format(timeLayout),
+			Time: time.Unix(lastTime, 0).In(time.Local).Format(timeLayout),
 		})
 	}
 
@@ -260,7 +263,7 @@ func uniformTruncate(points []chart.Point, maxPoints int) []chart.Point {
 }
 
 // getTotalOrders 获取总订单数
-func (r *dataRepo) getTotalOrders(scope biz.OrderScope, excludeAmount float64) (int64, error) {
+func (r *dataRepo) getTotalOrders(scope task.OrderScope, excludeAmount float64) (int64, error) {
 	query := `SELECT COUNT(*) FROM game_order WHERE game_id = ? AND merchant = ? AND amount != ?`
 	var total int64
 	_, err := r.data.order.SQL(query, scope.GameID, scope.Merchant, excludeAmount).Get(&total)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	v1 "stress/api/stress/v1"
 	"stress/internal/biz"
@@ -60,10 +59,15 @@ func (s *StressService) ListTasks(ctx context.Context, in *v1.ListTasksRequest) 
 	tasks := make([]*v1.Task, 0, len(all))
 
 	for _, t := range all {
-		if in.Status != v1.TaskStatus_TASK_UNSPECIFIED && t.GetStatus() != in.Status {
+		if t == nil {
 			continue
 		}
-		tasks = append(tasks, s.toProtoTask(t))
+		//if in.Status != v1.TaskStatus_TASK_UNSPECIFIED && t.GetStatus() != in.Status {
+		//	continue
+		//}
+		if protoTask := t.ToProtoTask(); protoTask != nil {
+			tasks = append(tasks, protoTask)
+		}
 	}
 	return &v1.ListTasksResponse{Tasks: tasks, Total: int32(len(tasks))}, nil
 }
@@ -80,10 +84,13 @@ func (s *StressService) CreateTask(ctx context.Context, in *v1.CreateTaskRequest
 	}
 	t, err := s.uc.CreateTask(ctx, g, in.Config)
 	if err != nil {
-		s.log.Errorf("CreateTask failed: %v", err)
+		s.log.Warnf("CreateTask failed: %v", err)
 		return &v1.CreateTaskResponse{Code: errCodeCreateTask, Message: err.Error()}, nil
 	}
-	return &v1.CreateTaskResponse{Code: 0, Message: "success", Task: s.toProtoTask(t)}, nil
+	if t == nil {
+		return &v1.CreateTaskResponse{Code: errCodeCreateTask, Message: "create task returned nil"}, nil
+	}
+	return &v1.CreateTaskResponse{Task: t.ToProtoTask()}, nil
 }
 
 // TaskInfo 获取任务详情
@@ -92,7 +99,7 @@ func (s *StressService) TaskInfo(ctx context.Context, in *v1.TaskInfoRequest) (*
 	if err != nil {
 		return &v1.TaskInfoResponse{Code: errCodeGetTask, Message: err.Error()}, nil
 	}
-	return &v1.TaskInfoResponse{Code: 0, Message: "success", Task: s.toProtoTask(t)}, nil
+	return &v1.TaskInfoResponse{Task: t.ToProtoTask()}, nil
 }
 
 // CancelTask 取消任务
@@ -104,18 +111,18 @@ func (s *StressService) CancelTask(ctx context.Context, in *v1.CancelTaskRequest
 	if err = s.uc.CancelTask(t.GetID()); err != nil {
 		return &v1.CancelTaskResponse{Code: errCodeCancelTask, Message: err.Error()}, nil
 	}
-	return &v1.CancelTaskResponse{Code: 0, Message: "success"}, nil
+	return &v1.CancelTaskResponse{}, nil
 }
 
 // DeleteTask 删除任务
 func (s *StressService) DeleteTask(ctx context.Context, in *v1.DeleteTaskRequest) (*emptypb.Empty, error) {
 	t, err := s.getTask(in.TaskId)
 	if err != nil {
-		s.log.Errorf("DeleteTask task not found: %v", err)
+		s.log.Warnf("DeleteTask task not found: %v", err)
 		return &emptypb.Empty{}, nil
 	}
 	if err := s.uc.DeleteTask(t.GetID()); err != nil {
-		s.log.Errorf("DeleteTask failed: %v", err)
+		s.log.Warnf("DeleteTask failed: %v", err)
 		return &emptypb.Empty{}, nil
 	}
 	return &emptypb.Empty{}, nil
@@ -127,30 +134,15 @@ func (s *StressService) GetRecord(ctx context.Context, in *v1.RecordRequest) (*v
 	if err != nil {
 		return &v1.RecordResponse{Code: errCodeGetTask, Message: err.Error()}, nil
 	}
-	return &v1.RecordResponse{
-		Url: t.GetRecordUrl(),
-	}, nil
+	return &v1.RecordResponse{Url: t.GetRecordUrl()}, nil
 }
 
 func (s *StressService) getTask(taskID string) (*task.Task, error) {
 	if taskID = strings.TrimSpace(taskID); taskID == "" {
 		return nil, fmt.Errorf("task id is empty")
 	}
-	if t, ok := s.uc.GetTask(taskID); ok {
+	if t, ok := s.uc.GetTask(taskID); ok && t != nil {
 		return t, nil
 	}
 	return nil, fmt.Errorf("task not found")
-}
-
-// toProtoTask 将业务层 Task 转换为 protobuf Task
-func (s *StressService) toProtoTask(t *task.Task) *v1.Task {
-	return &v1.Task{
-		TaskId:    t.GetID(),
-		Status:    t.GetStatus(),
-		Config:    t.GetConfig(),
-		RecordUrl: t.GetRecordUrl(),
-		CreatedAt: t.GetCreatedAt().String(),
-		FinishAt:  t.GetFinishedAt().String(),
-		UpdatedAt: time.Now().String(),
-	}
 }

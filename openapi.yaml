@@ -6,18 +6,12 @@ info:
     title: StressService API
     version: 0.0.1
 paths:
-    /stress/CancelTask/{taskId}:
+    /stress/CancelTask:
         post:
             tags:
                 - StressService
             description: 取消任务
             operationId: StressService_CancelTask
-            parameters:
-                - name: taskId
-                  in: path
-                  required: true
-                  schema:
-                    type: string
             requestBody:
                 content:
                     application/json:
@@ -50,28 +44,34 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/stress.v1.CreateTaskResponse'
-    /stress/DeleteTask/{taskId}:
-        delete:
+    /stress/DeleteTask:
+        post:
             tags:
                 - StressService
             description: 删除任务
             operationId: StressService_DeleteTask
-            parameters:
-                - name: taskId
-                  in: path
-                  required: true
-                  schema:
-                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/stress.v1.DeleteTaskRequest'
+                required: true
             responses:
                 "200":
                     description: OK
                     content: {}
     /stress/ListGames:
-        get:
+        post:
             tags:
                 - StressService
             description: 获取游戏列表
             operationId: StressService_ListGames
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/stress.v1.ListGamesRequest'
+                required: true
             responses:
                 "200":
                     description: OK
@@ -80,17 +80,17 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/stress.v1.ListGamesResponse'
     /stress/ListTasks:
-        get:
+        post:
             tags:
                 - StressService
             description: 获取任务列表
             operationId: StressService_ListTasks
-            parameters:
-                - name: status
-                  in: query
-                  schema:
-                    type: integer
-                    format: enum
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/stress.v1.ListTasksRequest'
+                required: true
             responses:
                 "200":
                     description: OK
@@ -98,18 +98,18 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/stress.v1.ListTasksResponse'
-    /stress/TaskInfo/{taskId}:
-        get:
+    /stress/TaskInfo:
+        post:
             tags:
                 - StressService
             description: 获取任务详情
             operationId: StressService_TaskInfo
-            parameters:
-                - name: taskId
-                  in: path
-                  required: true
-                  schema:
-                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/stress.v1.TaskInfoRequest'
+                required: true
             responses:
                 "200":
                     description: OK
@@ -117,18 +117,12 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/stress.v1.TaskInfoResponse'
-    /stress/TaskRecord/{taskId}:
+    /stress/TaskRecord:
         post:
             tags:
                 - StressService
             description: 获取任务结果
             operationId: StressService_GetRecord
-            parameters:
-                - name: taskId
-                  in: path
-                  required: true
-                  schema:
-                    type: string
             requestBody:
                 content:
                     application/json:
@@ -220,6 +214,12 @@ components:
                     type: string
                 task:
                     $ref: '#/components/schemas/stress.v1.Task'
+        stress.v1.DeleteTaskRequest:
+            type: object
+            properties:
+                taskId:
+                    type: string
+            description: '--- 删除任务 ---'
         stress.v1.Game:
             type: object
             properties:
@@ -230,6 +230,10 @@ components:
                 description:
                     type: string
             description: 游戏信息
+        stress.v1.ListGamesRequest:
+            type: object
+            properties: {}
+            description: '--- 游戏列表 ---'
         stress.v1.ListGamesResponse:
             type: object
             properties:
@@ -240,6 +244,10 @@ components:
                 total:
                     type: integer
                     format: int32
+        stress.v1.ListTasksRequest:
+            type: object
+            properties: {}
+            description: '--- 任务列表 ---'
         stress.v1.ListTasksResponse:
             type: object
             properties:
@@ -281,16 +289,18 @@ components:
                     type: string
                 status:
                     type: integer
-                    format: enum
+                    format: int32
+                process:
+                    type: string
                 config:
                     $ref: '#/components/schemas/stress.v1.TaskConfig'
                 recordUrl:
                     type: string
                 createdAt:
                     type: string
-                finishAt:
+                startAt:
                     type: string
-                updatedAt:
+                finishAt:
                     type: string
             description: 任务完整信息
         stress.v1.TaskConfig:
@@ -311,6 +321,12 @@ components:
                 betBonus:
                     $ref: '#/components/schemas/stress.v1.BetBonusConfig'
             description: 任务配置
+        stress.v1.TaskInfoRequest:
+            type: object
+            properties:
+                taskId:
+                    type: string
+            description: '--- 任务详情 ---'
         stress.v1.TaskInfoResponse:
             type: object
             properties:

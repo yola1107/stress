@@ -497,8 +497,6 @@ func (m *ListTasksRequest) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for Status
-
 	if len(errors) > 0 {
 		return ListTasksRequestMultiError(errors)
 	}
@@ -2345,6 +2343,8 @@ func (m *Task) validate(all bool) error {
 
 	// no validation rules for Status
 
+	// no validation rules for Process
+
 	if all {
 		switch v := interface{}(m.GetConfig()).(type) {
 		case interface{ ValidateAll() error }:
@@ -2378,9 +2378,9 @@ func (m *Task) validate(all bool) error {
 
 	// no validation rules for CreatedAt
 
-	// no validation rules for FinishAt
+	// no validation rules for StartAt
 
-	// no validation rules for UpdatedAt
+	// no validation rules for FinishAt
 
 	if len(errors) > 0 {
 		return TaskMultiError(errors)

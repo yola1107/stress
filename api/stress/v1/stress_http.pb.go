@@ -51,13 +51,13 @@ type StressServiceHTTPServer interface {
 func RegisterStressServiceHTTPServer(s *http.Server, srv StressServiceHTTPServer) {
 	r := s.Route("/")
 	r.GET("/stress/ping/{name}", _StressService_PingReq0_HTTP_Handler(srv))
-	r.GET("/stress/ListGames", _StressService_ListGames0_HTTP_Handler(srv))
-	r.GET("/stress/ListTasks", _StressService_ListTasks0_HTTP_Handler(srv))
+	r.POST("/stress/ListGames", _StressService_ListGames0_HTTP_Handler(srv))
+	r.POST("/stress/ListTasks", _StressService_ListTasks0_HTTP_Handler(srv))
 	r.POST("/stress/CreateTask", _StressService_CreateTask0_HTTP_Handler(srv))
-	r.GET("/stress/TaskInfo/{task_id}", _StressService_TaskInfo0_HTTP_Handler(srv))
-	r.DELETE("/stress/DeleteTask/{task_id}", _StressService_DeleteTask0_HTTP_Handler(srv))
-	r.POST("/stress/CancelTask/{task_id}", _StressService_CancelTask0_HTTP_Handler(srv))
-	r.POST("/stress/TaskRecord/{task_id}", _StressService_GetRecord0_HTTP_Handler(srv))
+	r.POST("/stress/TaskInfo", _StressService_TaskInfo0_HTTP_Handler(srv))
+	r.POST("/stress/DeleteTask", _StressService_DeleteTask0_HTTP_Handler(srv))
+	r.POST("/stress/CancelTask", _StressService_CancelTask0_HTTP_Handler(srv))
+	r.POST("/stress/TaskRecord", _StressService_GetRecord0_HTTP_Handler(srv))
 }
 
 func _StressService_PingReq0_HTTP_Handler(srv StressServiceHTTPServer) func(ctx http.Context) error {
@@ -85,6 +85,9 @@ func _StressService_PingReq0_HTTP_Handler(srv StressServiceHTTPServer) func(ctx 
 func _StressService_ListGames0_HTTP_Handler(srv StressServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in ListGamesRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
@@ -104,6 +107,9 @@ func _StressService_ListGames0_HTTP_Handler(srv StressServiceHTTPServer) func(ct
 func _StressService_ListTasks0_HTTP_Handler(srv StressServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in ListTasksRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
@@ -145,10 +151,10 @@ func _StressService_CreateTask0_HTTP_Handler(srv StressServiceHTTPServer) func(c
 func _StressService_TaskInfo0_HTTP_Handler(srv StressServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in TaskInfoRequest
-		if err := ctx.BindQuery(&in); err != nil {
+		if err := ctx.Bind(&in); err != nil {
 			return err
 		}
-		if err := ctx.BindVars(&in); err != nil {
+		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
 		http.SetOperation(ctx, OperationStressServiceTaskInfo)
@@ -167,10 +173,10 @@ func _StressService_TaskInfo0_HTTP_Handler(srv StressServiceHTTPServer) func(ctx
 func _StressService_DeleteTask0_HTTP_Handler(srv StressServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in DeleteTaskRequest
-		if err := ctx.BindQuery(&in); err != nil {
+		if err := ctx.Bind(&in); err != nil {
 			return err
 		}
-		if err := ctx.BindVars(&in); err != nil {
+		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
 		http.SetOperation(ctx, OperationStressServiceDeleteTask)
@@ -195,9 +201,6 @@ func _StressService_CancelTask0_HTTP_Handler(srv StressServiceHTTPServer) func(c
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		if err := ctx.BindVars(&in); err != nil {
-			return err
-		}
 		http.SetOperation(ctx, OperationStressServiceCancelTask)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return srv.CancelTask(ctx, req.(*CancelTaskRequest))
@@ -218,9 +221,6 @@ func _StressService_GetRecord0_HTTP_Handler(srv StressServiceHTTPServer) func(ct
 			return err
 		}
 		if err := ctx.BindQuery(&in); err != nil {
-			return err
-		}
-		if err := ctx.BindVars(&in); err != nil {
 			return err
 		}
 		http.SetOperation(ctx, OperationStressServiceGetRecord)
@@ -266,7 +266,7 @@ func NewStressServiceHTTPClient(client *http.Client) StressServiceHTTPClient {
 // CancelTask 取消任务
 func (c *StressServiceHTTPClientImpl) CancelTask(ctx context.Context, in *CancelTaskRequest, opts ...http.CallOption) (*CancelTaskResponse, error) {
 	var out CancelTaskResponse
-	pattern := "/stress/CancelTask/{task_id}"
+	pattern := "/stress/CancelTask"
 	path := binding.EncodeURL(pattern, in, false)
 	opts = append(opts, http.Operation(OperationStressServiceCancelTask))
 	opts = append(opts, http.PathTemplate(pattern))
@@ -294,11 +294,11 @@ func (c *StressServiceHTTPClientImpl) CreateTask(ctx context.Context, in *Create
 // DeleteTask 删除任务
 func (c *StressServiceHTTPClientImpl) DeleteTask(ctx context.Context, in *DeleteTaskRequest, opts ...http.CallOption) (*emptypb.Empty, error) {
 	var out emptypb.Empty
-	pattern := "/stress/DeleteTask/{task_id}"
-	path := binding.EncodeURL(pattern, in, true)
+	pattern := "/stress/DeleteTask"
+	path := binding.EncodeURL(pattern, in, false)
 	opts = append(opts, http.Operation(OperationStressServiceDeleteTask))
 	opts = append(opts, http.PathTemplate(pattern))
-	err := c.cc.Invoke(ctx, "DELETE", path, nil, &out, opts...)
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +308,7 @@ func (c *StressServiceHTTPClientImpl) DeleteTask(ctx context.Context, in *Delete
 // GetRecord 获取任务结果
 func (c *StressServiceHTTPClientImpl) GetRecord(ctx context.Context, in *RecordRequest, opts ...http.CallOption) (*RecordResponse, error) {
 	var out RecordResponse
-	pattern := "/stress/TaskRecord/{task_id}"
+	pattern := "/stress/TaskRecord"
 	path := binding.EncodeURL(pattern, in, false)
 	opts = append(opts, http.Operation(OperationStressServiceGetRecord))
 	opts = append(opts, http.PathTemplate(pattern))
@@ -323,10 +323,10 @@ func (c *StressServiceHTTPClientImpl) GetRecord(ctx context.Context, in *RecordR
 func (c *StressServiceHTTPClientImpl) ListGames(ctx context.Context, in *ListGamesRequest, opts ...http.CallOption) (*ListGamesResponse, error) {
 	var out ListGamesResponse
 	pattern := "/stress/ListGames"
-	path := binding.EncodeURL(pattern, in, true)
+	path := binding.EncodeURL(pattern, in, false)
 	opts = append(opts, http.Operation(OperationStressServiceListGames))
 	opts = append(opts, http.PathTemplate(pattern))
-	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -337,10 +337,10 @@ func (c *StressServiceHTTPClientImpl) ListGames(ctx context.Context, in *ListGam
 func (c *StressServiceHTTPClientImpl) ListTasks(ctx context.Context, in *ListTasksRequest, opts ...http.CallOption) (*ListTasksResponse, error) {
 	var out ListTasksResponse
 	pattern := "/stress/ListTasks"
-	path := binding.EncodeURL(pattern, in, true)
+	path := binding.EncodeURL(pattern, in, false)
 	opts = append(opts, http.Operation(OperationStressServiceListTasks))
 	opts = append(opts, http.PathTemplate(pattern))
-	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -364,11 +364,11 @@ func (c *StressServiceHTTPClientImpl) PingReq(ctx context.Context, in *PingReque
 // TaskInfo 获取任务详情
 func (c *StressServiceHTTPClientImpl) TaskInfo(ctx context.Context, in *TaskInfoRequest, opts ...http.CallOption) (*TaskInfoResponse, error) {
 	var out TaskInfoResponse
-	pattern := "/stress/TaskInfo/{task_id}"
-	path := binding.EncodeURL(pattern, in, true)
+	pattern := "/stress/TaskInfo"
+	path := binding.EncodeURL(pattern, in, false)
 	opts = append(opts, http.Operation(OperationStressServiceTaskInfo))
 	opts = append(opts, http.PathTemplate(pattern))
-	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
 		return nil, err
 	}

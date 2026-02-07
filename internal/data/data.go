@@ -67,6 +67,16 @@ func NewRedis(c *conf.Data, logger log.Logger) (redis.UniversalClient, func(), e
 		DB:           int(c.Redis.Db),
 		ReadTimeout:  c.Redis.ReadTimeout.AsDuration(),
 		WriteTimeout: c.Redis.WriteTimeout.AsDuration(),
+		// 连接池配置 - 防止 "connection pool timeout"
+		PoolSize:        50,               // 连接池大小（默认 10 * CPU 核心数）
+		MinIdleConns:    10,               // 最小空闲连接数
+		PoolTimeout:     5 * time.Second,  // 从连接池获取连接的超时时间
+		ConnMaxLifetime: 10 * time.Minute, // 连接最大存活时间
+		ConnMaxIdleTime: 5 * time.Minute,  // 空闲连接超时时间
+		// 集群容错配置 - 防止 "CLUSTERDOWN" 错误
+		MaxRetries:      3, // 命令失败最大重试次数
+		MinRetryBackoff: 100 * time.Millisecond,
+		MaxRetryBackoff: 500 * time.Millisecond,
 	})
 
 	// 测试 Redis 连接

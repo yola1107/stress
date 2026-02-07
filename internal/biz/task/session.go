@@ -1,4 +1,4 @@
-package user
+package task
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 
 	v1 "stress/api/stress/v1"
 	"stress/internal/biz/game/base"
-	"stress/internal/biz/task"
 
 	"github.com/go-kratos/kratos/v2/errors"
 )
@@ -59,7 +58,7 @@ func NewSession(userID int64, memberName string) *Session {
 	}
 }
 
-func (s *Session) Execute(ctx context.Context, client *APIClient, task *task.Task, _ base.SecretProvider) error {
+func (s *Session) Execute(ctx context.Context, client *APIClient, task *Task, _ base.SecretProvider) error {
 	cfg := task.GetConfig()
 	if cfg == nil {
 		return errors.Newf(500, "INVALID_CONFIG", "task config is nil")
@@ -97,7 +96,7 @@ func (s *Session) Execute(ctx context.Context, client *APIClient, task *task.Tas
 	return nil
 }
 
-func (s *Session) executeStep(ctx context.Context, client *APIClient, task *task.Task, cfg *v1.TaskConfig, target int32, game base.IGame, bonusCfg *v1.BetBonusConfig) error {
+func (s *Session) executeStep(ctx context.Context, client *APIClient, task *Task, cfg *v1.TaskConfig, target int32, game base.IGame, bonusCfg *v1.BetBonusConfig) error {
 	atomic.AddInt32(&s.TryTimes, 1)
 
 	var err error
@@ -167,7 +166,7 @@ func (s *Session) executeStep(ctx context.Context, client *APIClient, task *task
 	}
 }
 
-func (s *Session) handleBetOrderError(err error, task *task.Task) error {
+func (s *Session) handleBetOrderError(err error, task *Task) error {
 	betErr, ok := err.(*BetOrderError)
 	if !ok {
 		return err
@@ -186,7 +185,7 @@ func (s *Session) handleBetOrderError(err error, task *task.Task) error {
 	return betErr
 }
 
-func (s *Session) handleError(err error, maxRetries int, task *task.Task) bool {
+func (s *Session) handleError(err error, maxRetries int, task *Task) bool {
 	errMsg := err.Error()
 
 	if task != nil && s.LastError != errMsg {
@@ -223,7 +222,7 @@ func (s *Session) handleError(err error, maxRetries int, task *task.Task) bool {
 	return true
 }
 
-func (s *Session) sleepOrCancel(duration time.Duration, task *task.Task) bool {
+func (s *Session) sleepOrCancel(duration time.Duration, task *Task) bool {
 	timer := time.NewTimer(duration)
 	defer timer.Stop()
 	select {

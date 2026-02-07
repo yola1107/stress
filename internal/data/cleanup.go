@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"stress/internal/biz"
+	"stress/internal/biz/task"
 
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
@@ -76,12 +76,13 @@ func (r *dataRepo) scanAndDelete(ctx context.Context, pattern string, client pip
 	return totalDeleted, nil
 }
 
-// CleanRedisBySite 清理 Redis 中 site:* 的键
+// CleanRedisBySite 清理 Redis 中 site:* 的键 和 grpc:connect:members:{site} hash
 func (r *dataRepo) CleanRedisBySite(ctx context.Context, site string) error {
-	pattern := site + ":*"
 	rdb := r.data.rdb
 	totalDeleted := 0
 
+	// 1. 清理 site:* 模式的 key
+	pattern := site + ":*"
 	var err error
 	switch client := rdb.(type) {
 	case *redis.ClusterClient:
@@ -100,6 +101,14 @@ func (r *dataRepo) CleanRedisBySite(ctx context.Context, site string) error {
 
 	if err != nil {
 		return fmt.Errorf("[Redis] cleanup failed for pattern %s: %w", pattern, err)
+	}
+
+	// 2. 清理 grpc:connect:members:{site} hash key
+	grpcKey := fmt.Sprintf("grpc:connect:members:%s", site)
+	if delErr := rdb.Del(ctx, grpcKey).Err(); delErr != nil {
+		r.log.Warnf("[Redis] failed to delete %s: %v", grpcKey, delErr)
+	} else {
+		r.log.Infof("[Redis] Cleaned grpc:connect:members key for site: %s", site)
 	}
 
 	if totalDeleted > 0 {
@@ -170,7 +179,7 @@ func (r *dataRepo) GetGameOrderCount(ctx context.Context) (int64, error) {
 }
 
 // buildOrderWhere 构建与 statistics 一致的 WHERE 子句
-func buildOrderWhere(scope biz.OrderScope) (string, []any) {
+func buildOrderWhere(scope task.OrderScope) (string, []any) {
 	ex := scope.ExcludeAmt
 	if ex <= 0 {
 		ex = excludeAmt
@@ -190,7 +199,7 @@ func buildOrderWhere(scope biz.OrderScope) (string, []any) {
 }
 
 // GetOrderCountByScope 按范围统计订单数（与 statistics 口径一致）
-func (r *dataRepo) GetOrderCountByScope(ctx context.Context, scope biz.OrderScope) (int64, error) {
+func (r *dataRepo) GetOrderCountByScope(ctx context.Context, scope task.OrderScope) (int64, error) {
 	if r.data.order == nil {
 		return 0, fmt.Errorf("order database not configured")
 	}
@@ -201,7 +210,7 @@ func (r *dataRepo) GetOrderCountByScope(ctx context.Context, scope biz.OrderScop
 }
 
 // DeleteOrdersByScope 按范围删除订单（与 statistics 口径一致）
-func (r *dataRepo) DeleteOrdersByScope(ctx context.Context, scope biz.OrderScope) (int64, error) {
+func (r *dataRepo) DeleteOrdersByScope(ctx context.Context, scope task.OrderScope) (int64, error) {
 	if r.data.order == nil {
 		return 0, fmt.Errorf("order database not configured")
 	}
