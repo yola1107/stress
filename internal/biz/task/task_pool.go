@@ -74,14 +74,17 @@ func (p *Pool) Remove(id string) (*Task, bool) {
 	return t, ok
 }
 
-// HasRunningTasks 检查是否有正在运行的任务
-func (p *Pool) HasRunningTasks() bool {
+// IsRateLimited 限流控制
+func (p *Pool) IsRateLimited(maxRunning int) bool {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
+	running := 0
 	for _, t := range p.tasks {
 		if s := t.GetStatus(); s == v1.TaskStatus_TASK_RUNNING ||
 			s == v1.TaskStatus_TASK_PROCESSING {
-			return true
+			if running++; running >= maxRunning {
+				return true
+			}
 		}
 	}
 	return false
@@ -131,6 +134,19 @@ func (p *Pool) DropPendingHead() {
 		p.pending = p.pending[1:]
 	}
 	p.mu.Unlock()
+}
+
+// DropPending 移除任务，仅从 pending 中移除
+func (p *Pool) DropPending(id string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for i, pid := range p.pending {
+		if pid == id {
+			p.pending = append(p.pending[:i], p.pending[i+1:]...)
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Pool) StartAutoCleanup(ctx context.Context, logger log.Logger, retention time.Duration, interval time.Duration) {

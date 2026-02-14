@@ -73,23 +73,24 @@ func (s *StressService) CreateTask(ctx context.Context, in *v1.CreateTaskRequest
 	if in == nil || in.Config == nil || in.Config.BetOrder == nil {
 		return &v1.CreateTaskResponse{Code: Failed, Message: "req.Config is nil"}, nil
 	}
+
 	g, ok := s.uc.GetGame(in.Config.GameId)
 	if !ok {
 		s.log.Warnf("CreateTask Faild. game not found: %d", in.Config.GameId)
 		return &v1.CreateTaskResponse{Code: Failed, Message: fmt.Sprintf("game not found: %d", in.Config.GameId)}, nil
 	}
+
 	if !g.ValidBetMoney(in.Config.BetOrder.BaseMoney) {
-		msg := fmt.Sprintf("invalid bet money: %.2f, betsize: %v", in.Config.BetOrder.BaseMoney, g.BetSize())
-		s.log.Warnf("CreateTask Faild. game_id=%d, err=%v", in.Config.GameId, msg)
+		msg := fmt.Sprintf("CreateTask Faild. game_id=%d, invalid bet money: %.2f, betsize: %v",
+			in.Config.GameId, in.Config.BetOrder.BaseMoney, g.BetSize())
+		s.log.Warnf("%s", msg)
 		return &v1.CreateTaskResponse{Code: Failed, Message: msg}, nil
 	}
+
 	t, err := s.uc.CreateTask(ctx, g, in.Config)
 	if err != nil {
 		s.log.Warnf("CreateTask failed: %v", err)
 		return &v1.CreateTaskResponse{Code: Failed, Message: err.Error()}, nil
-	}
-	if t == nil {
-		return &v1.CreateTaskResponse{Code: Failed, Message: "create task returned nil"}, nil
 	}
 	return &v1.CreateTaskResponse{Task: t.ToProto()}, nil
 }
@@ -105,11 +106,7 @@ func (s *StressService) TaskInfo(ctx context.Context, in *v1.TaskInfoRequest) (*
 
 // CancelTask 取消任务
 func (s *StressService) CancelTask(ctx context.Context, in *v1.CancelTaskRequest) (*v1.CancelTaskResponse, error) {
-	t, err := s.getTask(in.TaskId)
-	if err != nil {
-		return &v1.CancelTaskResponse{Code: Failed, Message: err.Error()}, nil
-	}
-	if err = s.uc.CancelTask(t.GetID()); err != nil {
+	if err := s.uc.CancelTask(in.TaskId); err != nil {
 		return &v1.CancelTaskResponse{Code: Failed, Message: err.Error()}, nil
 	}
 	return &v1.CancelTaskResponse{}, nil
@@ -117,12 +114,7 @@ func (s *StressService) CancelTask(ctx context.Context, in *v1.CancelTaskRequest
 
 // DeleteTask 删除任务
 func (s *StressService) DeleteTask(ctx context.Context, in *v1.DeleteTaskRequest) (*emptypb.Empty, error) {
-	t, err := s.getTask(in.TaskId)
-	if err != nil {
-		s.log.Warnf("DeleteTask task not found: %v", err)
-		return &emptypb.Empty{}, nil
-	}
-	if err := s.uc.DeleteTask(t.GetID()); err != nil {
+	if err := s.uc.DeleteTask(in.TaskId); err != nil {
 		s.log.Warnf("DeleteTask failed: %v", err)
 		return &emptypb.Empty{}, nil
 	}

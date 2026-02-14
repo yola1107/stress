@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
@@ -17,14 +15,12 @@ import (
 const timeFmt = "2006/01/02 15:04:05.000"
 
 const (
-	Dev Mode = iota
-	Prod
+	Dev  = 0
+	Prod = 1
 )
 
-type Mode int32
-
 type Config struct {
-	Mode  Mode
+	Mode  int32
 	Level string
 	App   string
 	Dir   string
@@ -172,21 +168,21 @@ func encCfg(file bool) zapcore.EncoderConfig {
 	cfg.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 		enc.AppendString("[" + t.Format(timeFmt) + "]")
 	}
-	cfg.EncodeCaller = func(c zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
-		enc.AppendString("[" + c.FullPath() + "]")
-	}
 	cfg.ConsoleSeparator = " "
 	if !file {
 		cfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
 		cfg.EncodeCaller = zapcore.FullCallerEncoder
 	} else {
 		cfg.EncodeLevel = zapcore.CapitalLevelEncoder
-		cfg.EncodeCaller = zapcore.FullCallerEncoder
+		//cfg.EncodeCaller = zapcore.FullCallerEncoder
+		cfg.EncodeCaller = func(c zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
+			enc.AppendString("[" + c.FullPath() + "]")
+		}
 	}
 	return cfg
 }
 
-func calculateSkip() int {
+/*func calculateSkip() int {
 	pc := make([]uintptr, 8)
 	n := runtime.Callers(3, pc) // 调整跳过层数
 	if n == 0 {
@@ -202,3 +198,4 @@ func calculateSkip() int {
 	}
 	return 2
 }
+*/

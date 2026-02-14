@@ -10,8 +10,8 @@ import (
 	"stress/internal/biz/chart"
 	"stress/internal/biz/member"
 	"stress/internal/biz/metrics"
+	"stress/internal/biz/notify"
 	"stress/internal/conf"
-	"stress/internal/notify"
 
 	"github.com/panjf2000/ants/v2"
 )
@@ -24,7 +24,7 @@ type (
 	UploadBytesFunc      func(ctx context.Context, bucket, key, contentType string, data []byte) (string, error)
 	CleanRedisFunc       func(ctx context.Context, sites []string) error
 	CleanTableFunc       func(ctx context.Context) error
-	ReleaseMembersFunc   func(taskID string)
+	ReturnMembersFunc    func(taskID string)
 )
 
 // ExecDeps 任务执行依赖
@@ -35,7 +35,7 @@ type ExecDeps struct {
 	UploadBytes       UploadBytesFunc
 	CleanRedisBySites CleanRedisFunc
 	CleanOrderTable   CleanTableFunc
-	ReleaseMembers    ReleaseMembersFunc
+	ReturnMembers     ReturnMembersFunc
 	Conf              *conf.Stress
 	Notify            notify.Notifier
 	Chart             chart.IGenerator
@@ -54,7 +54,6 @@ type OrderScope struct {
 	ExcludeAmt float64
 }
 
-// Execute 执行任务
 func (t *Task) Execute(members []MemberInfo, deps *ExecDeps) {
 	if t.GetStatus() != v1.TaskStatus_TASK_RUNNING {
 		if !t.CompareAndSetStatus(v1.TaskStatus_TASK_PENDING, v1.TaskStatus_TASK_RUNNING) {
@@ -65,7 +64,6 @@ func (t *Task) Execute(members []MemberInfo, deps *ExecDeps) {
 
 	t.SetStartAt()
 	capacity := len(members)
-	t.AddActive(int64(capacity))
 
 	// 初始化资源
 	apiClient := NewAPIClient(capacity, NoopSecretProvider, deps.Conf.Launch)
@@ -77,30 +75,28 @@ func (t *Task) Execute(members []MemberInfo, deps *ExecDeps) {
 	}
 	antsPool, _ := ants.NewPool(capacity)
 
-	wg := sync.WaitGroup{}
-	dbDone := make(chan struct{})
-	wg.Add(3)
-	go func() {
-		defer wg.Done()
-		t.Monitor()
-	}()
-	go func() {
-		defer wg.Done()
-		t.startReporting(deps, dbDone)
-	}()
-	go func() {
-		defer wg.Done()
-		t.monitorOrderWrite(deps, dbDone)
-	}()
+	// 启动日志
+	t.Monitor()
 
-	// 执行会话
+	// 启动周期 reporter
+	stopReporter, wg := t.startReporter(deps)
+
+	// 执行 session
 	t.runSessions(members, apiClient, antsPool)
 
+	// 停止 session 阶段
 	t.Stop()
 
+	// 等待 DB 写完（阻塞）
+	t.waitOrderWrite(deps)
+
+	// 停止 reporter
+	stopReporter()
+
+	// 等 final report 完成
 	wg.Wait()
 
-	// 清理资源
+	// cleanup
 	t.cleanup(deps, apiClient, antsPool)
 }
 
@@ -113,6 +109,7 @@ func (t *Task) runSessions(members []MemberInfo, apiClient *APIClient, antsPool 
 		m := m
 		sess := NewSession(m.Name)
 		wg.Add(1)
+		t.AddActive(1)
 		if err := antsPool.Submit(func() {
 			defer wg.Done()
 			defer t.MarkSessionDone(!sess.IsFailed())
@@ -133,57 +130,68 @@ func (t *Task) runSessions(members []MemberInfo, apiClient *APIClient, antsPool 
 
 // Monitor 运行监控：1s 日志输出，task context 取消后退出
 func (t *Task) Monitor() {
-	tick := time.NewTicker(time.Second)
-	defer tick.Stop()
+	go func() {
+		tick := time.NewTicker(time.Second)
+		defer tick.Stop()
 
-	t.LogProgress(false)
+		t.LogProgress(false)
 
-	for {
-		select {
-		case <-t.ctx.Done():
-			t.LogProgress(true)
-			return
-		case <-tick.C:
-			t.LogProgress(false)
+		for {
+			select {
+			case <-t.ctx.Done():
+				t.LogProgress(true)
+				return
+			case <-tick.C:
+				t.LogProgress(false)
+			}
 		}
-	}
+	}()
 }
 
-func (t *Task) startReporting(deps *ExecDeps, doneChan <-chan struct{}) {
+func (t *Task) startReporter(deps *ExecDeps) (context.CancelFunc, *sync.WaitGroup) {
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				t.SetFinishAt()
+				t.report(deps, true)
+				return
+			case <-ticker.C:
+				t.report(deps, false)
+			}
+		}
+	}()
+
+	return cancel, &wg
+}
+
+// waitOrderWrite 监控订单写入完成
+func (t *Task) waitOrderWrite(deps *ExecDeps) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	t.report(deps, false)
+	timeout := time.After(5 * time.Minute)
 
 	for {
 		select {
-		case <-doneChan:
-			t.SetFinishAt()
-			t.report(deps, true)
+		case <-timeout:
+			t.log.Warnf("[%s] waitOrderWrite timeout, forcing completion", t.GetID())
 			return
 		case <-ticker.C:
-			t.report(deps, false)
+			if orderCount, err := deps.GetOrderCount(context.Background()); err == nil && orderCount >= t.GetStep() {
+				return
+			}
 		}
 	}
-}
-
-// monitorOrderWrite 监控订单写入完成
-func (t *Task) monitorOrderWrite(deps *ExecDeps, done chan<- struct{}) {
-	<-t.Context().Done()
-
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
-	for i := 0; i < 60; i++ {
-		if orderCount, err := deps.GetOrderCount(context.Background()); err == nil && orderCount >= t.GetStep() {
-			close(done)
-			return
-		}
-		<-ticker.C
-	}
-
-	t.log.Warnf("[%s] monitorOrderWrite timeout, forcing completion", t.GetID())
-	close(done)
 }
 
 func (t *Task) fillOrderStats(ctx context.Context, deps *ExecDeps, rpt *v1.TaskCompletionReport, scope OrderScope) {
@@ -283,9 +291,11 @@ func (t *Task) sendNotification(deps *ExecDeps, ctx context.Context, report *v1.
 		return
 	}
 	msg := notify.BuildTaskCompletionMessage(report)
-	if err := deps.Notify.Send(ctx, msg); err != nil {
-		t.log.Warnf("[%s] notify task completion: %v", report.TaskId, err)
-	}
+	go func() {
+		if err := deps.Notify.Send(ctx, msg); err != nil {
+			t.log.Warnf("[%s] notify task completion: %v", report.TaskId, err)
+		}
+	}()
 }
 
 // cleanupEnvironment 清理环境
@@ -293,12 +303,22 @@ func (t *Task) cleanupEnvironment(deps *ExecDeps, ctx context.Context, scope Ord
 	cleanupCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
-	if err := deps.CleanRedisBySites(cleanupCtx, deps.Conf.Launch.Sites); err != nil {
-		t.log.Errorf("[%s] Redis cleanup: %v", t.GetID(), err)
-	}
-	if err := deps.CleanOrderTable(cleanupCtx); err != nil {
-		t.log.Errorf("[%s] Mysql delete orders: %v", t.GetID(), err)
-	}
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		if err := deps.CleanRedisBySites(cleanupCtx, deps.Conf.Launch.Sites); err != nil {
+			t.log.Errorf("[%s] Redis cleanup: %v", t.GetID(), err)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		if err := deps.CleanOrderTable(cleanupCtx); err != nil {
+			t.log.Errorf("[%s] Mysql delete orders: %v", t.GetID(), err)
+		}
+	}()
+	wg.Wait()
 }
 
 // ==================== 资源清理 ====================
@@ -317,9 +337,9 @@ func (t *Task) cleanup(deps *ExecDeps, apiClient *APIClient, antsPool *ants.Pool
 		antsPool.Release()
 	}
 
-	// 释放成员池
-	if deps.ReleaseMembers != nil {
-		deps.ReleaseMembers(t.GetID())
+	// 归还到成员池
+	if deps.ReturnMembers != nil {
+		deps.ReturnMembers(t.GetID())
 	}
 
 	// 清除game引用

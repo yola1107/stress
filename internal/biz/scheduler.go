@@ -31,7 +31,7 @@ func (uc *UseCase) doSchedule() {
 		}
 
 		// 单线程，控制宿主机cpu+内存; 控制一个任务在跑
-		if uc.taskPool.HasRunningTasks() {
+		if uc.taskPool.IsRateLimited(1) {
 			break
 		}
 
@@ -80,7 +80,7 @@ func (uc *UseCase) runTask(t *task.Task, allocated []task.MemberInfo) {
 		UploadBytes:       uc.repo.UploadBytes,
 		CleanRedisBySites: uc.repo.CleanRedisBySites,
 		CleanOrderTable:   uc.repo.CleanGameOrderTable,
-		ReleaseMembers:    uc.memberPool.Release,
+		ReturnMembers:     uc.memberPool.Release,
 		Conf:              uc.conf,
 		Notify:            uc.notify,
 		Chart:             uc.chart,
@@ -97,7 +97,7 @@ func (uc *UseCase) CreateTask(ctx context.Context, g base.IGame, config *v1.Task
 
 	taskID, err := uc.repo.NextTaskID(ctx, config.GameId)
 	if err != nil {
-		return nil, fmt.Errorf("generate task id: %w", err)
+		return nil, fmt.Errorf("generate task id failed: %w", err)
 	}
 
 	t, err := task.NewTask(uc.ctx, taskID, g, config, uc.log.Logger())
@@ -129,10 +129,10 @@ func (uc *UseCase) CancelTask(id string) error {
 	if !ok {
 		return fmt.Errorf("task %s not found", id)
 	}
-
 	if err := t.Cancel(); err != nil {
-		return fmt.Errorf("cancel task: %w", err)
+		return err
 	}
+	uc.taskPool.DropPending(id) // 如果有
 	// 成员由 Execute.cleanup 释放，避免重复释放导致的数据混乱
 	return nil
 }

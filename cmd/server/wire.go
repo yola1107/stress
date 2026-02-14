@@ -8,9 +8,9 @@ package main
 import (
 	"stress/internal/biz"
 	"stress/internal/biz/chart"
+	"stress/internal/biz/notify"
 	"stress/internal/conf"
 	"stress/internal/data"
-	"stress/internal/notify"
 	"stress/internal/server"
 	"stress/internal/service"
 

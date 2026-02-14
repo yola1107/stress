@@ -2,6 +2,7 @@ package biz
 
 import (
 	"context"
+	"stress/internal/biz/notify"
 	"time"
 
 	"stress/internal/biz/chart"
@@ -10,7 +11,6 @@ import (
 	"stress/internal/biz/member"
 	"stress/internal/biz/task"
 	"stress/internal/conf"
-	"stress/internal/notify"
 
 	"github.com/go-kratos/kratos/v2/log"
 )
@@ -129,14 +129,4 @@ func (uc *UseCase) GetTask(id string) (*task.Task, bool) {
 // ListTasks 返回所有任务（已按创建时间倒序）
 func (uc *UseCase) ListTasks() []*task.Task {
 	return uc.taskPool.List()
-}
-
-// GetStressConfig 获取压测配置
-func (uc *UseCase) GetStressConfig() *conf.Stress {
-	return uc.conf
-}
-
-// GetMemberStats 玩家池统计
-func (uc *UseCase) GetMemberStats() (idle, allocated, total int) {
-	return uc.memberPool.Stats()
 }

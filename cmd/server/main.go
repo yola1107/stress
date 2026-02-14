@@ -78,11 +78,11 @@ func main() {
 	}
 
 	logger := zap.NewLoggerWithConfig(&zap.Config{
-		Mode:  zap.Mode(bc.Log.Mode), // Use production mode for file logging
-		Level: bc.Log.Level,          // Set log level
-		App:   bc.Log.App,            // Application name
-		Dir:   bc.Log.Dir,            // Log directory
-		File:  bc.Log.File,           // Log file Open
+		Mode:  bc.Log.Mode,  // Use production mode for file logging
+		Level: bc.Log.Level, // Set log level
+		App:   bc.Log.App,   // Application name
+		Dir:   bc.Log.Dir,   // Log directory
+		File:  bc.Log.File,  // Log file Open
 	})
 	defer logger.Sync()
 
