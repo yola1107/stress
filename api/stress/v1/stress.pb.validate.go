@@ -1783,6 +1783,233 @@ var _ interface {
 	ErrorName() string
 } = RecordResponseValidationError{}
 
+// Validate checks the field values on BenchRequest with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *BenchRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on BenchRequest with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in BenchRequestMultiError, or
+// nil if none found.
+func (m *BenchRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *BenchRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if val := m.GetMemberCount(); val < 1 || val > 10000 {
+		err := BenchRequestValidationError{
+			field:  "MemberCount",
+			reason: "value must be inside range [1, 10000]",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if val := m.GetTimesPerMember(); val < 1 || val > 10000 {
+		err := BenchRequestValidationError{
+			field:  "TimesPerMember",
+			reason: "value must be inside range [1, 10000]",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return BenchRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// BenchRequestMultiError is an error wrapping multiple validation errors
+// returned by BenchRequest.ValidateAll() if the designated constraints aren't met.
+type BenchRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m BenchRequestMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m BenchRequestMultiError) AllErrors() []error { return m }
+
+// BenchRequestValidationError is the validation error returned by
+// BenchRequest.Validate if the designated constraints aren't met.
+type BenchRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e BenchRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e BenchRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e BenchRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e BenchRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e BenchRequestValidationError) ErrorName() string { return "BenchRequestValidationError" }
+
+// Error satisfies the builtin error interface
+func (e BenchRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sBenchRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = BenchRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = BenchRequestValidationError{}
+
+// Validate checks the field values on BenchResponse with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *BenchResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on BenchResponse with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in BenchResponseMultiError, or
+// nil if none found.
+func (m *BenchResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *BenchResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Code
+
+	// no validation rules for Message
+
+	// no validation rules for TaskIds
+
+	if len(errors) > 0 {
+		return BenchResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// BenchResponseMultiError is an error wrapping multiple validation errors
+// returned by BenchResponse.ValidateAll() if the designated constraints
+// aren't met.
+type BenchResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m BenchResponseMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m BenchResponseMultiError) AllErrors() []error { return m }
+
+// BenchResponseValidationError is the validation error returned by
+// BenchResponse.Validate if the designated constraints aren't met.
+type BenchResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e BenchResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e BenchResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e BenchResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e BenchResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e BenchResponseValidationError) ErrorName() string { return "BenchResponseValidationError" }
+
+// Error satisfies the builtin error interface
+func (e BenchResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sBenchResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = BenchResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = BenchResponseValidationError{}
+
 // Validate checks the field values on Game with the rules defined in the proto
 // definition for this message. If any rules are violated, the first error
 // encountered is returned, or nil if there are no violations.

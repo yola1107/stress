@@ -20,6 +20,7 @@ var _ = binding.EncodeURL
 
 const _ = http.SupportPackageIsVersion1
 
+const OperationStressServiceBench = "/stress.v1.StressService/Bench"
 const OperationStressServiceCancelTask = "/stress.v1.StressService/CancelTask"
 const OperationStressServiceCreateTask = "/stress.v1.StressService/CreateTask"
 const OperationStressServiceDeleteTask = "/stress.v1.StressService/DeleteTask"
@@ -30,6 +31,8 @@ const OperationStressServicePingReq = "/stress.v1.StressService/PingReq"
 const OperationStressServiceTaskInfo = "/stress.v1.StressService/TaskInfo"
 
 type StressServiceHTTPServer interface {
+	// Bench 批量压测启动
+	Bench(context.Context, *BenchRequest) (*BenchResponse, error)
 	// CancelTask 取消任务
 	CancelTask(context.Context, *CancelTaskRequest) (*CancelTaskResponse, error)
 	// CreateTask 创建压测任务
@@ -58,6 +61,7 @@ func RegisterStressServiceHTTPServer(s *http.Server, srv StressServiceHTTPServer
 	r.POST("/stress/DeleteTask", _StressService_DeleteTask0_HTTP_Handler(srv))
 	r.POST("/stress/CancelTask", _StressService_CancelTask0_HTTP_Handler(srv))
 	r.POST("/stress/TaskRecord", _StressService_GetRecord0_HTTP_Handler(srv))
+	r.POST("/stress/Bench", _StressService_Bench0_HTTP_Handler(srv))
 }
 
 func _StressService_PingReq0_HTTP_Handler(srv StressServiceHTTPServer) func(ctx http.Context) error {
@@ -236,7 +240,31 @@ func _StressService_GetRecord0_HTTP_Handler(srv StressServiceHTTPServer) func(ct
 	}
 }
 
+func _StressService_Bench0_HTTP_Handler(srv StressServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in BenchRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationStressServiceBench)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.Bench(ctx, req.(*BenchRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*BenchResponse)
+		return ctx.Result(200, reply)
+	}
+}
+
 type StressServiceHTTPClient interface {
+	// Bench 批量压测启动
+	Bench(ctx context.Context, req *BenchRequest, opts ...http.CallOption) (rsp *BenchResponse, err error)
 	// CancelTask 取消任务
 	CancelTask(ctx context.Context, req *CancelTaskRequest, opts ...http.CallOption) (rsp *CancelTaskResponse, err error)
 	// CreateTask 创建压测任务
@@ -261,6 +289,20 @@ type StressServiceHTTPClientImpl struct {
 
 func NewStressServiceHTTPClient(client *http.Client) StressServiceHTTPClient {
 	return &StressServiceHTTPClientImpl{client}
+}
+
+// Bench 批量压测启动
+func (c *StressServiceHTTPClientImpl) Bench(ctx context.Context, in *BenchRequest, opts ...http.CallOption) (*BenchResponse, error) {
+	var out BenchResponse
+	pattern := "/stress/Bench"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationStressServiceBench))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 // CancelTask 取消任务

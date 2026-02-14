@@ -3,13 +3,17 @@ package service
 import (
 	"context"
 	"fmt"
+	"stress/pkg/xgo"
 	"strings"
+	"sync"
 
 	v1 "stress/api/stress/v1"
 	"stress/internal/biz"
+	"stress/internal/biz/game/base"
 	"stress/internal/biz/task"
 
 	"github.com/go-kratos/kratos/v2/log"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -138,4 +142,88 @@ func (s *StressService) getTask(taskID string) (*task.Task, error) {
 		return t, nil
 	}
 	return nil, fmt.Errorf("task not found")
+}
+
+// ================================================================
+
+// Bench 批量压测启动
+func (s *StressService) Bench(ctx context.Context, in *v1.BenchRequest) (*v1.BenchResponse, error) {
+	games := s.uc.ListGames()
+	if len(games) == 0 {
+		return &v1.BenchResponse{Code: Failed, Message: "no games available"}, nil
+	}
+
+	// 过滤目标游戏
+	targets := games
+	if len(in.GameIds) > 0 {
+		gameMap := make(map[int64]base.IGame, len(games))
+		for _, g := range games {
+			gameMap[g.GameID()] = g
+		}
+
+		targets = make([]base.IGame, 0, len(in.GameIds))
+		for _, id := range in.GameIds {
+			if g, ok := gameMap[id]; ok {
+				targets = append(targets, g)
+			}
+		}
+	}
+
+	if len(targets) == 0 {
+		return &v1.BenchResponse{Code: Failed, Message: "no matching games"}, nil
+	}
+
+	var (
+		mu      sync.Mutex
+		taskIDs = make([]string, 0, len(targets))
+		fails   = make([]string, 0)
+	)
+
+	eg, egCtx := errgroup.WithContext(ctx)
+
+	for _, g := range targets {
+		g := g
+
+		eg.Go(func() error {
+			cfg := &v1.TaskConfig{
+				GameId:         g.GameID(),
+				Description:    "bench",
+				MemberCount:    in.MemberCount,
+				TimesPerMember: in.TimesPerMember,
+				BetOrder: &v1.BetOrderConfig{
+					BaseMoney: pickBaseMoney(g.BetSize()),
+					Multiple:  1,
+				},
+				BetBonus: &v1.BetBonusConfig{
+					Enable:        true,
+					BonusSequence: []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
+				},
+			}
+
+			t, err := s.uc.CreateTask(egCtx, g, cfg)
+
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				fails = append(fails, fmt.Sprintf("%d:%s", g.GameID(), err.Error()))
+				return nil
+			}
+			taskIDs = append(taskIDs, t.GetID())
+			return nil
+		})
+	}
+
+	_ = eg.Wait()
+
+	return &v1.BenchResponse{TaskIds: xgo.ToJSON(taskIDs), Fails: fails}, nil
+}
+
+func pickBaseMoney(sizes []float64) float64 {
+	if len(sizes) > 1 {
+		return sizes[1]
+	}
+	if len(sizes) > 0 {
+		return sizes[0]
+	}
+	return 0.1
 }

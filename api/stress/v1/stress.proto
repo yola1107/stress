@@ -83,6 +83,14 @@ service StressService {
             body: "*"
         };
     }
+
+    // 批量压测启动
+    rpc Bench(BenchRequest) returns (BenchResponse) {
+        option (google.api.http) = {
+            post: "/stress/Bench"
+            body: "*"
+        };
+    }
 }
 
 // The request message containing the user's name.
@@ -154,6 +162,19 @@ message RecordResponse {
     int32 code     = 1;  // 状态码
     string message = 2;  // 提示信息
     string url     = 3;
+}
+
+// --- 批量压测 ---
+message BenchRequest {
+    repeated int64 game_ids = 1;                                                    // 游戏ID列表（空=全部游戏）
+    int32 member_count      = 2 [(validate.rules).int32 = { gte: 1, lte: 10000 }];  // 每游戏用户数
+    int32 times_per_member  = 3 [(validate.rules).int32 = { gte: 1, lte: 10000 }];  // 每用户执行次数
+}
+message BenchResponse {
+    int32 code            = 1;
+    string message        = 2;
+    string task_ids       = 3;  // 创建的任务ID列表
+    repeated string fails = 4;  // 失败信息 ["gameID:error", ...]
 }
 
 // ############################################################################

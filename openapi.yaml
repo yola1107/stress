@@ -6,6 +6,25 @@ info:
     title: StressService API
     version: 0.0.1
 paths:
+    /stress/Bench:
+        post:
+            tags:
+                - StressService
+            description: 批量压测启动
+            operationId: StressService_Bench
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/stress.v1.BenchRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/stress.v1.BenchResponse'
     /stress/CancelTask:
         post:
             tags:
@@ -157,6 +176,34 @@ paths:
                                 $ref: '#/components/schemas/stress.v1.PingReply'
 components:
     schemas:
+        stress.v1.BenchRequest:
+            type: object
+            properties:
+                gameIds:
+                    type: array
+                    items:
+                        type: string
+                memberCount:
+                    type: integer
+                    format: int32
+                timesPerMember:
+                    type: integer
+                    format: int32
+            description: '--- 批量压测 ---'
+        stress.v1.BenchResponse:
+            type: object
+            properties:
+                code:
+                    type: integer
+                    format: int32
+                message:
+                    type: string
+                taskIds:
+                    type: string
+                fails:
+                    type: array
+                    items:
+                        type: string
         stress.v1.BetBonusConfig:
             type: object
             properties:

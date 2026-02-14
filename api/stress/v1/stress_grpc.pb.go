@@ -28,6 +28,7 @@ const (
 	StressService_DeleteTask_FullMethodName = "/stress.v1.StressService/DeleteTask"
 	StressService_CancelTask_FullMethodName = "/stress.v1.StressService/CancelTask"
 	StressService_GetRecord_FullMethodName  = "/stress.v1.StressService/GetRecord"
+	StressService_Bench_FullMethodName      = "/stress.v1.StressService/Bench"
 )
 
 // StressServiceClient is the client API for StressService service.
@@ -50,6 +51,8 @@ type StressServiceClient interface {
 	CancelTask(ctx context.Context, in *CancelTaskRequest, opts ...grpc.CallOption) (*CancelTaskResponse, error)
 	// 获取任务结果
 	GetRecord(ctx context.Context, in *RecordRequest, opts ...grpc.CallOption) (*RecordResponse, error)
+	// 批量压测启动
+	Bench(ctx context.Context, in *BenchRequest, opts ...grpc.CallOption) (*BenchResponse, error)
 }
 
 type stressServiceClient struct {
@@ -140,6 +143,16 @@ func (c *stressServiceClient) GetRecord(ctx context.Context, in *RecordRequest, 
 	return out, nil
 }
 
+func (c *stressServiceClient) Bench(ctx context.Context, in *BenchRequest, opts ...grpc.CallOption) (*BenchResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BenchResponse)
+	err := c.cc.Invoke(ctx, StressService_Bench_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // StressServiceServer is the server API for StressService service.
 // All implementations must embed UnimplementedStressServiceServer
 // for forward compatibility.
@@ -160,6 +173,8 @@ type StressServiceServer interface {
 	CancelTask(context.Context, *CancelTaskRequest) (*CancelTaskResponse, error)
 	// 获取任务结果
 	GetRecord(context.Context, *RecordRequest) (*RecordResponse, error)
+	// 批量压测启动
+	Bench(context.Context, *BenchRequest) (*BenchResponse, error)
 	mustEmbedUnimplementedStressServiceServer()
 }
 
@@ -193,6 +208,9 @@ func (UnimplementedStressServiceServer) CancelTask(context.Context, *CancelTaskR
 }
 func (UnimplementedStressServiceServer) GetRecord(context.Context, *RecordRequest) (*RecordResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetRecord not implemented")
+}
+func (UnimplementedStressServiceServer) Bench(context.Context, *BenchRequest) (*BenchResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Bench not implemented")
 }
 func (UnimplementedStressServiceServer) mustEmbedUnimplementedStressServiceServer() {}
 func (UnimplementedStressServiceServer) testEmbeddedByValue()                       {}
@@ -359,6 +377,24 @@ func _StressService_GetRecord_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _StressService_Bench_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BenchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StressServiceServer).Bench(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: StressService_Bench_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StressServiceServer).Bench(ctx, req.(*BenchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // StressService_ServiceDesc is the grpc.ServiceDesc for StressService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -397,6 +433,10 @@ var StressService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetRecord",
 			Handler:    _StressService_GetRecord_Handler,
+		},
+		{
+			MethodName: "Bench",
+			Handler:    _StressService_Bench_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
