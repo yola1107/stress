@@ -1,7 +1,6 @@
 package task
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math/rand/v2"
@@ -101,11 +100,11 @@ func (s *Session) Execute(client *APIClient) error {
 		default:
 		}
 
-		// 检查任务是否被取消（返回 context.Canceled 以保持行为一致）
+		// 检查任务是否被取消（取消是正常退出，返回 nil）
 		if env.isTaskCancelled != nil && env.isTaskCancelled() {
 			s.setState(SessionStateFailed)
 			s.LastError = "task cancelled"
-			return context.Canceled
+			return nil
 		}
 
 		if err := s.executeStep(env, client); err != nil {
@@ -217,7 +216,9 @@ func (s *Session) handleError(err error, maxRetries int, env *SessionEnv) bool {
 	// Launch 永久错误：不重试
 	var apiErr *APIError
 	if errors.As(err, &apiErr) && apiErr.Op == "launch" {
-		s.sleepOrCancel(defaultSleepOnCancel, env)
+		if !s.sleepOrCancel(defaultSleepOnCancel, env) {
+			return false
+		}
 		s.setState(SessionStateFailed)
 		return false
 	}
@@ -233,7 +234,14 @@ func (s *Session) handleError(err error, maxRetries int, env *SessionEnv) bool {
 
 func (s *Session) sleepOrCancel(duration time.Duration, env *SessionEnv) bool {
 	timer := time.NewTimer(duration)
-	defer timer.Stop()
+	defer func() {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+	}()
 	select {
 	case <-timer.C:
 		return true

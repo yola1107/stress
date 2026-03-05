@@ -3,7 +3,6 @@ package task
 import (
 	"context"
 	"errors"
-	"runtime"
 	"sync"
 	"time"
 
@@ -303,7 +302,6 @@ func (t *Task) uploadChart(deps *ExecDeps, ctx context.Context, report *v1.TaskC
 
 	// 立即清除大HTML字符串，释放内存
 	result.HTMLContent = ""
-	runtime.GC()
 }
 
 // sendNotification 发送通知

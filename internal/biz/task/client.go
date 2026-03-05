@@ -260,7 +260,9 @@ func (c *APIClient) Launch(ctx context.Context, cfg *v1.TaskConfig, member strin
 	var data struct {
 		LaunchUrl string `json:"launchUrl"`
 	}
-	_ = jsonAPI.Unmarshal(res.Data, &data)
+	if err := jsonAPI.Unmarshal(res.Data, &data); err != nil {
+		return "", fmt.Errorf("failed to unmarshal launch response: %w", err)
+	}
 
 	path, _ := url.QueryUnescape(data.LaunchUrl)
 	parsed, err := url.Parse(path)
@@ -287,7 +289,9 @@ func (c *APIClient) Login(ctx context.Context, cfg *v1.TaskConfig, token string)
 		Token    string         `json:"token"`
 		FreeData map[string]any `json:"freeData"`
 	}
-	_ = jsonAPI.Unmarshal(res.Data, &data)
+	if err := jsonAPI.Unmarshal(res.Data, &data); err != nil {
+		return "", nil, fmt.Errorf("failed to unmarshal login response: %w", err)
+	}
 	return strings.ReplaceAll(data.Token, " ", "+"), data.FreeData, nil
 }
 
@@ -389,7 +393,9 @@ func (c *APIClient) BetBonus(ctx context.Context, cfg *v1.TaskConfig, token stri
 	}
 
 	var data map[string]any
-	_ = jsonAPI.Unmarshal(res.Data, &data)
+	if err := jsonAPI.Unmarshal(res.Data, &data); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal betbonus response: %w", err)
+	}
 	result := &BetBonusResult{Data: data}
 	if c.env != nil && c.env.bonusNext != nil {
 		result.NeedContinue = c.env.bonusNext(data)
