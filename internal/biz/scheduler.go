@@ -73,6 +73,15 @@ func (uc *UseCase) WakeScheduler() {
 
 // runTask 执行任务，cleanup 后通过回调唤醒调度
 func (uc *UseCase) runTask(t *task.Task, allocated []task.MemberInfo) {
+	// 任务开始运行，增加计数器
+	uc.taskPool.IncreaseRunningCount()
+
+	// 确保任务结束时减少计数器，即使 Execute 提前返回或 panic
+	defer func() {
+		uc.taskPool.DecreaseRunningCount()
+		uc.WakeScheduler()
+	}()
+
 	deps := &task.ExecDeps{
 		GetOrderCount:     uc.repo.GetGameOrderCount,
 		GetOrderAmounts:   uc.repo.GetDetailedOrderAmounts,
@@ -84,7 +93,6 @@ func (uc *UseCase) runTask(t *task.Task, allocated []task.MemberInfo) {
 		Conf:              uc.conf,
 		Notify:            uc.notify,
 		Chart:             uc.chart,
-		OnComplete:        uc.WakeScheduler,
 	}
 	t.Execute(allocated, deps)
 }

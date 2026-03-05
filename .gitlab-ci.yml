@@ -32,7 +32,6 @@ build:
     key:
       files:
         - go.sum
-    policy: pull
     paths:
       - .cache/go-mod
   before_script:

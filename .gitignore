@@ -32,3 +32,4 @@ log/
 # Generated
 stats/
 rtp_charts/
+/.claude/

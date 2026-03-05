@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	v1 "stress/api/stress/v1"
@@ -13,16 +14,18 @@ import (
 
 // Pool 任务池
 type Pool struct {
-	mu      sync.RWMutex
-	tasks   map[string]*Task
-	pending []string
+	mu           sync.RWMutex
+	tasks        map[string]*Task
+	pending      []string
+	runningCount int32 // 运行中任务数
 }
 
 // NewTaskPool 创建任务池
 func NewTaskPool() *Pool {
 	return &Pool{
-		tasks:   make(map[string]*Task),
-		pending: nil,
+		tasks:        make(map[string]*Task),
+		pending:      nil,
+		runningCount: 0,
 	}
 }
 
@@ -76,18 +79,17 @@ func (p *Pool) Remove(id string) (*Task, bool) {
 
 // IsRateLimited 限流控制
 func (p *Pool) IsRateLimited(maxRunning int) bool {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	running := 0
-	for _, t := range p.tasks {
-		if s := t.GetStatus(); s == v1.TaskStatus_TASK_RUNNING ||
-			s == v1.TaskStatus_TASK_PROCESSING {
-			if running++; running >= maxRunning {
-				return true
-			}
-		}
-	}
-	return false
+	return atomic.LoadInt32(&p.runningCount) >= int32(maxRunning)
+}
+
+// IncreaseRunningCount 增加运行中任务计数
+func (p *Pool) IncreaseRunningCount() {
+	atomic.AddInt32(&p.runningCount, 1)
+}
+
+// DecreaseRunningCount 减少运行中任务计数
+func (p *Pool) DecreaseRunningCount() {
+	atomic.AddInt32(&p.runningCount, -1)
 }
 
 // PeekPending 取队首待调度任务（不出队）

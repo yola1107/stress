@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"strconv"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -31,4 +33,22 @@ func newGauge(name, help string) *prometheus.GaugeVec {
 
 func set(g *prometheus.GaugeVec, labels prometheus.Labels, v float64) {
 	g.With(labels).Set(v)
+}
+
+// CleanupTaskMetrics 清理已完成任务的 Prometheus 指标，防止内存泄漏
+func CleanupTaskMetrics(taskID string, gameID int64) {
+	labels := prometheus.Labels{
+		labelTaskID: taskID,
+		labelGameID: strconv.FormatInt(gameID, 10),
+	}
+	_metric_progress.Delete(labels)
+	_metric_total_steps.Delete(labels)
+	_metric_progress_pct.Delete(labels)
+	_metric_qps.Delete(labels)
+	_metric_active_members.Delete(labels)
+	_metric_failed_reqs.Delete(labels)
+	_metric_total_bet.Delete(labels)
+	_metric_total_win.Delete(labels)
+	_metric_rtp_pct.Delete(labels)
+	_metric_order_count.Delete(labels)
 }

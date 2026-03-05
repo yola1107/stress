@@ -15,8 +15,6 @@ import (
 
 var ProviderSet = wire.NewSet(NewGenerator)
 
-var chromeCache string
-
 const OutputDir = "./rtp_charts"
 
 // IGenerator 图表生成接口
@@ -39,7 +37,8 @@ type GenerateResult struct {
 
 // Generator 图表生成器
 type Generator struct {
-	outputDir string
+	outputDir   string
+	chromeCache string
 }
 
 // NewGenerator 创建图表生成器（使用默认输出目录）
@@ -93,7 +92,7 @@ func (g *Generator) Generate(pts []Point, taskId, gameName, merchant string, sav
 		return nil, err
 	}
 
-	renderPNG(path)
+	g.renderPNG(path)
 	result.FilePath = path
 	return result, nil
 }
@@ -102,8 +101,8 @@ func toPng(html string) string {
 	return strings.TrimSuffix(html, ".html") + ".png"
 }
 
-func renderPNG(htmlPath string) {
-	chrome := findChrome()
+func (g *Generator) renderPNG(htmlPath string) {
+	chrome := g.findChrome()
 	if chrome == "" {
 		return
 	}
@@ -122,9 +121,9 @@ func renderPNG(htmlPath string) {
 	}
 }
 
-func findChrome() string {
-	if chromeCache != "" {
-		return chromeCache
+func (g *Generator) findChrome() string {
+	if g.chromeCache != "" {
+		return g.chromeCache
 	}
 	for _, p := range []string{
 		"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -133,14 +132,14 @@ func findChrome() string {
 		"/usr/bin/chromium-browser",
 	} {
 		if _, err := os.Stat(p); err == nil {
-			chromeCache = p
+			g.chromeCache = p
 			return p
 		}
 	}
 	for _, name := range []string{"google-chrome", "chromium"} {
 		if out, _ := exec.Command("which", name).Output(); len(out) > 0 {
-			chromeCache = strings.TrimSpace(string(out))
-			return chromeCache
+			g.chromeCache = strings.TrimSpace(string(out))
+			return g.chromeCache
 		}
 	}
 	return ""

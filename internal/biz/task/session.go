@@ -1,6 +1,8 @@
 package task
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"sync"
@@ -8,10 +10,11 @@ import (
 	"time"
 )
 
-// Session 相关常量
+// Session 相关配置常量
 const (
-	delayMills        = 100 * time.Millisecond // 重试延迟
-	defaultMaxRetries = 5                      // 最大重试次数
+	defaultRetryDelay    = 100 * time.Millisecond // 重试延迟
+	defaultMaxRetries    = 5                      // 最大重试次数
+	defaultSleepOnCancel = 100 * time.Millisecond // 取消时短暂等待
 )
 
 type SessionState int32
@@ -90,6 +93,7 @@ func (s *Session) Execute(client *APIClient) error {
 			break
 		}
 
+		// 检查取消信号
 		select {
 		case <-env.ctx.Done():
 			s.setState(SessionStateFailed)
@@ -97,17 +101,17 @@ func (s *Session) Execute(client *APIClient) error {
 		default:
 		}
 
+		// 检查任务是否被取消（返回 context.Canceled 以保持行为一致）
+		if env.isTaskCancelled != nil && env.isTaskCancelled() {
+			s.setState(SessionStateFailed)
+			s.LastError = "task cancelled"
+			return context.Canceled
+		}
+
 		if err := s.executeStep(env, client); err != nil {
 			if !s.handleError(err, maxRetries, env) {
 				return err
 			}
-		}
-
-		// 检查任务是否被取消
-		if env.isTaskCancelled != nil && env.isTaskCancelled() {
-			s.setState(SessionStateFailed)
-			s.LastError = "task cancelled"
-			return nil
 		}
 	}
 	return nil
@@ -123,8 +127,11 @@ func (s *Session) executeStep(env *SessionEnv, client *APIClient) error {
 			s.setToken(token)
 			s.setState(SessionStateLoggingIn)
 			atomic.StoreInt32(&s.TryTimes, 0)
-		} else if apiErr, ok := err.(*APIError); ok && apiErr.Op == "launch" {
-			s.setState(SessionStateFailed)
+		} else {
+			var apiErr *APIError
+			if errors.As(err, &apiErr) && apiErr.Op == "launch" {
+				s.setState(SessionStateFailed)
+			}
 		}
 		return err
 	case SessionStateLoggingIn:
@@ -178,14 +185,12 @@ func (s *Session) executeStep(env *SessionEnv, client *APIClient) error {
 }
 
 func (s *Session) handleBetOrderError(err error, env *SessionEnv) error {
-	betErr, ok := err.(*BetOrderError)
-	if !ok {
+	var betErr *BetOrderError
+	if !errors.As(err, &betErr) {
 		return err
 	}
-	if betErr.SleepDuration > 0 {
-		if !s.sleepOrCancel(betErr.SleepDuration, env) {
-			return fmt.Errorf("bet order cancelled")
-		}
+	if betErr.SleepDuration > 0 && !s.sleepOrCancel(betErr.SleepDuration, env) {
+		return fmt.Errorf("bet order cancelled")
 	}
 	if betErr.NeedRelaunch {
 		s.setState(SessionStateLaunching)
@@ -197,40 +202,33 @@ func (s *Session) handleBetOrderError(err error, env *SessionEnv) error {
 }
 
 func (s *Session) handleError(err error, maxRetries int, env *SessionEnv) bool {
-	errMsg := err.Error()
-
-	if env.addError != nil && s.LastError != errMsg {
+	// 记录错误次数
+	if env.addError != nil && s.LastError != err.Error() {
 		env.addError()
 	}
-	s.LastError = errMsg
+	s.LastError = err.Error()
 
-	tryTimes := atomic.LoadInt32(&s.TryTimes)
-
-	if tryTimes > int32(maxRetries) {
+	// 检查是否达到最大重试次数
+	if atomic.LoadInt32(&s.TryTimes) > int32(maxRetries) {
 		s.setState(SessionStateFailed)
 		return false
 	}
 
-	if apiErr, ok := err.(*APIError); ok && apiErr.Op == "launch" {
-		if !s.sleepOrCancel(delayMills, env) {
-			return false
-		}
+	// Launch 永久错误：不重试
+	var apiErr *APIError
+	if errors.As(err, &apiErr) && apiErr.Op == "launch" {
+		s.sleepOrCancel(defaultSleepOnCancel, env)
 		s.setState(SessionStateFailed)
 		return false
 	}
 
-	if betErr, ok := err.(*BetOrderError); ok {
-		if !s.sleepOrCancel(betErr.SleepDuration, env) {
-			return false
-		}
-		return true
+	// BetOrder 错误：无需重启动/重登录时，等待后重试
+	var betErr *BetOrderError
+	if errors.As(err, &betErr) && !betErr.NeedRelaunch && !betErr.NeedRelogin {
+		return s.sleepOrCancel(betErr.SleepDuration, env)
 	}
 
-	if !s.sleepOrCancel(delayMills, env) {
-		return false
-	}
-
-	return true
+	return s.sleepOrCancel(defaultRetryDelay, env)
 }
 
 func (s *Session) sleepOrCancel(duration time.Duration, env *SessionEnv) bool {

@@ -401,17 +401,8 @@ func (c *APIClient) BetBonus(ctx context.Context, cfg *v1.TaskConfig, token stri
 func (c *APIClient) Close() {
 	if c.http != nil {
 		c.http.CloseIdleConnections()
-		time.Sleep(200 * time.Millisecond)
 		if transport, ok := c.http.Transport.(*http.Transport); ok {
 			transport.CloseIdleConnections()
-			c.http.Transport = nil // 解除引用，让GC回收
 		}
-		c.http = nil
 	}
-	c.secret = nil
-	c.env = nil
-	c.launchURL = ""
-	c.loginURL = ""
-	c.betOrderURL = ""
-	c.betBonusURL = ""
 }

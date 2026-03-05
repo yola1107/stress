@@ -8,7 +8,6 @@ import (
 	"stress/internal/biz/chart"
 	"stress/internal/biz/task"
 
-	"github.com/go-kratos/kratos/v2/log"
 	"xorm.io/xorm"
 )
 
@@ -184,7 +183,7 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope task.OrderSco
 		sampledPts = uniformTruncate(sampledPts, sampleMax)
 	}
 
-	log.Infof("处理完成: 总订单数=%d, 批次数=%d, 采样点数=%d, 耗时=%v",
+	r.log.Infof("处理完成: 总订单数=%d, 批次数=%d, 采样点数=%d, 耗时=%v",
 		orders, batchCnt, len(sampledPts), time.Since(start))
 
 	return sampledPts, nil

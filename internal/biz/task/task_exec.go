@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"errors"
 	"runtime"
 	"sync"
 	"time"
@@ -14,6 +15,15 @@ import (
 	"stress/internal/conf"
 
 	"github.com/panjf2000/ants/v2"
+)
+
+// 任务执行相关配置常量
+const (
+	reportInterval     = 5 * time.Second  // 指标上报间隔
+	orderWaitInterval  = 5 * time.Second  // 订单等待检查间隔
+	orderWaitTimeout   = 5 * time.Minute  // 订单等待超时
+	cleanupTimeout     = 10 * time.Minute // 清理操作超时
+	monitorLogInterval = 1 * time.Second  // 监控日志间隔
 )
 
 // 依赖函数定义
@@ -39,7 +49,6 @@ type ExecDeps struct {
 	Conf              *conf.Stress
 	Notify            notify.Notifier
 	Chart             chart.IGenerator
-	OnComplete        func()
 }
 
 // MemberInfo 成员信息（避免循环依赖）
@@ -63,17 +72,15 @@ func (t *Task) Execute(members []MemberInfo, deps *ExecDeps) {
 	}
 
 	t.SetStartAt()
-	capacity := len(members)
 
 	// 初始化资源
-	apiClient := NewAPIClient(capacity, NoopSecretProvider, deps.Conf.Launch)
+	apiClient := NewAPIClient(len(members), NoopSecretProvider, deps.Conf.Launch)
 	if err := apiClient.BindSessionEnv(t.Context(), t); err != nil {
 		t.log.Errorf("[%s] bind session env failed: %v", t.GetID(), err)
 		t.SetStatus(v1.TaskStatus_TASK_FAILED)
-		t.cleanup(deps, apiClient, nil)
+		t.cleanup(deps, apiClient)
 		return
 	}
-	antsPool, _ := ants.NewPool(capacity)
 
 	// 启动日志
 	t.Monitor()
@@ -82,7 +89,7 @@ func (t *Task) Execute(members []MemberInfo, deps *ExecDeps) {
 	stopReporter, wg := t.startReporter(deps)
 
 	// 执行 session
-	t.runSessions(members, apiClient, antsPool)
+	t.runSessions(members, apiClient)
 
 	// 停止 session 阶段
 	t.Stop()
@@ -97,32 +104,43 @@ func (t *Task) Execute(members []MemberInfo, deps *ExecDeps) {
 	wg.Wait()
 
 	// cleanup
-	t.cleanup(deps, apiClient, antsPool)
+	t.cleanup(deps, apiClient)
 }
 
 // runSessions 运行所有会话
-func (t *Task) runSessions(members []MemberInfo, apiClient *APIClient, antsPool *ants.Pool) {
+func (t *Task) runSessions(members []MemberInfo, apiClient *APIClient) {
+	poolSize := len(members)
+	if poolSize == 0 {
+		t.log.Warnf("[%s] no members to run sessions", t.GetID())
+		return
+	}
+
+	pool, err := ants.NewPool(poolSize, ants.WithPreAlloc(true))
+	if err != nil {
+		t.log.Errorf("[%s] create session pool failed: %v", t.GetID(), err)
+		t.SetStatus(v1.TaskStatus_TASK_FAILED)
+		return
+	}
+	defer pool.Release()
+
 	var wg sync.WaitGroup
-	submitErrCount := 0
 
 	for _, m := range members {
 		m := m
 		sess := NewSession(m.Name)
 		wg.Add(1)
 		t.AddActive(1)
-		if err := antsPool.Submit(func() {
+		if err := pool.Submit(func() {
 			defer wg.Done()
 			defer t.MarkSessionDone(!sess.IsFailed())
-			_ = sess.Execute(apiClient)
+			if execErr := sess.Execute(apiClient); execErr != nil && !errors.Is(execErr, context.Canceled) {
+				t.log.Errorf("[%s] session execution failed: %v", t.GetID(), execErr)
+			}
 		}); err != nil {
 			wg.Done()
 			t.MarkSessionDone(false)
-			submitErrCount++
+			t.log.Errorf("[%s] submit session to pool failed: %v", t.GetID(), err)
 		}
-	}
-
-	if submitErrCount > 0 {
-		t.log.Infof("[%s] failed to submit %d sessions to ants pool", t.GetID(), submitErrCount)
 	}
 
 	wg.Wait()
@@ -131,7 +149,7 @@ func (t *Task) runSessions(members []MemberInfo, apiClient *APIClient, antsPool 
 // Monitor 运行监控：1s 日志输出，task context 取消后退出
 func (t *Task) Monitor() {
 	go func() {
-		tick := time.NewTicker(time.Second)
+		tick := time.NewTicker(monitorLogInterval)
 		defer tick.Stop()
 
 		t.LogProgress(false)
@@ -156,7 +174,7 @@ func (t *Task) startReporter(deps *ExecDeps) (context.CancelFunc, *sync.WaitGrou
 	go func() {
 		defer wg.Done()
 
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(reportInterval)
 		defer ticker.Stop()
 
 		for {
@@ -176,10 +194,10 @@ func (t *Task) startReporter(deps *ExecDeps) (context.CancelFunc, *sync.WaitGrou
 
 // waitOrderWrite 监控订单写入完成
 func (t *Task) waitOrderWrite(deps *ExecDeps) {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(orderWaitInterval)
 	defer ticker.Stop()
 
-	timeout := time.After(5 * time.Minute)
+	timeout := time.After(orderWaitTimeout)
 
 	for {
 		select {
@@ -223,6 +241,9 @@ func (t *Task) report(deps *ExecDeps, completed bool) {
 		t.sendNotification(deps, ctx, rpt)
 		t.cleanupEnvironment(deps, ctx, scope)
 		t.SetStatus(v1.TaskStatus_TASK_COMPLETED)
+
+		// 清理 Prometheus 指标，防止内存泄漏
+		metrics.CleanupTaskMetrics(t.GetID(), t.GetGame().GameID())
 
 		t.log.Infof("[%s] task completed, use=%v", t.GetID(), time.Since(t.GetStartAt()))
 	}
@@ -299,8 +320,8 @@ func (t *Task) sendNotification(deps *ExecDeps, ctx context.Context, report *v1.
 }
 
 // cleanupEnvironment 清理环境
-func (t *Task) cleanupEnvironment(deps *ExecDeps, ctx context.Context, scope OrderScope) {
-	cleanupCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+func (t *Task) cleanupEnvironment(deps *ExecDeps, ctx context.Context, _ OrderScope) {
+	cleanupCtx, cancel := context.WithTimeout(ctx, cleanupTimeout)
 	defer cancel()
 
 	var wg sync.WaitGroup
@@ -324,17 +345,12 @@ func (t *Task) cleanupEnvironment(deps *ExecDeps, ctx context.Context, scope Ord
 // ==================== 资源清理 ====================
 
 // cleanup 清理任务资源
-func (t *Task) cleanup(deps *ExecDeps, apiClient *APIClient, antsPool *ants.Pool) {
+func (t *Task) cleanup(deps *ExecDeps, apiClient *APIClient) {
 	t.cancel()
 
 	// 关闭API客户端
 	if apiClient != nil {
 		apiClient.Close()
-	}
-
-	// 释放协程池
-	if antsPool != nil {
-		antsPool.Release()
 	}
 
 	// 归还到成员池
@@ -346,9 +362,4 @@ func (t *Task) cleanup(deps *ExecDeps, apiClient *APIClient, antsPool *ants.Pool
 	t.mu.Lock()
 	t.game = nil
 	t.mu.Unlock()
-
-	// 触发完成回调，通知 UseCase 唤醒调度
-	if deps.OnComplete != nil {
-		deps.OnComplete()
-	}
 }

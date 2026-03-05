@@ -9,6 +9,12 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 )
 
+// 成员相关配置常量
+const (
+	memberNameOffset = 1000
+	memberBalance    = 10000
+)
+
 type LoaderConfig struct {
 	AutoLoads     bool
 	IntervalSec   int32
@@ -110,10 +116,6 @@ func (p *Pool) StartAutoLoad(ctx context.Context, cfg LoaderConfig, repo Repo, l
 	}
 
 	logHelper := log.NewHelper(logger)
-	const (
-		memberNameOffset = 1000
-		memberBalance    = 10000
-	)
 
 	ticker := time.NewTicker(time.Duration(cfg.IntervalSec) * time.Second)
 	defer ticker.Stop()

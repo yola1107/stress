@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"stress/pkg/xgo"
 	"strings"
 	"sync"
 
@@ -11,6 +10,7 @@ import (
 	"stress/internal/biz"
 	"stress/internal/biz/game/base"
 	"stress/internal/biz/task"
+	"stress/pkg/xgo"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"golang.org/x/sync/errgroup"

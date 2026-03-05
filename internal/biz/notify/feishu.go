@@ -79,11 +79,7 @@ func (f *Feishu) Send(ctx context.Context, msg *Message) error {
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, f.WebhookURL, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	client := f.Client
-	if client == nil {
-		client = &http.Client{Timeout: 10 * time.Second}
-	}
-	resp, err := client.Do(req)
+	resp, err := f.Client.Do(req)
 	if err != nil {
 		return err
 	}
