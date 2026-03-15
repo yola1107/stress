@@ -229,18 +229,25 @@ func (t *Task) fillOrderStats(ctx context.Context, deps *ExecDeps, rpt *v1.TaskC
 
 // report 上报任务指标
 func (t *Task) report(deps *ExecDeps, completed bool) {
-	ctx := context.Background()
-	rpt := t.Snapshot(time.Now())
-
-	scope := t.buildOrderScope(deps)
-	t.fillOrderStats(ctx, deps, rpt, scope)
+	//检查 Prometheus 指标是否启用
+	metricsEnabled := deps.Conf.Metrics != nil && deps.Conf.Metrics.Enabled
 
 	// Prometheus 指标上报
-	if metricsEnabled(deps.Conf) {
+	if metricsEnabled {
+		ctx := context.Background()
+		rpt := t.Snapshot(time.Now())
+		scope := t.buildOrderScope(deps)
+		t.fillOrderStats(ctx, deps, rpt, scope)
+
 		metrics.ReportTask(rpt)
 	}
 
 	if completed {
+		ctx := context.Background()
+		rpt := t.Snapshot(time.Now())
+		scope := t.buildOrderScope(deps)
+		t.fillOrderStats(ctx, deps, rpt, scope)
+
 		t.SetStatus(v1.TaskStatus_TASK_PROCESSING)
 		t.uploadChart(deps, ctx, rpt, scope)
 		t.sendNotification(deps, ctx, rpt)
@@ -248,17 +255,12 @@ func (t *Task) report(deps *ExecDeps, completed bool) {
 		t.SetStatus(v1.TaskStatus_TASK_COMPLETED)
 
 		// 清理 Prometheus 指标，防止内存泄漏
-		if metricsEnabled(deps.Conf) {
+		if metricsEnabled {
 			metrics.CleanupTaskMetrics(t.GetID(), t.GetGame().GameID())
 		}
 
 		t.log.Infof("[%s] task completed, use=%v", t.GetID(), time.Since(t.GetStartAt()))
 	}
-}
-
-// metricsEnabled 检查 Prometheus 指标是否启用（默认启用）
-func metricsEnabled(c *conf.Stress) bool {
-	return c.Metrics == nil || c.Metrics.Enabled
 }
 
 // buildOrderScope 构建订单查询范围

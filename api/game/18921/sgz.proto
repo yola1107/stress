@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+option go_package = "stress/api/game/18921;sgz";
+
+import "game/common/common.proto";
+
+package sgz;
+
+// 4行5列主盘面，3行5列奖励区，支持普通/免费模式及连续消除倍数
+message sgz_BetOrderResponse {
+    optional string orderSN     = 1;   // 订单号
+    optional double balance     = 2;   // 玩家当前余额
+    optional double betAmount   = 3;   // 本局下注金额 (baseMoney * multiple * 20)
+    optional double currentWin  = 4;   // 本步赢取金额 (当前消除获得的奖金)
+    optional double freeWin     = 5;   // 免费游戏累计赢取 (ClientOfFreeGame.GetFreeTotalMoney)
+    optional double totalWin    = 6;   // 本回合总赢取 (ClientOfFreeGame.GetGeneralWinTotal)
+    optional bool free          = 7;   // 是否处于免费模式
+    optional int64 review       = 8;   // 复盘标志 1=复盘 0=正常
+    sgz_WinInfo winInfo         = 9;   // 中奖详情（消除结果、倍数、免费剩余等）
+    common.Board cards          = 10;  // 符号网格 4行×5列 按行优先 elements共20个
+    optional int64 scatterCount = 11;  // 夺宝符(9)个数 统计奖励区3行内的夺宝符
+}
+
+// sgz_WinInfo 中奖详情（消除回合内信息）
+message sgz_WinInfo {
+    optional bool isRoundOver            = 1;   // 是否本局结束
+    optional int64 multi                 = 2;   // 本步倍数 stepMultiplier = lineMultiplier * gameMultiple
+    optional int64 state                 = 3;   // 游戏状态 0=普通 1=免费
+    optional int64 freeNum               = 4;   // 剩余免费次数 ClientOfFreeGame.GetFreeNum
+    optional int64 freeTime              = 5;   // 已使用免费次数 ClientOfFreeGame.GetFreeTimes
+    repeated sgz_WinArr winArr           = 6;   // 本步各条中奖线的详情
+    common.Board winGrid                 = 7;   // 中奖位置网格 4行×5列 1标记中奖位 0未中奖
+    optional bool isGameOver             = 8;   // 大回合结束
+    optional int64 addFreeNum            = 9;   // 增加的免费次数
+    repeated int64 freeGameMultiple      = 10;  // 免费模式消除倍数列表（5个）
+    optional int64 freeGameMultipleIndex = 11;  // 免费模式连续消除倍数列表的下标
+    optional int64 heroId                = 12;  // 英雄ID 1刘备 2张飞 3关羽 4赵云 5诸葛亮 6黄忠 7马超 8君主
+    optional int64 cityValue             = 13;  // 城市力量值 免费模式下打赢新城池的战斗力累计 用于解锁英雄
+    optional double roundWin             = 14;  // 一局所有回合总赢
+    KingdomMap kingDom                   = 15;  // 三国志地图信息
+    optional bool isNewHeroUnlock        = 16;  // 本次spin是否解锁了新英雄
+}
+
+// sgz_WinArr 单条中奖线详情
+message sgz_WinArr {
+    optional int64 val     = 1;  // 中奖符号值 1~7为普通符号 8百搭 9夺宝
+    optional int64 roadNum = 2;  // 支付线编号 0~19
+    optional int64 starNum = 3;  // 连续相同符号个数 3/4/5
+    optional int64 odds    = 4;  // 基础赔率 来自 pay_table
+    optional int64 mul     = 5;  // 倍数 本线贡献的倍数
+    common.Board grid      = 6;  // 该线中奖位置 4×5 1标记中奖格
+}
+
+// KingdomMap 三国志地图信息
+message KingdomMap {
+    repeated int32 city_owner_index_array    = 1;  // 16个城镇主公的索引数组
+    optional int32 current_city_index        = 2;  // 当前城镇的索引
+    optional int32 current_commander_index   = 3;  // 当前武将的索引
+    optional int32 current_city_force        = 4;  // 当前城镇的战斗力值
+    optional int32 next_city_force           = 5;  // 下一个城镇的战斗力值
+    optional int32 next_commander_index      = 6;  // 下一个武将索引
+    optional int32 next_commander_city_index = 7;  // 下一个武将的城镇的索引
+}

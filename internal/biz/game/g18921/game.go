@@ -1,12 +1,13 @@
-package g18922
+package g18921
 
 import (
-	jqt "stress/api/game/18922"
+	"github.com/go-kratos/kratos/v2/log"
+	sgz "stress/api/game/18921"
 	"stress/internal/biz/game/base"
 )
 
-const ID int64 = 18922
-const Name = "金钱兔"
+const ID = 18921
+const Name = "三国志"
 
 type Game struct {
 	*base.Default
@@ -17,18 +18,21 @@ func New() base.IGame {
 }
 
 func (*Game) IsSpinOver(data map[string]any) bool {
-	next, exists := data["next"]
+	next, exists := data["isRoundOver"]
 	if !exists {
+		log.Error("isRoundOver field not found in response data")
 		return false
 	}
 
 	if over, ok := next.(bool); ok {
-		return !over
+		return over
 	}
-	return true
+
+	log.Error("isRoundOver field is not a boolean", "value", next)
+	return false
 }
 
 // GetProtobufConverter 实现protobuf转换器
 func (g *Game) GetProtobufConverter() base.ProtobufConverter {
-	return jqt.ConvertProtobufToMap
+	return sgz.ConvertProtobufToMap
 }

@@ -8,9 +8,6 @@ import (
 const ID int64 = 18936
 const Name = "赏金大对决"
 
-var Register = New()
-var _ base.IGame = (*Game)(nil)
-
 type Game struct {
 	*base.Default
 }
