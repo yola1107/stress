@@ -2,6 +2,7 @@ package game
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -9,17 +10,19 @@ import (
 )
 
 type Pool struct {
-	mu       sync.RWMutex
-	list     []base.IGame
-	registry map[int64]base.IGame
+	mu          sync.RWMutex
+	list        []base.IGame
+	registry    map[int64]base.IGame
+	betSizeFunc BetSizeFunc // 保存获取 betsize 的函数，用于动态获取
 }
 
 type BetSizeFunc func(ctx context.Context, gameIDs []int64) (map[int64][]float64, error)
 
 func NewPool(fn BetSizeFunc) *Pool {
 	p := &Pool{
-		registry: make(map[int64]base.IGame),
-		list:     make([]base.IGame, 0, len(registry)),
+		registry:    make(map[int64]base.IGame),
+		list:        make([]base.IGame, 0, len(registry)),
+		betSizeFunc: fn,
 	}
 	ids := make([]int64, 0, len(registry))
 	for id, g := range registry {
@@ -49,6 +52,35 @@ func (p *Pool) Get(gameID int64) (base.IGame, bool) {
 	defer p.mu.RUnlock()
 	g, ok := p.registry[gameID]
 	return g, ok
+}
+
+// EnsureGameBetSize 确保游戏有 betsize，如果没有则从数据库动态获取
+func (p *Pool) EnsureGameBetSize(ctx context.Context, gameID int64) error {
+	p.mu.RLock()
+	g, ok := p.registry[gameID]
+	p.mu.RUnlock()
+
+	if !ok {
+		// 游戏不存在于注册表，返回错误（压测系统需要详细的 betsize 列表）
+		return fmt.Errorf("game %d not found in registry", gameID)
+	}
+
+	// 已有 betsize，无需获取
+	if len(g.BetSize()) > 0 {
+		return nil
+	}
+
+	// 动态获取 betsize
+	m, err := p.betSizeFunc(ctx, []int64{gameID})
+	if err != nil {
+		return fmt.Errorf("empty mysql betsize for game %d: %w", gameID, err)
+	}
+
+	if betSize, exists := m[gameID]; exists && len(betSize) > 0 {
+		g.SetBetSize(betSize)
+	}
+
+	return nil
 }
 
 func (p *Pool) List() []base.IGame {

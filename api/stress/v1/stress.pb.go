@@ -940,6 +940,111 @@ func (x *BenchResponse) GetFails() []string {
 	return nil
 }
 
+// --- 清理环境 ---
+type CleanupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CleanupRequest) Reset() {
+	*x = CleanupRequest{}
+	mi := &file_stress_v1_stress_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CleanupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CleanupRequest) ProtoMessage() {}
+
+func (x *CleanupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_stress_v1_stress_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CleanupRequest.ProtoReflect.Descriptor instead.
+func (*CleanupRequest) Descriptor() ([]byte, []int) {
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{17}
+}
+
+type CleanupResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	RedisError    string                 `protobuf:"bytes,3,opt,name=redis_error,json=redisError,proto3" json:"redis_error,omitempty"` // Redis 清理错误信息
+	MysqlError    string                 `protobuf:"bytes,4,opt,name=mysql_error,json=mysqlError,proto3" json:"mysql_error,omitempty"` // MySQL 清理错误信息
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CleanupResponse) Reset() {
+	*x = CleanupResponse{}
+	mi := &file_stress_v1_stress_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CleanupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CleanupResponse) ProtoMessage() {}
+
+func (x *CleanupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_stress_v1_stress_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CleanupResponse.ProtoReflect.Descriptor instead.
+func (*CleanupResponse) Descriptor() ([]byte, []int) {
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *CleanupResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *CleanupResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *CleanupResponse) GetRedisError() string {
+	if x != nil {
+		return x.RedisError
+	}
+	return ""
+}
+
+func (x *CleanupResponse) GetMysqlError() string {
+	if x != nil {
+		return x.MysqlError
+	}
+	return ""
+}
+
 // 游戏信息
 type Game struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -953,7 +1058,7 @@ type Game struct {
 
 func (x *Game) Reset() {
 	*x = Game{}
-	mi := &file_stress_v1_stress_proto_msgTypes[17]
+	mi := &file_stress_v1_stress_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -965,7 +1070,7 @@ func (x *Game) String() string {
 func (*Game) ProtoMessage() {}
 
 func (x *Game) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[17]
+	mi := &file_stress_v1_stress_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -978,7 +1083,7 @@ func (x *Game) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Game.ProtoReflect.Descriptor instead.
 func (*Game) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{17}
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Game) GetGameId() int64 {
@@ -1024,7 +1129,7 @@ type TaskConfig struct {
 
 func (x *TaskConfig) Reset() {
 	*x = TaskConfig{}
-	mi := &file_stress_v1_stress_proto_msgTypes[18]
+	mi := &file_stress_v1_stress_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1036,7 +1141,7 @@ func (x *TaskConfig) String() string {
 func (*TaskConfig) ProtoMessage() {}
 
 func (x *TaskConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[18]
+	mi := &file_stress_v1_stress_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1049,7 +1154,7 @@ func (x *TaskConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskConfig.ProtoReflect.Descriptor instead.
 func (*TaskConfig) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{18}
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *TaskConfig) GetGameId() int64 {
@@ -1106,7 +1211,7 @@ type BetOrderConfig struct {
 
 func (x *BetOrderConfig) Reset() {
 	*x = BetOrderConfig{}
-	mi := &file_stress_v1_stress_proto_msgTypes[19]
+	mi := &file_stress_v1_stress_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1118,7 +1223,7 @@ func (x *BetOrderConfig) String() string {
 func (*BetOrderConfig) ProtoMessage() {}
 
 func (x *BetOrderConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[19]
+	mi := &file_stress_v1_stress_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1131,7 +1236,7 @@ func (x *BetOrderConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BetOrderConfig.ProtoReflect.Descriptor instead.
 func (*BetOrderConfig) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{19}
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *BetOrderConfig) GetBaseMoney() float64 {
@@ -1168,7 +1273,7 @@ type BetBonusConfig struct {
 
 func (x *BetBonusConfig) Reset() {
 	*x = BetBonusConfig{}
-	mi := &file_stress_v1_stress_proto_msgTypes[20]
+	mi := &file_stress_v1_stress_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1180,7 +1285,7 @@ func (x *BetBonusConfig) String() string {
 func (*BetBonusConfig) ProtoMessage() {}
 
 func (x *BetBonusConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[20]
+	mi := &file_stress_v1_stress_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1193,7 +1298,7 @@ func (x *BetBonusConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BetBonusConfig.ProtoReflect.Descriptor instead.
 func (*BetBonusConfig) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{20}
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *BetBonusConfig) GetEnable() bool {
@@ -1242,7 +1347,7 @@ type Task struct {
 
 func (x *Task) Reset() {
 	*x = Task{}
-	mi := &file_stress_v1_stress_proto_msgTypes[21]
+	mi := &file_stress_v1_stress_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1254,7 +1359,7 @@ func (x *Task) String() string {
 func (*Task) ProtoMessage() {}
 
 func (x *Task) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[21]
+	mi := &file_stress_v1_stress_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1267,7 +1372,7 @@ func (x *Task) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Task.ProtoReflect.Descriptor instead.
 func (*Task) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{21}
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *Task) GetTaskId() string {
@@ -1361,7 +1466,7 @@ type TaskCompletionReport struct {
 
 func (x *TaskCompletionReport) Reset() {
 	*x = TaskCompletionReport{}
-	mi := &file_stress_v1_stress_proto_msgTypes[22]
+	mi := &file_stress_v1_stress_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1373,7 +1478,7 @@ func (x *TaskCompletionReport) String() string {
 func (*TaskCompletionReport) ProtoMessage() {}
 
 func (x *TaskCompletionReport) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[22]
+	mi := &file_stress_v1_stress_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1386,7 +1491,7 @@ func (x *TaskCompletionReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskCompletionReport.ProtoReflect.Descriptor instead.
 func (*TaskCompletionReport) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{22}
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *TaskCompletionReport) GetTaskId() string {
@@ -1574,7 +1679,15 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x19\n" +
 	"\btask_ids\x18\x03 \x01(\tR\ataskIds\x12\x14\n" +
-	"\x05fails\x18\x04 \x03(\tR\x05fails\"y\n" +
+	"\x05fails\x18\x04 \x03(\tR\x05fails\"\x10\n" +
+	"\x0eCleanupRequest\"\x81\x01\n" +
+	"\x0fCleanupResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1f\n" +
+	"\vredis_error\x18\x03 \x01(\tR\n" +
+	"redisError\x12\x1f\n" +
+	"\vmysql_error\x18\x04 \x01(\tR\n" +
+	"mysqlError\"y\n" +
 	"\x04Game\x12\x17\n" +
 	"\agame_id\x18\x01 \x01(\x03R\x06gameId\x12\x1b\n" +
 	"\tgame_name\x18\x02 \x01(\tR\bgameName\x12 \n" +
@@ -1645,7 +1758,7 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\x0fTASK_PROCESSING\x10\x03\x12\x12\n" +
 	"\x0eTASK_COMPLETED\x10\x04\x12\x0f\n" +
 	"\vTASK_FAILED\x10\x05\x12\x12\n" +
-	"\x0eTASK_CANCELLED\x10\x062\x81\a\n" +
+	"\x0eTASK_CANCELLED\x10\x062\xdf\a\n" +
 	"\rStressService\x12T\n" +
 	"\aPingReq\x12\x16.stress.v1.PingRequest\x1a\x14.stress.v1.PingReply\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/stress/ping/{name}\x12d\n" +
 	"\tListGames\x12\x1b.stress.v1.ListGamesRequest\x1a\x1c.stress.v1.ListGamesResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/stress/ListGames\x12d\n" +
@@ -1658,7 +1771,8 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\n" +
 	"CancelTask\x12\x1c.stress.v1.CancelTaskRequest\x1a\x1d.stress.v1.CancelTaskResponse\"\x1d\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/stress/CancelTask\x12_\n" +
 	"\tGetRecord\x12\x18.stress.v1.RecordRequest\x1a\x19.stress.v1.RecordResponse\"\x1d\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/stress/TaskRecord\x12T\n" +
-	"\x05Bench\x12\x17.stress.v1.BenchRequest\x1a\x18.stress.v1.BenchResponse\"\x18\x82\xd3\xe4\x93\x02\x12:\x01*\"\r/stress/BenchB\x19Z\x17stress/api/stress/v1;v1b\x06proto3"
+	"\x05Bench\x12\x17.stress.v1.BenchRequest\x1a\x18.stress.v1.BenchResponse\"\x18\x82\xd3\xe4\x93\x02\x12:\x01*\"\r/stress/Bench\x12\\\n" +
+	"\aCleanup\x12\x19.stress.v1.CleanupRequest\x1a\x1a.stress.v1.CleanupResponse\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/stress/CleanupB\x19Z\x17stress/api/stress/v1;v1b\x06proto3"
 
 var (
 	file_stress_v1_stress_proto_rawDescOnce sync.Once
@@ -1673,7 +1787,7 @@ func file_stress_v1_stress_proto_rawDescGZIP() []byte {
 }
 
 var file_stress_v1_stress_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_stress_v1_stress_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_stress_v1_stress_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_stress_v1_stress_proto_goTypes = []any{
 	(TaskStatus)(0),              // 0: stress.v1.TaskStatus
 	(*PingRequest)(nil),          // 1: stress.v1.PingRequest
@@ -1693,23 +1807,25 @@ var file_stress_v1_stress_proto_goTypes = []any{
 	(*RecordResponse)(nil),       // 15: stress.v1.RecordResponse
 	(*BenchRequest)(nil),         // 16: stress.v1.BenchRequest
 	(*BenchResponse)(nil),        // 17: stress.v1.BenchResponse
-	(*Game)(nil),                 // 18: stress.v1.Game
-	(*TaskConfig)(nil),           // 19: stress.v1.TaskConfig
-	(*BetOrderConfig)(nil),       // 20: stress.v1.BetOrderConfig
-	(*BetBonusConfig)(nil),       // 21: stress.v1.BetBonusConfig
-	(*Task)(nil),                 // 22: stress.v1.Task
-	(*TaskCompletionReport)(nil), // 23: stress.v1.TaskCompletionReport
-	(*emptypb.Empty)(nil),        // 24: google.protobuf.Empty
+	(*CleanupRequest)(nil),       // 18: stress.v1.CleanupRequest
+	(*CleanupResponse)(nil),      // 19: stress.v1.CleanupResponse
+	(*Game)(nil),                 // 20: stress.v1.Game
+	(*TaskConfig)(nil),           // 21: stress.v1.TaskConfig
+	(*BetOrderConfig)(nil),       // 22: stress.v1.BetOrderConfig
+	(*BetBonusConfig)(nil),       // 23: stress.v1.BetBonusConfig
+	(*Task)(nil),                 // 24: stress.v1.Task
+	(*TaskCompletionReport)(nil), // 25: stress.v1.TaskCompletionReport
+	(*emptypb.Empty)(nil),        // 26: google.protobuf.Empty
 }
 var file_stress_v1_stress_proto_depIdxs = []int32{
-	18, // 0: stress.v1.ListGamesResponse.games:type_name -> stress.v1.Game
-	22, // 1: stress.v1.ListTasksResponse.tasks:type_name -> stress.v1.Task
-	19, // 2: stress.v1.CreateTaskRequest.config:type_name -> stress.v1.TaskConfig
-	22, // 3: stress.v1.CreateTaskResponse.task:type_name -> stress.v1.Task
-	22, // 4: stress.v1.TaskInfoResponse.task:type_name -> stress.v1.Task
-	20, // 5: stress.v1.TaskConfig.bet_order:type_name -> stress.v1.BetOrderConfig
-	21, // 6: stress.v1.TaskConfig.bet_bonus:type_name -> stress.v1.BetBonusConfig
-	19, // 7: stress.v1.Task.config:type_name -> stress.v1.TaskConfig
+	20, // 0: stress.v1.ListGamesResponse.games:type_name -> stress.v1.Game
+	24, // 1: stress.v1.ListTasksResponse.tasks:type_name -> stress.v1.Task
+	21, // 2: stress.v1.CreateTaskRequest.config:type_name -> stress.v1.TaskConfig
+	24, // 3: stress.v1.CreateTaskResponse.task:type_name -> stress.v1.Task
+	24, // 4: stress.v1.TaskInfoResponse.task:type_name -> stress.v1.Task
+	22, // 5: stress.v1.TaskConfig.bet_order:type_name -> stress.v1.BetOrderConfig
+	23, // 6: stress.v1.TaskConfig.bet_bonus:type_name -> stress.v1.BetBonusConfig
+	21, // 7: stress.v1.Task.config:type_name -> stress.v1.TaskConfig
 	1,  // 8: stress.v1.StressService.PingReq:input_type -> stress.v1.PingRequest
 	3,  // 9: stress.v1.StressService.ListGames:input_type -> stress.v1.ListGamesRequest
 	5,  // 10: stress.v1.StressService.ListTasks:input_type -> stress.v1.ListTasksRequest
@@ -1719,17 +1835,19 @@ var file_stress_v1_stress_proto_depIdxs = []int32{
 	11, // 14: stress.v1.StressService.CancelTask:input_type -> stress.v1.CancelTaskRequest
 	14, // 15: stress.v1.StressService.GetRecord:input_type -> stress.v1.RecordRequest
 	16, // 16: stress.v1.StressService.Bench:input_type -> stress.v1.BenchRequest
-	2,  // 17: stress.v1.StressService.PingReq:output_type -> stress.v1.PingReply
-	4,  // 18: stress.v1.StressService.ListGames:output_type -> stress.v1.ListGamesResponse
-	6,  // 19: stress.v1.StressService.ListTasks:output_type -> stress.v1.ListTasksResponse
-	8,  // 20: stress.v1.StressService.CreateTask:output_type -> stress.v1.CreateTaskResponse
-	10, // 21: stress.v1.StressService.TaskInfo:output_type -> stress.v1.TaskInfoResponse
-	24, // 22: stress.v1.StressService.DeleteTask:output_type -> google.protobuf.Empty
-	12, // 23: stress.v1.StressService.CancelTask:output_type -> stress.v1.CancelTaskResponse
-	15, // 24: stress.v1.StressService.GetRecord:output_type -> stress.v1.RecordResponse
-	17, // 25: stress.v1.StressService.Bench:output_type -> stress.v1.BenchResponse
-	17, // [17:26] is the sub-list for method output_type
-	8,  // [8:17] is the sub-list for method input_type
+	18, // 17: stress.v1.StressService.Cleanup:input_type -> stress.v1.CleanupRequest
+	2,  // 18: stress.v1.StressService.PingReq:output_type -> stress.v1.PingReply
+	4,  // 19: stress.v1.StressService.ListGames:output_type -> stress.v1.ListGamesResponse
+	6,  // 20: stress.v1.StressService.ListTasks:output_type -> stress.v1.ListTasksResponse
+	8,  // 21: stress.v1.StressService.CreateTask:output_type -> stress.v1.CreateTaskResponse
+	10, // 22: stress.v1.StressService.TaskInfo:output_type -> stress.v1.TaskInfoResponse
+	26, // 23: stress.v1.StressService.DeleteTask:output_type -> google.protobuf.Empty
+	12, // 24: stress.v1.StressService.CancelTask:output_type -> stress.v1.CancelTaskResponse
+	15, // 25: stress.v1.StressService.GetRecord:output_type -> stress.v1.RecordResponse
+	17, // 26: stress.v1.StressService.Bench:output_type -> stress.v1.BenchResponse
+	19, // 27: stress.v1.StressService.Cleanup:output_type -> stress.v1.CleanupResponse
+	18, // [18:28] is the sub-list for method output_type
+	8,  // [8:18] is the sub-list for method input_type
 	8,  // [8:8] is the sub-list for extension type_name
 	8,  // [8:8] is the sub-list for extension extendee
 	0,  // [0:8] is the sub-list for field type_name
@@ -1746,7 +1864,7 @@ func file_stress_v1_stress_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_stress_v1_stress_proto_rawDesc), len(file_stress_v1_stress_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   23,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"strconv"
+
 	v1 "stress/api/stress/v1"
 
 	"github.com/prometheus/client_golang/prometheus"

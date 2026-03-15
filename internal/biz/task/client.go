@@ -409,6 +409,14 @@ func (c *APIClient) Close() {
 		c.http.CloseIdleConnections()
 		if transport, ok := c.http.Transport.(*http.Transport); ok {
 			transport.CloseIdleConnections()
+			c.http.Transport = nil // 解除引用，让GC回收
 		}
+		c.http = nil
 	}
+	c.secret = nil
+	c.env = nil
+	c.launchURL = ""
+	c.loginURL = ""
+	c.betOrderURL = ""
+	c.betBonusURL = ""
 }

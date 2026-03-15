@@ -867,6 +867,35 @@ func (m *Stress) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetMetrics()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, StressValidationError{
+					field:  "Metrics",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, StressValidationError{
+					field:  "Metrics",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMetrics()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return StressValidationError{
+				field:  "Metrics",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return StressMultiError(errors)
 	}
@@ -1586,6 +1615,108 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = Data_S3ValidationError{}
+
+// Validate checks the field values on Stress_Metrics with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *Stress_Metrics) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Stress_Metrics with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in Stress_MetricsMultiError,
+// or nil if none found.
+func (m *Stress_Metrics) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Stress_Metrics) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Enabled
+
+	if len(errors) > 0 {
+		return Stress_MetricsMultiError(errors)
+	}
+
+	return nil
+}
+
+// Stress_MetricsMultiError is an error wrapping multiple validation errors
+// returned by Stress_Metrics.ValidateAll() if the designated constraints
+// aren't met.
+type Stress_MetricsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Stress_MetricsMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Stress_MetricsMultiError) AllErrors() []error { return m }
+
+// Stress_MetricsValidationError is the validation error returned by
+// Stress_Metrics.Validate if the designated constraints aren't met.
+type Stress_MetricsValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e Stress_MetricsValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e Stress_MetricsValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e Stress_MetricsValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e Stress_MetricsValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e Stress_MetricsValidationError) ErrorName() string { return "Stress_MetricsValidationError" }
+
+// Error satisfies the builtin error interface
+func (e Stress_MetricsValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sStress_Metrics.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = Stress_MetricsValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = Stress_MetricsValidationError{}
 
 // Validate checks the field values on Stress_Notify with the rules defined in
 // the proto definition for this message. If any rules are violated, the first

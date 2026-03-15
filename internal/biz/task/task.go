@@ -109,7 +109,9 @@ func (t *Task) GetStartAt() time.Time {
 func (t *Task) SetFinishAt() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.finishAt = time.Now()
+	if t.finishAt.IsZero() {
+		t.finishAt = time.Now()
+	}
 }
 
 func (t *Task) GetFinishedAt() time.Time {

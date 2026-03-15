@@ -68,6 +68,10 @@ message Log {
 
 // 压测系统配置
 message Stress {
+    // Prometheus 指标上报
+    message Metrics {
+        bool enabled = 1;  // 是否启用 Prometheus 指标上报
+    }
     // 通知（飞书 Webhook）
     message Notify {
         bool enabled          = 1;  // 开关，false 时不发送
@@ -97,8 +101,9 @@ message Stress {
         bool sign_required    = 5;
     }
 
-    Notify notify = 1;
-    Chart chart   = 2;
-    Member member = 3;
-    Launch launch = 4;
+    Notify notify   = 1;
+    Chart chart     = 2;
+    Member member   = 3;
+    Launch launch   = 4;
+    Metrics metrics = 5;
 }

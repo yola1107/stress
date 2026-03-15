@@ -43,6 +43,8 @@ data:
 
 # 压测系统配置
 stress:
+  metrics:
+    enabled: false  # 是否启用 Prometheus 指标上报
   notify:
     enabled: false
     prefix: "[stress]"

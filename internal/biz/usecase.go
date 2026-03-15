@@ -2,6 +2,7 @@ package biz
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"stress/internal/biz/chart"
@@ -85,17 +86,11 @@ func NewUseCase(repo DataRepo, logger log.Logger, c *conf.Stress, notify notify.
 		scheduleCh: make(chan struct{}, 1),
 	}
 
+	// 清理残余资源
+	_, _ = uc.Cleanup(ctx)
+
 	// 启动调度器
 	go uc.scheduleLoop()
-
-	cleanCtx, cleanCancel := context.WithTimeout(ctx, cleanupTimeout)
-	defer cleanCancel()
-	if err := repo.CleanRedisBySites(cleanCtx, c.Launch.Sites); err != nil {
-		log.NewHelper(logger).Warnf("startup clean Redis: %v", err)
-	}
-	if err := repo.CleanGameOrderTable(cleanCtx); err != nil {
-		log.NewHelper(logger).Warnf("startup clean order table: %v", err)
-	}
 
 	go uc.memberPool.StartAutoLoad(ctx, member.LoaderConfig{
 		AutoLoads:     c.Member.AutoLoads,
@@ -116,6 +111,11 @@ func (uc *UseCase) GetGame(gameID int64) (base.IGame, bool) {
 	return uc.gamePool.Get(gameID)
 }
 
+// EnsureBetSize 确保游戏有 betsize，如果没有则从数据库动态获取
+func (uc *UseCase) EnsureBetSize(ctx context.Context, gameID int64) error {
+	return uc.gamePool.EnsureGameBetSize(ctx, gameID)
+}
+
 // ListGames 返回游戏列表副本（按 GameID 升序）
 func (uc *UseCase) ListGames() []base.IGame {
 	return uc.gamePool.List()
@@ -129,4 +129,30 @@ func (uc *UseCase) GetTask(id string) (*task.Task, bool) {
 // ListTasks 返回所有任务（已按创建时间倒序）
 func (uc *UseCase) ListTasks() []*task.Task {
 	return uc.taskPool.List()
+}
+
+// Cleanup 清理 Redis 和 MySQL 订单数据
+func (uc *UseCase) Cleanup(ctx context.Context) (redisErr, mysqlErr error) {
+	cleanCtx, cancel := context.WithTimeout(ctx, cleanupTimeout)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		if redisErr = uc.repo.CleanRedisBySites(cleanCtx, uc.conf.Launch.Sites); redisErr != nil {
+			log.Warnf("startup clean Redis: %v", redisErr)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		if mysqlErr = uc.repo.CleanGameOrderTable(cleanCtx); mysqlErr != nil {
+			log.Warnf("startup clean MySQL: %v", mysqlErr)
+		}
+	}()
+
+	wg.Wait()
+	return
 }

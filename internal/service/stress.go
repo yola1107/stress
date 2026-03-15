@@ -84,6 +84,12 @@ func (s *StressService) CreateTask(ctx context.Context, in *v1.CreateTaskRequest
 		return &v1.CreateTaskResponse{Code: Failed, Message: fmt.Sprintf("game not found: %d", in.Config.GameId)}, nil
 	}
 
+	// 确保 betsize 存在，如果没有则从数据库动态获取
+	if err := s.uc.EnsureBetSize(ctx, in.Config.GameId); err != nil {
+		s.log.Warnf("CreateTask EnsureBetSize failed: %v", err)
+		return &v1.CreateTaskResponse{Code: Failed, Message: err.Error()}, nil
+	}
+
 	if !g.ValidBetMoney(in.Config.BetOrder.BaseMoney) {
 		msg := fmt.Sprintf("CreateTask Faild. game_id=%d, invalid bet money: %.2f, betsize: %v",
 			in.Config.GameId, in.Config.BetOrder.BaseMoney, g.BetSize())
@@ -144,6 +150,27 @@ func (s *StressService) getTask(taskID string) (*task.Task, error) {
 	return nil, fmt.Errorf("task not found")
 }
 
+// Cleanup 清理 Redis 和 MySQL 订单数据
+func (s *StressService) Cleanup(ctx context.Context, in *v1.CleanupRequest) (*v1.CleanupResponse, error) {
+	redisErr, mysqlErr := s.uc.Cleanup(ctx)
+
+	resp := &v1.CleanupResponse{}
+	if redisErr != nil {
+		resp.RedisError = redisErr.Error()
+	}
+	if mysqlErr != nil {
+		resp.MysqlError = mysqlErr.Error()
+	}
+	if redisErr == nil && mysqlErr == nil {
+		resp.Message = "cleanup completed"
+	} else {
+		resp.Code = Failed
+		resp.Message = "cleanup completed with errors"
+	}
+
+	return resp, nil
+}
+
 // ================================================================
 
 // Bench 批量压测启动
@@ -185,6 +212,13 @@ func (s *StressService) Bench(ctx context.Context, in *v1.BenchRequest) (*v1.Ben
 		g := g
 
 		eg.Go(func() error {
+			// 确保 betsize 存在
+			if err := s.uc.EnsureBetSize(egCtx, g.GameID()); err != nil {
+				s.log.Warnf("Bench EnsureBetSize failed: game_id=%d, err=%v", g.GameID(), err)
+				fails = append(fails, fmt.Sprintf("%d:%s", g.GameID(), err.Error()))
+				return nil
+			}
+
 			cfg := &v1.TaskConfig{
 				GameId:         g.GameID(),
 				Description:    "bench",

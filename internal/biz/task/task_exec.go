@@ -93,6 +93,9 @@ func (t *Task) Execute(members []MemberInfo, deps *ExecDeps) {
 	// 停止 session 阶段
 	t.Stop()
 
+	// 记录实际运行结束时间（不含 DB 写入等待）
+	t.SetFinishAt()
+
 	// 等待 DB 写完（阻塞）
 	t.waitOrderWrite(deps)
 
@@ -232,7 +235,10 @@ func (t *Task) report(deps *ExecDeps, completed bool) {
 	scope := t.buildOrderScope(deps)
 	t.fillOrderStats(ctx, deps, rpt, scope)
 
-	metrics.ReportTask(rpt)
+	// Prometheus 指标上报
+	if metricsEnabled(deps.Conf) {
+		metrics.ReportTask(rpt)
+	}
 
 	if completed {
 		t.SetStatus(v1.TaskStatus_TASK_PROCESSING)
@@ -242,10 +248,17 @@ func (t *Task) report(deps *ExecDeps, completed bool) {
 		t.SetStatus(v1.TaskStatus_TASK_COMPLETED)
 
 		// 清理 Prometheus 指标，防止内存泄漏
-		metrics.CleanupTaskMetrics(t.GetID(), t.GetGame().GameID())
+		if metricsEnabled(deps.Conf) {
+			metrics.CleanupTaskMetrics(t.GetID(), t.GetGame().GameID())
+		}
 
 		t.log.Infof("[%s] task completed, use=%v", t.GetID(), time.Since(t.GetStartAt()))
 	}
+}
+
+// metricsEnabled 检查 Prometheus 指标是否启用（默认启用）
+func metricsEnabled(c *conf.Stress) bool {
+	return c.Metrics == nil || c.Metrics.Enabled
 }
 
 // buildOrderScope 构建订单查询范围

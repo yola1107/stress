@@ -84,6 +84,14 @@ service StressService {
         };
     }
 
+    // 清理 Redis 和 MySQL 订单数据
+    rpc Cleanup(CleanupRequest) returns (CleanupResponse) {
+        option (google.api.http) = {
+            post: "/stress/Cleanup"
+            body: "*"
+        };
+    }
+
     // 批量压测启动
     rpc Bench(BenchRequest) returns (BenchResponse) {
         option (google.api.http) = {
@@ -175,6 +183,17 @@ message BenchResponse {
     string message        = 2;
     string task_ids       = 3;  // 创建的任务ID列表
     repeated string fails = 4;  // 失败信息 ["gameID:error", ...]
+}
+
+// --- 清理环境 ---
+message CleanupRequest {
+}
+
+message CleanupResponse {
+    int32 code         = 1;
+    string message     = 2;
+    string redis_error = 3;  // Redis 清理错误信息
+    string mysql_error = 4;  // MySQL 清理错误信息
 }
 
 // ############################################################################
