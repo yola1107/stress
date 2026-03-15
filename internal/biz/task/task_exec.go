@@ -20,7 +20,7 @@ import (
 const (
 	reportInterval     = 5 * time.Second  // 指标上报间隔
 	orderWaitInterval  = 5 * time.Second  // 订单等待检查间隔
-	orderWaitTimeout   = 5 * time.Minute  // 订单等待超时
+	orderWaitTimeout   = 30 * time.Minute // 订单等待超时
 	cleanupTimeout     = 10 * time.Minute // 清理操作超时
 	monitorLogInterval = 1 * time.Second  // 监控日志间隔
 )

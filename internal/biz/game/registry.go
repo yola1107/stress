@@ -24,6 +24,7 @@ import (
 	"stress/internal/biz/game/g18913"
 	"stress/internal/biz/game/g18914"
 	"stress/internal/biz/game/g18920"
+	"stress/internal/biz/game/g18921"
 	"stress/internal/biz/game/g18922"
 	"stress/internal/biz/game/g18923"
 	"stress/internal/biz/game/g18925"
@@ -89,4 +90,5 @@ var registry = map[int64]base.IGame{
 	g18961.ID: g18961.Register, // 幸运熊猫
 	g18965.ID: g18965.Register, // 巴西狂欢
 	g18971.ID: g18971.Register, // 哪吒之魔童闹海
+	g18921.ID: g18921.Register, // 三国志
 }
