@@ -43,8 +43,13 @@ import (
 	"stress/internal/biz/game/g18954"
 	"stress/internal/biz/game/g18958"
 	"stress/internal/biz/game/g18961"
+	"stress/internal/biz/game/g18964"
 	"stress/internal/biz/game/g18965"
+	"stress/internal/biz/game/g18968"
 	"stress/internal/biz/game/g18971"
+	"stress/internal/biz/game/g18979"
+	"stress/internal/biz/game/g18986"
+	"stress/internal/biz/game/g18988"
 )
 
 var registry = map[int64]base.IGame{
@@ -91,4 +96,11 @@ var registry = map[int64]base.IGame{
 	g18965.ID: g18965.New(), // 巴西狂欢
 	g18971.ID: g18971.New(), // 哪吒之魔童闹海
 	g18921.ID: g18921.New(), // 三国志
+
+	g18968.ID: g18968.New(), // 玛雅迷城
+	g18979.ID: g18979.New(), // 美杜莎的宝藏
+	g18986.ID: g18986.New(), // 欢乐钓鱼佬
+	g18988.ID: g18988.New(), // 金钱牛
+	g18964.ID: g18964.New(), // 马行大运
+
 }

@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-option go_package = "stress/api/game/common;common";
-
-package common;
-
-message Board {
-    repeated int64 elements = 1;
-}

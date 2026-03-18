@@ -1,9 +1,14 @@
 package g18921
 
 import (
-	"github.com/go-kratos/kratos/v2/log"
-	sgz "stress/api/game/18921"
+	"fmt"
+
+	"stress/api/common/pb"
 	"stress/internal/biz/game/base"
+
+	"github.com/go-kratos/kratos/v2/log"
+	jsoniter "github.com/json-iterator/go"
+	"google.golang.org/protobuf/proto"
 )
 
 const ID = 18921
@@ -34,5 +39,22 @@ func (*Game) IsSpinOver(data map[string]any) bool {
 
 // GetProtobufConverter 实现protobuf转换器
 func (g *Game) GetProtobufConverter() base.ProtobufConverter {
-	return sgz.ConvertProtobufToMap
+	return func(bytes []byte) (map[string]any, error) {
+		out := new(pb.Sgz_BetOrderResponse)
+		if err := proto.Unmarshal(bytes, out); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal protobuf: %v", err)
+		}
+
+		//return map[string]any{
+		//	"isRoundOver": out.GetIsGameOver(),
+		//}, nil
+
+		if err := proto.Unmarshal(bytes, out); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal protobuf: %v", err)
+		}
+		b, _ := jsoniter.Marshal(out)
+		mp := make(map[string]any)
+		_ = jsoniter.Unmarshal(b, &mp)
+		return mp, nil
+	}
 }

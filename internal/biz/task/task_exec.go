@@ -20,7 +20,7 @@ import (
 const (
 	reportInterval     = 5 * time.Second  // 指标上报间隔
 	orderWaitInterval  = 5 * time.Second  // 订单等待检查间隔
-	orderWaitTimeout   = 30 * time.Minute // 订单等待超时
+	orderWaitTimeout   = 60 * time.Minute // 订单等待超时
 	cleanupTimeout     = 10 * time.Minute // 清理操作超时
 	monitorLogInterval = 1 * time.Second  // 监控日志间隔
 )
@@ -204,10 +204,11 @@ func (t *Task) waitOrderWrite(deps *ExecDeps) {
 	for {
 		select {
 		case <-timeout:
-			t.log.Warnf("[%s] waitOrderWrite timeout, forcing completion", t.GetID())
+			t.log.Errorf("[%s] waitOrderWrite timeout, forcing completion", t.GetID())
 			return
 		case <-ticker.C:
 			if orderCount, err := deps.GetOrderCount(context.Background()); err == nil && orderCount >= t.GetStep() {
+				t.log.Infof("[%s] mysql write completed, order count: %d", t.GetID(), orderCount)
 				return
 			}
 		}

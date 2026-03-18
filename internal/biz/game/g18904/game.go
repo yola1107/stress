@@ -1,11 +1,10 @@
 package g18904
 
 import (
-	flgl "stress/api/game/18904"
 	"stress/internal/biz/game/base"
 )
 
-const ID int64 = 18904
+const ID = 18904
 const Name = "法老归来"
 
 type Game struct {
@@ -31,5 +30,5 @@ func (*Game) IsSpinOver(data map[string]any) bool {
 
 // GetProtobufConverter 实现protobuf转换器
 func (g *Game) GetProtobufConverter() base.ProtobufConverter {
-	return flgl.ConvertProtobufToMap
+	return ConvertProtobufToMap
 }

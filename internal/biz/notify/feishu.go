@@ -121,8 +121,8 @@ func BuildTaskCompletionMessage(r *v1.TaskCompletionReport) *Message {
 		fmt.Sprintf("**QPS**：%.2f", r.Qps),
 		fmt.Sprintf("**平均延迟**：%s", r.AvgLatency),
 		fmt.Sprintf("**订单数**：%d", r.OrderCount),
-		fmt.Sprintf("**总下注**：%.2f ", float64(r.TotalBet)),
-		fmt.Sprintf("**总赢**：%.2f ", float64(r.TotalWin)),
+		fmt.Sprintf("**总下注**：%.2f ", float64(r.TotalBet)/1e4), // 数据库中的字段是 decimal(16,4) 类型 ,代码将这些值乘以10000并转换为整型存储
+		fmt.Sprintf("**总赢**：%.2f ", float64(r.TotalWin)/1e4),
 		fmt.Sprintf("**RTP**：%.2f%%", r.RtpPct),
 		fmt.Sprintf("**活跃成员**：%d", r.ActiveMembers),
 		fmt.Sprintf("**完成成员**：%d", r.Completed),

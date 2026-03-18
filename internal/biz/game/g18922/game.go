@@ -1,11 +1,14 @@
 package g18922
 
 import (
-	jqt "stress/api/game/18922"
+	"fmt"
+	"stress/api/common/pb"
 	"stress/internal/biz/game/base"
+
+	"google.golang.org/protobuf/proto"
 )
 
-const ID int64 = 18922
+const ID = 18922
 const Name = "金钱兔"
 
 type Game struct {
@@ -30,5 +33,11 @@ func (*Game) IsSpinOver(data map[string]any) bool {
 
 // GetProtobufConverter 实现protobuf转换器
 func (g *Game) GetProtobufConverter() base.ProtobufConverter {
-	return jqt.ConvertProtobufToMap
+	return func(protoBytes []byte) (map[string]any, error) {
+		jqtResponse := new(pb.Jqt_BetOrderResponse)
+		if err := proto.Unmarshal(protoBytes, jqtResponse); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal protobuf: %v", err)
+		}
+		return map[string]any{"next": jqtResponse.WinInfo.Next}, nil
+	}
 }

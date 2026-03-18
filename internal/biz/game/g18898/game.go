@@ -5,7 +5,7 @@ import (
 	"stress/internal/biz/game/base"
 )
 
-const ID int64 = 18898
+const ID = 18898
 const Name = "埃及女王"
 
 type Game struct {
