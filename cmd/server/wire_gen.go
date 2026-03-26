@@ -50,7 +50,7 @@ func wireApp(confServer *conf.Server, confData *conf.Data, stress *conf.Stress, 
 	}
 	dataRepo := data.NewDataRepo(dataData, logger)
 	notifier := notify.NewFeishu(stress)
-	iGenerator := chart.NewGenerator(stress)
+	iGenerator := chart.NewGenerator()
 	useCase, cleanup5, err := biz.NewUseCase(dataRepo, logger, stress, notifier, iGenerator)
 	if err != nil {
 		cleanup4()

@@ -1050,8 +1050,7 @@ type Game struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	GameId        int64                  `protobuf:"varint,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`            // 游戏ID
 	GameName      string                 `protobuf:"bytes,2,opt,name=game_name,json=gameName,proto3" json:"game_name,omitempty"`       // 游戏名称
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`                 // 游戏描述
-	BetSize       []float64              `protobuf:"fixed64,4,rep,packed,name=bet_size,json=betSize,proto3" json:"bet_size,omitempty"` // 下注列表
+	BetSize       []float64              `protobuf:"fixed64,3,rep,packed,name=bet_size,json=betSize,proto3" json:"bet_size,omitempty"` // 下注列表
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1100,13 +1099,6 @@ func (x *Game) GetGameName() string {
 	return ""
 }
 
-func (x *Game) GetDescription() string {
-	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
 func (x *Game) GetBetSize() []float64 {
 	if x != nil {
 		return x.BetSize
@@ -1122,7 +1114,6 @@ type TaskConfig struct {
 	MemberCount    int32                  `protobuf:"varint,3,opt,name=member_count,json=memberCount,proto3" json:"member_count,omitempty"`            // 用户数量
 	TimesPerMember int32                  `protobuf:"varint,4,opt,name=times_per_member,json=timesPerMember,proto3" json:"times_per_member,omitempty"` // 每个用户执行次数
 	BetOrder       *BetOrderConfig        `protobuf:"bytes,5,opt,name=bet_order,json=betOrder,proto3" json:"bet_order,omitempty"`                      // 下注配置
-	BetBonus       *BetBonusConfig        `protobuf:"bytes,6,opt,name=bet_bonus,json=betBonus,proto3" json:"bet_bonus,omitempty"`                      // 奖励配置
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1192,13 +1183,6 @@ func (x *TaskConfig) GetBetOrder() *BetOrderConfig {
 	return nil
 }
 
-func (x *TaskConfig) GetBetBonus() *BetBonusConfig {
-	if x != nil {
-		return x.BetBonus
-	}
-	return nil
-}
-
 // 下注配置
 type BetOrderConfig struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1260,75 +1244,6 @@ func (x *BetOrderConfig) GetPurchase() int64 {
 	return 0
 }
 
-// 奖励配置
-type BetBonusConfig struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Enable        bool                   `protobuf:"varint,1,opt,name=enable,proto3" json:"enable,omitempty"`
-	BonusNum      int64                  `protobuf:"varint,2,opt,name=bonus_num,json=bonusNum,proto3" json:"bonus_num,omitempty"`                       // 指定奖励编号（0表示随机）
-	RandomNums    []int64                `protobuf:"varint,3,rep,packed,name=random_nums,json=randomNums,proto3" json:"random_nums,omitempty"`          // 随机范围 [min, max]
-	BonusSequence []int64                `protobuf:"varint,4,rep,packed,name=bonus_sequence,json=bonusSequence,proto3" json:"bonus_sequence,omitempty"` // 奖励序列
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *BetBonusConfig) Reset() {
-	*x = BetBonusConfig{}
-	mi := &file_stress_v1_stress_proto_msgTypes[22]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *BetBonusConfig) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*BetBonusConfig) ProtoMessage() {}
-
-func (x *BetBonusConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[22]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use BetBonusConfig.ProtoReflect.Descriptor instead.
-func (*BetBonusConfig) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{22}
-}
-
-func (x *BetBonusConfig) GetEnable() bool {
-	if x != nil {
-		return x.Enable
-	}
-	return false
-}
-
-func (x *BetBonusConfig) GetBonusNum() int64 {
-	if x != nil {
-		return x.BonusNum
-	}
-	return 0
-}
-
-func (x *BetBonusConfig) GetRandomNums() []int64 {
-	if x != nil {
-		return x.RandomNums
-	}
-	return nil
-}
-
-func (x *BetBonusConfig) GetBonusSequence() []int64 {
-	if x != nil {
-		return x.BonusSequence
-	}
-	return nil
-}
-
 // 任务完整信息
 type Task struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1347,7 +1262,7 @@ type Task struct {
 
 func (x *Task) Reset() {
 	*x = Task{}
-	mi := &file_stress_v1_stress_proto_msgTypes[23]
+	mi := &file_stress_v1_stress_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1359,7 +1274,7 @@ func (x *Task) String() string {
 func (*Task) ProtoMessage() {}
 
 func (x *Task) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[23]
+	mi := &file_stress_v1_stress_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1372,7 +1287,7 @@ func (x *Task) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Task.ProtoReflect.Descriptor instead.
 func (*Task) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{23}
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *Task) GetTaskId() string {
@@ -1460,13 +1375,15 @@ type TaskCompletionReport struct {
 	FailedReqs    int64                  `protobuf:"varint,17,opt,name=failed_reqs,json=failedReqs,proto3" json:"failed_reqs,omitempty"`          // 失败请求数
 	ProgressPct   float64                `protobuf:"fixed64,18,opt,name=progress_pct,json=progressPct,proto3" json:"progress_pct,omitempty"`      // 进度 % (process/target*100, 上限 100)
 	Url           string                 `protobuf:"bytes,19,opt,name=url,proto3" json:"url,omitempty"`                                           // 图表URL
+	OrderWarning  string                 `protobuf:"bytes,20,opt,name=order_warning,json=orderWarning,proto3" json:"order_warning,omitempty"`     // 订单等待超时警告（为空表示正常）
+	BonusStep     int64                  `protobuf:"varint,21,opt,name=bonus_step,json=bonusStep,proto3" json:"bonus_step,omitempty"`             // bonus 请求数（不写入订单）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TaskCompletionReport) Reset() {
 	*x = TaskCompletionReport{}
-	mi := &file_stress_v1_stress_proto_msgTypes[24]
+	mi := &file_stress_v1_stress_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1478,7 +1395,7 @@ func (x *TaskCompletionReport) String() string {
 func (*TaskCompletionReport) ProtoMessage() {}
 
 func (x *TaskCompletionReport) ProtoReflect() protoreflect.Message {
-	mi := &file_stress_v1_stress_proto_msgTypes[24]
+	mi := &file_stress_v1_stress_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1491,7 +1408,7 @@ func (x *TaskCompletionReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskCompletionReport.ProtoReflect.Descriptor instead.
 func (*TaskCompletionReport) Descriptor() ([]byte, []int) {
-	return file_stress_v1_stress_proto_rawDescGZIP(), []int{24}
+	return file_stress_v1_stress_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *TaskCompletionReport) GetTaskId() string {
@@ -1627,6 +1544,20 @@ func (x *TaskCompletionReport) GetUrl() string {
 	return ""
 }
 
+func (x *TaskCompletionReport) GetOrderWarning() string {
+	if x != nil {
+		return x.OrderWarning
+	}
+	return ""
+}
+
+func (x *TaskCompletionReport) GetBonusStep() int64 {
+	if x != nil {
+		return x.BonusStep
+	}
+	return 0
+}
+
 var File_stress_v1_stress_proto protoreflect.FileDescriptor
 
 const file_stress_v1_stress_proto_rawDesc = "" +
@@ -1687,12 +1618,11 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\vredis_error\x18\x03 \x01(\tR\n" +
 	"redisError\x12\x1f\n" +
 	"\vmysql_error\x18\x04 \x01(\tR\n" +
-	"mysqlError\"y\n" +
+	"mysqlError\"W\n" +
 	"\x04Game\x12\x17\n" +
 	"\agame_id\x18\x01 \x01(\x03R\x06gameId\x12\x1b\n" +
-	"\tgame_name\x18\x02 \x01(\tR\bgameName\x12 \n" +
-	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x19\n" +
-	"\bbet_size\x18\x04 \x03(\x01R\abetSize\"\xa5\x02\n" +
+	"\tgame_name\x18\x02 \x01(\tR\bgameName\x12\x19\n" +
+	"\bbet_size\x18\x03 \x03(\x01R\abetSize\"\xed\x01\n" +
 	"\n" +
 	"TaskConfig\x12 \n" +
 	"\agame_id\x18\x01 \x01(\x03B\a\xfaB\x04\"\x02 \x00R\x06gameId\x12 \n" +
@@ -1701,19 +1631,12 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\xfaB\a\x1a\x05\x18\x90N(\x01R\vmemberCount\x124\n" +
 	"\x10times_per_member\x18\x04 \x01(\x05B\n" +
 	"\xfaB\a\x1a\x05\x18\x90N(\x01R\x0etimesPerMember\x126\n" +
-	"\tbet_order\x18\x05 \x01(\v2\x19.stress.v1.BetOrderConfigR\bbetOrder\x126\n" +
-	"\tbet_bonus\x18\x06 \x01(\v2\x19.stress.v1.BetBonusConfigR\bbetBonus\"\x89\x01\n" +
+	"\tbet_order\x18\x05 \x01(\v2\x19.stress.v1.BetOrderConfigR\bbetOrder\"\x89\x01\n" +
 	"\x0eBetOrderConfig\x12-\n" +
 	"\n" +
 	"base_money\x18\x01 \x01(\x01B\x0e\xfaB\v\x12\t!\x00\x00\x00\x00\x00\x00\x00\x00R\tbaseMoney\x12#\n" +
 	"\bmultiple\x18\x02 \x01(\x03B\a\xfaB\x04\"\x02 \x00R\bmultiple\x12#\n" +
-	"\bpurchase\x18\x03 \x01(\x03B\a\xfaB\x04\"\x02(\x00R\bpurchase\"\x8d\x01\n" +
-	"\x0eBetBonusConfig\x12\x16\n" +
-	"\x06enable\x18\x01 \x01(\bR\x06enable\x12\x1b\n" +
-	"\tbonus_num\x18\x02 \x01(\x03R\bbonusNum\x12\x1f\n" +
-	"\vrandom_nums\x18\x03 \x03(\x03R\n" +
-	"randomNums\x12%\n" +
-	"\x0ebonus_sequence\x18\x04 \x03(\x03R\rbonusSequence\"\x98\x02\n" +
+	"\bpurchase\x18\x03 \x01(\x03B\a\xfaB\x04\"\x02(\x00R\bpurchase\"\x98\x02\n" +
 	"\x04Task\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x16\n" +
@@ -1725,7 +1648,7 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\a \x01(\tR\tcreatedAt\x12\x19\n" +
 	"\bstart_at\x18\b \x01(\tR\astartAt\x12\x1b\n" +
-	"\tfinish_at\x18\t \x01(\tR\bfinishAt\"\xa1\x04\n" +
+	"\tfinish_at\x18\t \x01(\tR\bfinishAt\"\xe5\x04\n" +
 	"\x14TaskCompletionReport\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x17\n" +
 	"\agame_id\x18\x02 \x01(\x03R\x06gameId\x12\x1b\n" +
@@ -1749,7 +1672,10 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\vfailed_reqs\x18\x11 \x01(\x03R\n" +
 	"failedReqs\x12!\n" +
 	"\fprogress_pct\x18\x12 \x01(\x01R\vprogressPct\x12\x10\n" +
-	"\x03url\x18\x13 \x01(\tR\x03url*\x94\x01\n" +
+	"\x03url\x18\x13 \x01(\tR\x03url\x12#\n" +
+	"\rorder_warning\x18\x14 \x01(\tR\forderWarning\x12\x1d\n" +
+	"\n" +
+	"bonus_step\x18\x15 \x01(\x03R\tbonusStep*\x94\x01\n" +
 	"\n" +
 	"TaskStatus\x12\x14\n" +
 	"\x10TASK_UNSPECIFIED\x10\x00\x12\x10\n" +
@@ -1787,7 +1713,7 @@ func file_stress_v1_stress_proto_rawDescGZIP() []byte {
 }
 
 var file_stress_v1_stress_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_stress_v1_stress_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_stress_v1_stress_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_stress_v1_stress_proto_goTypes = []any{
 	(TaskStatus)(0),              // 0: stress.v1.TaskStatus
 	(*PingRequest)(nil),          // 1: stress.v1.PingRequest
@@ -1812,45 +1738,43 @@ var file_stress_v1_stress_proto_goTypes = []any{
 	(*Game)(nil),                 // 20: stress.v1.Game
 	(*TaskConfig)(nil),           // 21: stress.v1.TaskConfig
 	(*BetOrderConfig)(nil),       // 22: stress.v1.BetOrderConfig
-	(*BetBonusConfig)(nil),       // 23: stress.v1.BetBonusConfig
-	(*Task)(nil),                 // 24: stress.v1.Task
-	(*TaskCompletionReport)(nil), // 25: stress.v1.TaskCompletionReport
-	(*emptypb.Empty)(nil),        // 26: google.protobuf.Empty
+	(*Task)(nil),                 // 23: stress.v1.Task
+	(*TaskCompletionReport)(nil), // 24: stress.v1.TaskCompletionReport
+	(*emptypb.Empty)(nil),        // 25: google.protobuf.Empty
 }
 var file_stress_v1_stress_proto_depIdxs = []int32{
 	20, // 0: stress.v1.ListGamesResponse.games:type_name -> stress.v1.Game
-	24, // 1: stress.v1.ListTasksResponse.tasks:type_name -> stress.v1.Task
+	23, // 1: stress.v1.ListTasksResponse.tasks:type_name -> stress.v1.Task
 	21, // 2: stress.v1.CreateTaskRequest.config:type_name -> stress.v1.TaskConfig
-	24, // 3: stress.v1.CreateTaskResponse.task:type_name -> stress.v1.Task
-	24, // 4: stress.v1.TaskInfoResponse.task:type_name -> stress.v1.Task
+	23, // 3: stress.v1.CreateTaskResponse.task:type_name -> stress.v1.Task
+	23, // 4: stress.v1.TaskInfoResponse.task:type_name -> stress.v1.Task
 	22, // 5: stress.v1.TaskConfig.bet_order:type_name -> stress.v1.BetOrderConfig
-	23, // 6: stress.v1.TaskConfig.bet_bonus:type_name -> stress.v1.BetBonusConfig
-	21, // 7: stress.v1.Task.config:type_name -> stress.v1.TaskConfig
-	1,  // 8: stress.v1.StressService.PingReq:input_type -> stress.v1.PingRequest
-	3,  // 9: stress.v1.StressService.ListGames:input_type -> stress.v1.ListGamesRequest
-	5,  // 10: stress.v1.StressService.ListTasks:input_type -> stress.v1.ListTasksRequest
-	7,  // 11: stress.v1.StressService.CreateTask:input_type -> stress.v1.CreateTaskRequest
-	9,  // 12: stress.v1.StressService.TaskInfo:input_type -> stress.v1.TaskInfoRequest
-	13, // 13: stress.v1.StressService.DeleteTask:input_type -> stress.v1.DeleteTaskRequest
-	11, // 14: stress.v1.StressService.CancelTask:input_type -> stress.v1.CancelTaskRequest
-	14, // 15: stress.v1.StressService.GetRecord:input_type -> stress.v1.RecordRequest
-	18, // 16: stress.v1.StressService.Cleanup:input_type -> stress.v1.CleanupRequest
-	16, // 17: stress.v1.StressService.Bench:input_type -> stress.v1.BenchRequest
-	2,  // 18: stress.v1.StressService.PingReq:output_type -> stress.v1.PingReply
-	4,  // 19: stress.v1.StressService.ListGames:output_type -> stress.v1.ListGamesResponse
-	6,  // 20: stress.v1.StressService.ListTasks:output_type -> stress.v1.ListTasksResponse
-	8,  // 21: stress.v1.StressService.CreateTask:output_type -> stress.v1.CreateTaskResponse
-	10, // 22: stress.v1.StressService.TaskInfo:output_type -> stress.v1.TaskInfoResponse
-	26, // 23: stress.v1.StressService.DeleteTask:output_type -> google.protobuf.Empty
-	12, // 24: stress.v1.StressService.CancelTask:output_type -> stress.v1.CancelTaskResponse
-	15, // 25: stress.v1.StressService.GetRecord:output_type -> stress.v1.RecordResponse
-	19, // 26: stress.v1.StressService.Cleanup:output_type -> stress.v1.CleanupResponse
-	17, // 27: stress.v1.StressService.Bench:output_type -> stress.v1.BenchResponse
-	18, // [18:28] is the sub-list for method output_type
-	8,  // [8:18] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	21, // 6: stress.v1.Task.config:type_name -> stress.v1.TaskConfig
+	1,  // 7: stress.v1.StressService.PingReq:input_type -> stress.v1.PingRequest
+	3,  // 8: stress.v1.StressService.ListGames:input_type -> stress.v1.ListGamesRequest
+	5,  // 9: stress.v1.StressService.ListTasks:input_type -> stress.v1.ListTasksRequest
+	7,  // 10: stress.v1.StressService.CreateTask:input_type -> stress.v1.CreateTaskRequest
+	9,  // 11: stress.v1.StressService.TaskInfo:input_type -> stress.v1.TaskInfoRequest
+	13, // 12: stress.v1.StressService.DeleteTask:input_type -> stress.v1.DeleteTaskRequest
+	11, // 13: stress.v1.StressService.CancelTask:input_type -> stress.v1.CancelTaskRequest
+	14, // 14: stress.v1.StressService.GetRecord:input_type -> stress.v1.RecordRequest
+	18, // 15: stress.v1.StressService.Cleanup:input_type -> stress.v1.CleanupRequest
+	16, // 16: stress.v1.StressService.Bench:input_type -> stress.v1.BenchRequest
+	2,  // 17: stress.v1.StressService.PingReq:output_type -> stress.v1.PingReply
+	4,  // 18: stress.v1.StressService.ListGames:output_type -> stress.v1.ListGamesResponse
+	6,  // 19: stress.v1.StressService.ListTasks:output_type -> stress.v1.ListTasksResponse
+	8,  // 20: stress.v1.StressService.CreateTask:output_type -> stress.v1.CreateTaskResponse
+	10, // 21: stress.v1.StressService.TaskInfo:output_type -> stress.v1.TaskInfoResponse
+	25, // 22: stress.v1.StressService.DeleteTask:output_type -> google.protobuf.Empty
+	12, // 23: stress.v1.StressService.CancelTask:output_type -> stress.v1.CancelTaskResponse
+	15, // 24: stress.v1.StressService.GetRecord:output_type -> stress.v1.RecordResponse
+	19, // 25: stress.v1.StressService.Cleanup:output_type -> stress.v1.CleanupResponse
+	17, // 26: stress.v1.StressService.Bench:output_type -> stress.v1.BenchResponse
+	17, // [17:27] is the sub-list for method output_type
+	7,  // [7:17] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_stress_v1_stress_proto_init() }
@@ -1864,7 +1788,7 @@ func file_stress_v1_stress_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_stress_v1_stress_proto_rawDesc), len(file_stress_v1_stress_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   25,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

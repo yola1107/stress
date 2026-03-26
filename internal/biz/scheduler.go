@@ -83,16 +83,11 @@ func (uc *UseCase) runTask(t *task.Task, allocated []task.MemberInfo) {
 	}()
 
 	deps := &task.ExecDeps{
-		GetOrderCount:     uc.repo.GetGameOrderCount,
-		GetOrderAmounts:   uc.repo.GetDetailedOrderAmounts,
-		QueryOrderPoints:  uc.repo.QueryGameOrderPoints,
-		UploadBytes:       uc.repo.UploadBytes,
-		CleanRedisBySites: uc.repo.CleanRedisBySites,
-		CleanOrderTable:   uc.repo.CleanGameOrderTable,
-		ReturnMembers:     uc.memberPool.Release,
-		Conf:              uc.conf,
-		Notify:            uc.notify,
-		Chart:             uc.chart,
+		Repo:          uc.repo,
+		Conf:          uc.conf,
+		Notify:        uc.notify,
+		Chart:         uc.chart,
+		ReturnMembers: uc.memberPool.Release,
 	}
 	t.Execute(allocated, deps)
 }

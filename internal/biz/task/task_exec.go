@@ -3,6 +3,7 @@ package task
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -16,38 +17,37 @@ import (
 	"github.com/panjf2000/ants/v2"
 )
 
-// 任务执行相关配置常量
 const (
-	reportInterval     = 5 * time.Second  // 指标上报间隔
-	orderWaitInterval  = 5 * time.Second  // 订单等待检查间隔
-	orderWaitTimeout   = 60 * time.Minute // 订单等待超时
+	reportInterval     = 15 * time.Second // 指标上报间隔
+	orderWaitInterval  = 10 * time.Second // 订单等待检查间隔
+	orderWaitTimeout   = 15 * time.Minute // 订单等待超时
 	cleanupTimeout     = 10 * time.Minute // 清理操作超时
 	monitorLogInterval = 1 * time.Second  // 监控日志间隔
 )
 
-// 依赖函数定义
-type (
-	GetOrderCountFunc    func(ctx context.Context) (int64, error)
-	GetOrderAmountsFunc  func(ctx context.Context, scope OrderScope) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
-	QueryOrderPointsFunc func(ctx context.Context, scope OrderScope) ([]chart.Point, error)
-	UploadBytesFunc      func(ctx context.Context, bucket, key, contentType string, data []byte) (string, error)
-	CleanRedisFunc       func(ctx context.Context, sites []string) error
-	CleanTableFunc       func(ctx context.Context) error
-	ReturnMembersFunc    func(taskID string)
-)
+// Repo 任务执行期所需的数据操作（biz.DataRepo 的子集，便于直接传递）
+type Repo interface {
+	// GetGameOrderCount 全表订单数（用于等待异步写入完成）
+	GetGameOrderCount(ctx context.Context) (int64, error)
+	// GetDetailedOrderAmounts 按范围统计下注/赢额/订单数
+	GetDetailedOrderAmounts(ctx context.Context, scope OrderScope) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
+	// QueryGameOrderPoints 按范围采样订单描点（用于绘图）
+	QueryGameOrderPoints(ctx context.Context, scope OrderScope) ([]chart.Point, error)
+	// UploadBytes 上传字节到 S3，返回访问 URL
+	UploadBytes(ctx context.Context, bucket, key, contentType string, data []byte) (string, error)
+	// CleanRedisBySites 批量清理指定 sites 的 Redis 缓存
+	CleanRedisBySites(ctx context.Context, sites []string) error
+	// CleanGameOrderTable 清空订单表
+	CleanGameOrderTable(ctx context.Context) error
+}
 
 // ExecDeps 任务执行依赖
 type ExecDeps struct {
-	GetOrderCount     GetOrderCountFunc
-	GetOrderAmounts   GetOrderAmountsFunc
-	QueryOrderPoints  QueryOrderPointsFunc
-	UploadBytes       UploadBytesFunc
-	CleanRedisBySites CleanRedisFunc
-	CleanOrderTable   CleanTableFunc
-	ReturnMembers     ReturnMembersFunc
-	Conf              *conf.Stress
-	Notify            notify.Notifier
-	Chart             chart.IGenerator
+	Repo          Repo
+	Conf          *conf.Stress
+	Notify        notify.Notifier
+	Chart         chart.IGenerator
+	ReturnMembers func(taskID string)
 }
 
 // MemberInfo 成员信息（避免循环依赖）
@@ -72,44 +72,36 @@ func (t *Task) Execute(members []MemberInfo, deps *ExecDeps) {
 
 	t.SetStartAt()
 
-	// 初始化资源
 	apiClient := NewAPIClient(len(members), NoopSecretProvider, deps.Conf.Launch)
-	if err := apiClient.BindSessionEnv(t.Context(), t); err != nil {
+	if err := apiClient.BindSessionEnv(t); err != nil {
 		t.log.Errorf("[%s] bind session env failed: %v", t.GetID(), err)
 		t.SetStatus(v1.TaskStatus_TASK_FAILED)
+		t.SetFinishAt()
+		t.waitOrderWrite(deps)
+		t.finalize(deps)
 		t.cleanup(deps, apiClient)
 		return
 	}
 
-	// 启动日志
 	t.Monitor()
 
-	// 启动周期 reporter
 	stopReporter, wg := t.startReporter(deps)
 
-	// 执行 session
 	t.runSessions(members, apiClient)
 
-	// 停止 session 阶段
 	t.Stop()
 
-	// 记录实际运行结束时间（不含 DB 写入等待）
 	t.SetFinishAt()
 
-	// 等待 DB 写完（阻塞）
 	t.waitOrderWrite(deps)
 
-	// 停止 reporter
 	stopReporter()
 
-	// 等 final report 完成
 	wg.Wait()
 
-	// cleanup
 	t.cleanup(deps, apiClient)
 }
 
-// runSessions 运行所有会话
 func (t *Task) runSessions(members []MemberInfo, apiClient *APIClient) {
 	poolSize := len(members)
 	if poolSize == 0 {
@@ -182,11 +174,10 @@ func (t *Task) startReporter(deps *ExecDeps) (context.CancelFunc, *sync.WaitGrou
 		for {
 			select {
 			case <-ctx.Done():
-				t.SetFinishAt()
-				t.report(deps, true)
+				t.finalize(deps)
 				return
 			case <-ticker.C:
-				t.report(deps, false)
+				t.reportMetrics(deps)
 			}
 		}
 	}()
@@ -194,20 +185,28 @@ func (t *Task) startReporter(deps *ExecDeps) (context.CancelFunc, *sync.WaitGrou
 	return cancel, &wg
 }
 
-// waitOrderWrite 监控订单写入完成
+// waitOrderWrite 监控订单写入完成（Step 只计 bet order，bonus 不写订单）
 func (t *Task) waitOrderWrite(deps *ExecDeps) {
 	ticker := time.NewTicker(orderWaitInterval)
 	defer ticker.Stop()
 
 	timeout := time.After(orderWaitTimeout)
+	step := t.GetStep()
 
 	for {
 		select {
 		case <-timeout:
-			t.log.Errorf("[%s] waitOrderWrite timeout, forcing completion", t.GetID())
+			var dbCount int64
+			if n, err := deps.Repo.GetGameOrderCount(context.Background()); err == nil {
+				dbCount = n
+			}
+			warn := fmt.Sprintf("订单等待超时(%v): 任务steps=%d, DB订单数=%d, 差值=%d",
+				orderWaitTimeout, step, dbCount, step-dbCount)
+			t.setOrderWarning(warn)
+			t.log.Errorf("[%s] %s", t.GetID(), warn)
 			return
 		case <-ticker.C:
-			if orderCount, err := deps.GetOrderCount(context.Background()); err == nil && orderCount >= t.GetStep() {
+			if orderCount, err := deps.Repo.GetGameOrderCount(context.Background()); err == nil && orderCount >= step {
 				t.log.Infof("[%s] mysql write completed, order count: %d", t.GetID(), orderCount)
 				return
 			}
@@ -216,55 +215,62 @@ func (t *Task) waitOrderWrite(deps *ExecDeps) {
 }
 
 func (t *Task) fillOrderStats(ctx context.Context, deps *ExecDeps, rpt *v1.TaskCompletionReport, scope OrderScope) {
-	if totalBet, totalWin, betOrderCount, _, err := deps.GetOrderAmounts(ctx, scope); err == nil {
+	if totalBet, totalWin, betOrderCount, _, err := deps.Repo.GetDetailedOrderAmounts(ctx, scope); err == nil {
 		rpt.TotalBet, rpt.TotalWin, rpt.OrderCount = totalBet, totalWin, betOrderCount
 		if totalBet > 0 {
 			rpt.RtpPct = float64(totalWin*100) / float64(totalBet)
 		}
 		return
 	}
-	if orderCount, err := deps.GetOrderCount(ctx); err == nil {
+	if orderCount, err := deps.Repo.GetGameOrderCount(ctx); err == nil {
 		rpt.OrderCount = orderCount
 	}
 }
 
-// report 上报任务指标
-func (t *Task) report(deps *ExecDeps, completed bool) {
-	//检查 Prometheus 指标是否启用
-	metricsEnabled := deps.Conf.Metrics != nil && deps.Conf.Metrics.Enabled
+// reportMetrics 周期性 Prometheus 指标上报
+func (t *Task) reportMetrics(deps *ExecDeps) {
+	if deps.Conf.Metrics == nil || !deps.Conf.Metrics.Enabled {
+		return
+	}
+	ctx := context.Background()
+	rpt := t.Snapshot(time.Now())
+	scope := t.buildOrderScope(deps)
+	t.fillOrderStats(ctx, deps, rpt, scope)
+	metrics.ReportTask(rpt)
+}
 
-	// Prometheus 指标上报
-	if metricsEnabled {
-		ctx := context.Background()
-		rpt := t.Snapshot(time.Now())
-		scope := t.buildOrderScope(deps)
-		t.fillOrderStats(ctx, deps, rpt, scope)
+// finalize 最终收尾：快照 + 图表上传 + 通知 + 环境清理 + 状态转换
+func (t *Task) finalize(deps *ExecDeps) {
+	ctx := context.Background()
+	rpt := t.Snapshot(time.Now())
+	scope := t.buildOrderScope(deps)
+	t.fillOrderStats(ctx, deps, rpt, scope)
+	rpt.OrderWarning = t.getOrderWarning()
 
-		metrics.ReportTask(rpt)
+	pre := t.GetStatus()
+
+	t.SetStatus(v1.TaskStatus_TASK_PROCESSING)
+	t.uploadChart(deps, ctx, rpt, scope)
+	t.sendNotification(deps, ctx, rpt)
+	t.cleanupEnvironment(deps, ctx)
+
+	switch pre {
+	case v1.TaskStatus_TASK_CANCELLED:
+		t.SetStatus(v1.TaskStatus_TASK_CANCELLED)
+		t.log.Warnf("[%s] task cancelled, use=%v", t.GetID(), time.Since(t.GetStartAt()))
+	case v1.TaskStatus_TASK_FAILED:
+		t.SetStatus(v1.TaskStatus_TASK_FAILED)
+		t.log.Warnf("[%s] task failed (final report done), use=%v", t.GetID(), time.Since(t.GetStartAt()))
+	default:
+		t.SetStatus(v1.TaskStatus_TASK_COMPLETED)
+		t.log.Infof("[%s] task completed, use=%v", t.GetID(), time.Since(t.GetStartAt()))
 	}
 
-	if completed {
-		ctx := context.Background()
-		rpt := t.Snapshot(time.Now())
-		scope := t.buildOrderScope(deps)
-		t.fillOrderStats(ctx, deps, rpt, scope)
-
-		t.SetStatus(v1.TaskStatus_TASK_PROCESSING)
-		t.uploadChart(deps, ctx, rpt, scope)
-		t.sendNotification(deps, ctx, rpt)
-		t.cleanupEnvironment(deps, ctx, scope)
-		t.SetStatus(v1.TaskStatus_TASK_COMPLETED)
-
-		// 清理 Prometheus 指标，防止内存泄漏
-		if metricsEnabled {
-			metrics.CleanupTaskMetrics(t.GetID(), t.GetGame().GameID())
-		}
-
-		t.log.Infof("[%s] task completed, use=%v", t.GetID(), time.Since(t.GetStartAt()))
+	if deps.Conf.Metrics != nil && deps.Conf.Metrics.Enabled {
+		metrics.CleanupTaskMetrics(t.GetID(), t.GetGame().GameID())
 	}
 }
 
-// buildOrderScope 构建订单查询范围
 func (t *Task) buildOrderScope(deps *ExecDeps) OrderScope {
 	cfg := t.GetConfig()
 	excludeAmt := 0.0
@@ -285,13 +291,12 @@ func (t *Task) buildOrderScope(deps *ExecDeps) OrderScope {
 	return scope
 }
 
-// uploadChart 上传图表到 S3
 func (t *Task) uploadChart(deps *ExecDeps, ctx context.Context, report *v1.TaskCompletionReport, scope OrderScope) {
 	if deps.Chart == nil || (!deps.Conf.Chart.GenerateLocal && !deps.Conf.Chart.UploadToS3) {
 		return
 	}
 
-	pts, err := deps.QueryOrderPoints(ctx, scope)
+	pts, err := deps.Repo.QueryGameOrderPoints(ctx, scope)
 	if err != nil {
 		t.log.Errorf("failed to query game order points: %v", err)
 		return
@@ -308,7 +313,7 @@ func (t *Task) uploadChart(deps *ExecDeps, ctx context.Context, report *v1.TaskC
 	}
 
 	htmlKey := "charts/" + report.TaskId + ".html"
-	htmlUrl, err := deps.UploadBytes(ctx, "", htmlKey, "text/html; charset=utf-8", []byte(result.HTMLContent))
+	htmlUrl, err := deps.Repo.UploadBytes(ctx, "", htmlKey, "text/html; charset=utf-8", []byte(result.HTMLContent))
 	if err != nil {
 		t.log.Errorf("failed to upload HTML to S3: %v", err)
 		return
@@ -316,11 +321,9 @@ func (t *Task) uploadChart(deps *ExecDeps, ctx context.Context, report *v1.TaskC
 	t.SetRecordUrl(htmlUrl)
 	report.Url = htmlUrl
 
-	// 立即清除大HTML字符串，释放内存
 	result.HTMLContent = ""
 }
 
-// sendNotification 发送通知
 func (t *Task) sendNotification(deps *ExecDeps, ctx context.Context, report *v1.TaskCompletionReport) {
 	if deps.Notify == nil || !deps.Conf.Notify.Enabled {
 		return
@@ -333,8 +336,7 @@ func (t *Task) sendNotification(deps *ExecDeps, ctx context.Context, report *v1.
 	}()
 }
 
-// cleanupEnvironment 清理环境
-func (t *Task) cleanupEnvironment(deps *ExecDeps, ctx context.Context, _ OrderScope) {
+func (t *Task) cleanupEnvironment(deps *ExecDeps, ctx context.Context) {
 	cleanupCtx, cancel := context.WithTimeout(ctx, cleanupTimeout)
 	defer cancel()
 
@@ -343,36 +345,30 @@ func (t *Task) cleanupEnvironment(deps *ExecDeps, ctx context.Context, _ OrderSc
 
 	go func() {
 		defer wg.Done()
-		if err := deps.CleanRedisBySites(cleanupCtx, deps.Conf.Launch.Sites); err != nil {
+		if err := deps.Repo.CleanRedisBySites(cleanupCtx, deps.Conf.Launch.Sites); err != nil {
 			t.log.Errorf("[%s] Redis cleanup: %v", t.GetID(), err)
 		}
 	}()
 	go func() {
 		defer wg.Done()
-		if err := deps.CleanOrderTable(cleanupCtx); err != nil {
+		if err := deps.Repo.CleanGameOrderTable(cleanupCtx); err != nil {
 			t.log.Errorf("[%s] Mysql delete orders: %v", t.GetID(), err)
 		}
 	}()
 	wg.Wait()
 }
 
-// ==================== 资源清理 ====================
-
-// cleanup 清理任务资源
 func (t *Task) cleanup(deps *ExecDeps, apiClient *APIClient) {
 	t.cancel()
 
-	// 关闭API客户端
 	if apiClient != nil {
 		apiClient.Close()
 	}
 
-	// 归还到成员池
 	if deps.ReturnMembers != nil {
 		deps.ReturnMembers(t.GetID())
 	}
 
-	// 清除game引用
 	t.mu.Lock()
 	t.game = nil
 	t.mu.Unlock()

@@ -47,10 +47,9 @@ func (s *StressService) ListGames(ctx context.Context, in *v1.ListGamesRequest) 
 	games := make([]*v1.Game, len(all))
 	for i, g := range all {
 		games[i] = &v1.Game{
-			GameId:      g.GameID(),
-			GameName:    g.Name(),
-			Description: g.Name(),
-			BetSize:     g.BetSize(),
+			GameId:   g.GameID(),
+			GameName: g.Name(),
+			BetSize:  g.BetSize(),
 		}
 	}
 	return &v1.ListGamesResponse{Games: games, Total: int32(len(games))}, nil
@@ -212,10 +211,11 @@ func (s *StressService) Bench(ctx context.Context, in *v1.BenchRequest) (*v1.Ben
 		g := g
 
 		eg.Go(func() error {
-			// 确保 betsize 存在
 			if err := s.uc.EnsureBetSize(egCtx, g.GameID()); err != nil {
 				s.log.Warnf("Bench EnsureBetSize failed: game_id=%d, err=%v", g.GameID(), err)
+				mu.Lock()
 				fails = append(fails, fmt.Sprintf("%d:%s", g.GameID(), err.Error()))
+				mu.Unlock()
 				return nil
 			}
 
@@ -227,10 +227,6 @@ func (s *StressService) Bench(ctx context.Context, in *v1.BenchRequest) (*v1.Ben
 				BetOrder: &v1.BetOrderConfig{
 					BaseMoney: pickBaseMoney(g.BetSize()),
 					Multiple:  1,
-				},
-				BetBonus: &v1.BetBonusConfig{
-					Enable:        true,
-					BonusSequence: []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
 				},
 			}
 

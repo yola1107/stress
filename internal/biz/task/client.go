@@ -64,20 +64,11 @@ type APIClient struct {
 }
 
 type SessionEnv struct {
-	ctx             context.Context
-	cfg             *v1.TaskConfig
-	target          int32
-	bonusNum        int64
-	randomNums      []int64
-	bonusSeq        []int64
-	isSpinOver      func(map[string]any) bool
-	needBonus       func(map[string]any) bool
-	protobuf        base.ProtobufConverter
-	bonusNext       func(map[string]any) bool
-	addBetOrder     func(time.Duration, bool)
-	addBetBonus     func(time.Duration)
-	addError        func()
-	isTaskCancelled func() bool
+	ctx      context.Context
+	cfg      *v1.TaskConfig
+	game     base.IGame
+	task     *Task
+	protobuf base.ProtobufConverter
 }
 
 func NewAPIClient(capacity int, secretProvider base.SecretProvider, launchCfg *conf.Stress_Launch) *APIClient {
@@ -123,37 +114,23 @@ func NewAPIClient(capacity int, secretProvider base.SecretProvider, launchCfg *c
 	}
 }
 
-func (c *APIClient) BindSessionEnv(ctx context.Context, task *Task) error {
-	if task == nil {
+func (c *APIClient) BindSessionEnv(t *Task) error {
+	if t == nil {
 		return errors.New("task is nil")
 	}
-	cfg := task.GetConfig()
+	cfg := t.GetConfig()
 	if cfg == nil {
 		return errors.New("task config is nil")
 	}
+	g := t.GetGame()
 	env := &SessionEnv{
-		ctx:    ctx,
-		cfg:    cfg,
-		target: cfg.TimesPerMember,
+		ctx:  t.Context(),
+		cfg:  cfg,
+		game: g,
+		task: t,
 	}
-	if bonusCfg := cfg.BetBonus; bonusCfg != nil {
-		env.bonusNum = bonusCfg.BonusNum
-		env.randomNums = bonusCfg.RandomNums
-		env.bonusSeq = bonusCfg.BonusSequence
-	}
-	if game := task.GetGame(); game != nil {
-		env.isSpinOver = game.IsSpinOver
-		env.needBonus = game.NeedBetBonus
-		env.protobuf = game.GetProtobufConverter()
-		if bi := game.AsBonusInterface(); bi != nil {
-			env.bonusNext = bi.BonusNextState
-		}
-	}
-	env.addBetOrder = task.AddBetOrder
-	env.addBetBonus = task.AddBetBonus
-	env.addError = task.AddError
-	env.isTaskCancelled = func() bool {
-		return task.GetStatus() == v1.TaskStatus_TASK_CANCELLED
+	if g != nil {
+		env.protobuf = g.GetProtobufConverter()
 	}
 	c.env = env
 	return nil
@@ -397,8 +374,8 @@ func (c *APIClient) BetBonus(ctx context.Context, cfg *v1.TaskConfig, token stri
 		return nil, fmt.Errorf("failed to unmarshal betbonus response: %w", err)
 	}
 	result := &BetBonusResult{Data: data}
-	if c.env != nil && c.env.bonusNext != nil {
-		result.NeedContinue = c.env.bonusNext(data)
+	if c.env != nil && c.env.game != nil {
+		result.NeedContinue = c.env.game.BonusNextState(data)
 	}
 	return result, nil
 }
@@ -407,16 +384,7 @@ func (c *APIClient) BetBonus(ctx context.Context, cfg *v1.TaskConfig, token stri
 func (c *APIClient) Close() {
 	if c.http != nil {
 		c.http.CloseIdleConnections()
-		if transport, ok := c.http.Transport.(*http.Transport); ok {
-			transport.CloseIdleConnections()
-			c.http.Transport = nil // 解除引用，让GC回收
-		}
 		c.http = nil
 	}
-	c.secret = nil
 	c.env = nil
-	c.launchURL = ""
-	c.loginURL = ""
-	c.betOrderURL = ""
-	c.betBonusURL = ""
 }

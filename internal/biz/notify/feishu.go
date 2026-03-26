@@ -75,8 +75,14 @@ func (f *Feishu) Send(ctx context.Context, msg *Message) error {
 		payload["sign"] = f.sign(ts)
 	}
 
-	body, _ := jsoniter.Marshal(payload)
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, f.WebhookURL, bytes.NewReader(body))
+	body, err := jsoniter.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("feishu: marshal payload: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, f.WebhookURL, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("feishu: create request: %w", err)
+	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := f.Client.Do(req)
@@ -117,6 +123,7 @@ func BuildTaskCompletionMessage(r *v1.TaskCompletionReport) *Message {
 		fmt.Sprintf("**游戏ID**：%d", r.GameId),
 		fmt.Sprintf("**进度**：%d / %d (%.1f%%)", r.Process, r.Target, r.ProgressPct),
 		fmt.Sprintf("**总步数**：%d", r.Step),
+		fmt.Sprintf("**Bonus次数**：%d", r.BonusStep),
 		fmt.Sprintf("**耗时**：%s", r.Duration),
 		fmt.Sprintf("**QPS**：%.2f", r.Qps),
 		fmt.Sprintf("**平均延迟**：%s", r.AvgLatency),
@@ -128,6 +135,9 @@ func BuildTaskCompletionMessage(r *v1.TaskCompletionReport) *Message {
 		fmt.Sprintf("**完成成员**：%d", r.Completed),
 		fmt.Sprintf("**失败成员**：%d", r.Failed),
 		fmt.Sprintf("**失败请求**：%d", r.FailedReqs),
+	}
+	if r.OrderWarning != "" {
+		lines = append(lines, fmt.Sprintf("**订单警告**：%s", r.OrderWarning))
 	}
 	if r.Url != "" {
 		lines = append(lines, fmt.Sprintf("**图表地址**：%s", r.Url))

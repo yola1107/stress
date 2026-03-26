@@ -38,6 +38,11 @@ func (*Game) NeedBetBonus(data map[string]any) bool {
 	return false
 }
 
+func (*Game) PickBonusNum() int64 {
+	return 1
+	// return xgo.RandIntInclusive[int64](1, 3) // [1,3]
+}
+
 func (*Game) IsSpinOver(data map[string]any) bool {
 	bonusState, ok := data["bonusState"]
 	if !ok {

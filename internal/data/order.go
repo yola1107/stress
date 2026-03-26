@@ -7,15 +7,18 @@ import (
 
 	"stress/internal/biz/chart"
 	"stress/internal/biz/task"
-
-	"xorm.io/xorm"
 )
 
 const (
+	sampleMax  = 5000
 	orderUnit  = 1e4
 	timeLayout = "2006-01-02 15:04:05"
 )
 
+// QueryGameOrderPoints 通过 SQL 分桶聚合一次扫描完成采样，避免逐行传输 2000 万行到 Go。
+// 原理：将 ID 范围等分为 ≤sampleMax 个桶，MySQL 在一次全表扫描中按桶做
+// SUM(amount)/SUM(bonus_amount)/COUNT(*)，只返回 ~5000 行；Go 侧做前缀累加得到
+// 与逐行扫描数学等价的 cumBet/cumWin，再计算盈利率。
 func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope task.OrderScope) ([]chart.Point, error) {
 	orderDB, err := r.orderEngine()
 	if err != nil {
@@ -26,225 +29,97 @@ func (r *dataRepo) QueryGameOrderPoints(ctx context.Context, scope task.OrderSco
 	}
 
 	start := time.Now()
-	excludeAmount := scope.ExcludeAmt
-	if excludeAmount <= 0 {
-		excludeAmount = 0.01
-	}
+	baseWhere, baseArgs := buildOrderWhere(scope)
 
-	const sampleMax = 5000
+	sess := orderDB.NewSession().Context(ctx)
+	defer sess.Close()
 
-	type record struct {
-		Amount      float64 `xorm:"amount"`
-		BonusAmount float64 `xorm:"bonus_amount"`
-		CreatedAt   int64   `xorm:"created_at"`
-		ID          int64   `xorm:"id"`
+	// ── 第 1 步：一次查询拿到 ID 范围与总行数 ──
+	type rangeInfo struct {
+		MinID int64 `xorm:"min_id"`
+		MaxID int64 `xorm:"max_id"`
+		Total int64 `xorm:"total"`
 	}
-
-	// 获取总订单数
-	totalOrders, err := r.getTotalOrders(orderDB, scope, excludeAmount)
-	if err != nil {
-		return nil, fmt.Errorf("get total orders failed: %w", err)
+	var info rangeInfo
+	if _, err = sess.SQL(
+		`SELECT MIN(id) AS min_id, MAX(id) AS max_id, COUNT(*) AS total FROM game_order WHERE `+baseWhere,
+		baseArgs...,
+	).Get(&info); err != nil {
+		return nil, fmt.Errorf("range query: %w", err)
 	}
-	if totalOrders == 0 {
+	if info.Total == 0 {
 		return []chart.Point{}, nil
 	}
 
-	// 根据总订单数动态调整批次大小
-	batchSize := 500000
-	if totalOrders >= 10000000 {
-		batchSize = 2000000
-	} else if totalOrders >= 5000000 {
-		batchSize = 1000000
+	// ── 第 2 步：按 ID 范围分桶，MySQL 侧完成聚合，仅返回 ≤sampleMax 行 ──
+	numBuckets := int64(sampleMax)
+	if info.Total < numBuckets {
+		numBuckets = info.Total
+	}
+	bucketWidth := (info.MaxID - info.MinID + 1) / numBuckets
+	if bucketWidth < 1 {
+		bucketWidth = 1
 	}
 
-	step := totalOrders / sampleMax
-	if step < 1 {
-		step = 1
+	type bucket struct {
+		Cnt int64   `xorm:"cnt"`
+		Bet float64 `xorm:"bet"`
+		Win float64 `xorm:"win"`
+		Ts  int64   `xorm:"ts"`
 	}
 
-	var (
-		cumBet, cumWin   float64
-		bet, win         float64
-		orders           int64
-		lastTime, lastID int64
-		batchCnt         int
-		hasPendingData   bool
-		lastPointTime    int64
-		// 明确保存第一个点的所有信息
-		firstPointOrders int64
-		firstPointTime   int64
-		firstPointCumBet float64
-		firstPointCumWin float64
-		firstPointSaved  bool
-	)
+	allArgs := make([]any, 0, len(baseArgs)+4)
+	allArgs = append(allArgs, baseArgs...)
+	allArgs = append(allArgs, info.MinID, bucketWidth, info.MinID, bucketWidth)
 
-	sampledPts := make([]chart.Point, 0, sampleMax+2)
+	var buckets []bucket
+	if err = sess.SQL(`
+		SELECT
+			COUNT(*)                                          AS cnt,
+			SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) AS bet,
+			SUM(bonus_amount)                                 AS win,
+			MAX(created_at)                                   AS ts
+		FROM game_order
+		WHERE `+baseWhere+`
+		GROUP BY FLOOR((id - ?) / ?)
+		ORDER BY FLOOR((id - ?) / ?)`,
+		allArgs...,
+	).Find(&buckets); err != nil {
+		return nil, fmt.Errorf("bucket query: %w", err)
+	}
 
-	// flush 函数：处理一个完整的数据点
-	flush := func(pointOrders int64, pointTime int64, isLast bool) {
-		if !hasPendingData {
-			return
-		}
+	// ── 第 3 步：Go 侧前缀累加，与逐行 flush 数学等价 ──
+	var cumBet, cumWin float64
+	var cumRows int64
+	pts := make([]chart.Point, 0, len(buckets))
 
-		// 累积到cumBet/cumWin
-		cumBet += bet
-		cumWin += win
+	for _, b := range buckets {
+		cumBet += b.Bet
+		cumWin += b.Win
+		cumRows += b.Cnt
 
 		rate := 0.0
 		if cumBet > 0 {
 			rate = (cumBet - cumWin) / cumBet
 		}
-
-		// 保存第一个点的完整信息（无论是否被采样）
-		if !firstPointSaved && pointOrders > 0 {
-			firstPointOrders = pointOrders
-			firstPointTime = pointTime
-			firstPointCumBet = cumBet
-			firstPointCumWin = cumWin
-			firstPointSaved = true
-		}
-
-		// 采样条件：第一个点、最后一个点、等距点
-		if pointOrders == 1 || isLast || (pointOrders-1)%step == 0 {
-			sampledPts = append(sampledPts, chart.Point{
-				X:    float64(pointOrders) / orderUnit,
-				Y:    rate,
-				Time: time.Unix(pointTime, 0).In(time.Local).Format(timeLayout),
-			})
-		}
-
-		// 重置当前累积
-		bet = 0
-		win = 0
-		hasPendingData = false
-	}
-
-	for {
-		batchCnt++
-		query := `
-			SELECT amount, bonus_amount, created_at, id
-			FROM game_order
-			WHERE game_id = ?
-			  AND merchant = ?
-			  AND amount != ?
-			  AND (created_at > ? OR (created_at = ? AND id > ?))
-			ORDER BY created_at, id
-			LIMIT ?`
-
-		args := []any{scope.GameID, scope.Merchant, excludeAmount, lastTime, lastTime, lastID, batchSize}
-
-		var batch []record
-		if err := orderDB.SQL(query, args...).Find(&batch); err != nil {
-			return nil, fmt.Errorf("query failed: %w", err)
-		}
-		if len(batch) == 0 {
-			break
-		}
-
-		for _, rec := range batch {
-			orders++
-			lastTime = rec.CreatedAt
-			lastID = rec.ID
-
-			if rec.Amount > 0 {
-				// flush上一个完整的数据点
-				if hasPendingData {
-					flush(orders-1, lastPointTime, false)
-				}
-
-				// 开始新的数据点累积
-				bet = rec.Amount
-				win = rec.BonusAmount
-				hasPendingData = true
-				lastPointTime = rec.CreatedAt
-			} else {
-				// 累计到当前数据点
-				win += rec.BonusAmount
-				if !hasPendingData && win > 0 {
-					hasPendingData = true
-					lastPointTime = rec.CreatedAt
-				}
-			}
-		}
-	}
-
-	// flush最后一个数据点
-	if hasPendingData {
-		flush(orders, lastPointTime, true)
-	}
-
-	// 确保首尾点存在且正确
-	sampledPts = ensureEdgePoints(sampledPts, orders,
-		firstPointOrders, firstPointTime, firstPointCumBet, firstPointCumWin,
-		cumBet, cumWin, lastPointTime)
-
-	// 超出采样点限制均匀截断
-	if len(sampledPts) > sampleMax {
-		sampledPts = uniformTruncate(sampledPts, sampleMax)
-	}
-
-	r.log.Infof("处理完成: 总订单数=%d, 批次数=%d, 采样点数=%d, 耗时=%v",
-		orders, batchCnt, len(sampledPts), time.Since(start))
-
-	return sampledPts, nil
-}
-
-// 确保首尾点正确
-func ensureEdgePoints(points []chart.Point, totalOrders int64,
-	firstOrders int64, firstTime int64, firstCumBet, firstCumWin float64,
-	finalCumBet, finalCumWin float64, lastTime int64) []chart.Point {
-
-	if len(points) == 0 || totalOrders <= 0 {
-		return points
-	}
-
-	// 检查是否已包含第一个点
-	hasFirst := false
-	if len(points) > 0 && int64(points[0].X*orderUnit) == 1 {
-		hasFirst = true
-	}
-
-	// 检查是否已包含最后一个点
-	hasLast := false
-	if len(points) > 0 && int64(points[len(points)-1].X*orderUnit) == totalOrders {
-		hasLast = true
-	}
-
-	result := make([]chart.Point, 0, len(points)+2)
-
-	// 添加第一个点（如果需要）
-	if !hasFirst && firstOrders > 0 {
-		firstRate := 0.0
-		if firstCumBet > 0 {
-			firstRate = (firstCumBet - firstCumWin) / firstCumBet
-		}
-		result = append(result, chart.Point{
-			X:    float64(firstOrders) / orderUnit,
-			Y:    firstRate,
-			Time: time.Unix(firstTime, 0).In(time.Local).Format(timeLayout),
+		pts = append(pts, chart.Point{
+			X:    float64(cumRows) / orderUnit,
+			Y:    rate,
+			Time: time.Unix(b.Ts, 0).In(time.Local).Format(timeLayout),
 		})
 	}
 
-	// 添加所有原始点
-	result = append(result, points...)
-
-	// 添加最后一个点（如果需要）
-	if !hasLast {
-		lastRate := 0.0
-		if finalCumBet > 0 {
-			lastRate = (finalCumBet - finalCumWin) / finalCumBet
-		}
-		result = append(result, chart.Point{
-			X:    float64(totalOrders) / orderUnit,
-			Y:    lastRate,
-			Time: time.Unix(lastTime, 0).In(time.Local).Format(timeLayout),
-		})
+	if len(pts) > sampleMax {
+		pts = uniformTruncate(pts, sampleMax)
 	}
 
-	return result
+	r.log.Infof("处理完成: 总订单数=%d, 桶数=%d, 采样点数=%d, 耗时=%v",
+		info.Total, len(buckets), len(pts), time.Since(start))
+
+	return pts, nil
 }
 
-// uniformTruncate 均匀截断采样点
+// uniformTruncate 均匀截断采样点，保留首尾
 func uniformTruncate(points []chart.Point, maxPoints int) []chart.Point {
 	if len(points) <= maxPoints {
 		return points
@@ -263,12 +138,4 @@ func uniformTruncate(points []chart.Point, maxPoints int) []chart.Point {
 		result = append(result, points[n-1])
 	}
 	return result
-}
-
-// getTotalOrders 获取总订单数
-func (r *dataRepo) getTotalOrders(orderDB *xorm.Engine, scope task.OrderScope, excludeAmount float64) (int64, error) {
-	query := `SELECT COUNT(*) FROM game_order WHERE game_id = ? AND merchant = ? AND amount != ?`
-	var total int64
-	_, err := orderDB.SQL(query, scope.GameID, scope.Merchant, excludeAmount).Get(&total)
-	return total, err
 }

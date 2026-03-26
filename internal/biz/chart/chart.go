@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"stress/internal/conf"
-
 	"github.com/google/wire"
 	jsoniter "github.com/json-iterator/go"
 )
@@ -42,7 +40,7 @@ type Generator struct {
 }
 
 // NewGenerator 创建图表生成器（使用默认输出目录）
-func NewGenerator(_ *conf.Stress) IGenerator {
+func NewGenerator() IGenerator {
 	return &Generator{outputDir: OutputDir}
 }
 

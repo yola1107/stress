@@ -58,28 +58,28 @@ func (p *Pool) Get(gameID int64) (base.IGame, bool) {
 func (p *Pool) EnsureGameBetSize(ctx context.Context, gameID int64) error {
 	p.mu.RLock()
 	g, ok := p.registry[gameID]
+	hasBetSize := ok && len(g.BetSize()) > 0
 	p.mu.RUnlock()
 
 	if !ok {
-		// 游戏不存在于注册表，返回错误（压测系统需要详细的 betsize 列表）
 		return fmt.Errorf("game %d not found in registry", gameID)
 	}
-
-	// 已有 betsize，无需获取
-	if len(g.BetSize()) > 0 {
+	if hasBetSize {
 		return nil
 	}
 
-	// 动态获取 betsize
 	m, err := p.betSizeFunc(ctx, []int64{gameID})
 	if err != nil {
 		return fmt.Errorf("empty mysql betsize for game %d: %w", gameID, err)
 	}
 
-	if betSize, exists := m[gameID]; exists && len(betSize) > 0 {
-		g.SetBetSize(betSize)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(g.BetSize()) == 0 {
+		if betSize, exists := m[gameID]; exists && len(betSize) > 0 {
+			g.SetBetSize(betSize)
+		}
 	}
-
 	return nil
 }
 

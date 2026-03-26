@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"stress/internal/conf"
+
 	"github.com/go-kratos/kratos/v2/log"
 )
 
@@ -14,14 +16,6 @@ const (
 	memberNameOffset = 1000
 	memberBalance    = 10000
 )
-
-type LoaderConfig struct {
-	AutoLoads     bool
-	IntervalSec   int32
-	MaxLoadTotal  int32
-	BatchLoadSize int32
-	MemberPrefix  string
-}
 
 type Repo interface {
 	BatchUpsertMembers(ctx context.Context, members []Info) error
@@ -36,10 +30,9 @@ type Info struct {
 
 // Pool MemberPool 玩家资源池，封装空闲/已分配成员的存储与操作
 type Pool struct {
-	mu         sync.RWMutex
-	idle       []Info
-	allocated  map[string][]Info // taskID -> 分配给该任务的玩家
-	totalCount int
+	mu        sync.RWMutex
+	idle      []Info
+	allocated map[string][]Info // taskID -> 分配给该任务的玩家
 }
 
 // NewMemberPool 创建玩家资源池
@@ -55,7 +48,6 @@ func (p *Pool) AddIdle(members []Info) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.idle = append(p.idle, members...)
-	p.totalCount += len(members)
 }
 
 // CanAllocate 是否有足够空闲玩家可分配
@@ -78,17 +70,6 @@ func (p *Pool) Allocate(taskID string, count int) []Info {
 	return allocated
 }
 
-// GetAllocated 返回某任务当前占用的成员（只读副本，用于 runTaskSessions 等）
-func (p *Pool) GetAllocated(taskID string) []Info {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	m, ok := p.allocated[taskID]
-	if !ok || len(m) == 0 {
-		return nil
-	}
-	return append([]Info{}, m...)
-}
-
 // Release 释放任务占用的玩家回空闲池
 func (p *Pool) Release(taskID string) {
 	p.mu.Lock()
@@ -103,14 +84,15 @@ func (p *Pool) Release(taskID string) {
 func (p *Pool) Stats() (idle, allocated, total int) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	allocatedCount := 0
 	for _, m := range p.allocated {
-		allocatedCount += len(m)
+		allocated += len(m)
 	}
-	return len(p.idle), allocatedCount, p.totalCount
+	idle = len(p.idle)
+	total = idle + allocated
+	return
 }
 
-func (p *Pool) StartAutoLoad(ctx context.Context, cfg LoaderConfig, repo Repo, logger log.Logger, onLoaded func()) {
+func (p *Pool) StartAutoLoad(ctx context.Context, cfg *conf.Stress_Member, repo Repo, logger log.Logger, onLoaded func()) {
 	if !cfg.AutoLoads {
 		return
 	}
@@ -136,18 +118,17 @@ func (p *Pool) StartAutoLoad(ctx context.Context, cfg LoaderConfig, repo Repo, l
 
 			batch := make([]Info, n)
 			for i := int32(0); i < n; i++ {
-				loaded++
 				batch[i] = Info{
-					Name:    cfg.MemberPrefix + strconv.FormatInt(int64(loaded+memberNameOffset), 10),
+					Name:    cfg.MemberPrefix + strconv.FormatInt(int64(loaded+i+1+memberNameOffset), 10),
 					Balance: memberBalance,
 				}
 			}
 
 			if err := repo.BatchUpsertMembers(ctx, batch); err != nil {
 				logHelper.Errorf("BatchUpsertMembers: %v", err)
-				loaded -= n
 				continue
 			}
+			loaded += n
 
 			p.AddIdle(batch)
 			_, _, total := p.Stats()

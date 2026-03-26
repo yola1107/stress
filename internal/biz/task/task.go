@@ -16,27 +16,29 @@ import (
 
 // Task 压测任务实体（领域模型）
 type Task struct {
-	mu        sync.RWMutex
-	id        string
-	game      base.IGame
-	config    *v1.TaskConfig
-	status    v1.TaskStatus
-	createdAt time.Time
-	startAt   time.Time // 实际开始执行时间
-	finishAt  time.Time
-	record    string // S3 HTML 图表 URL
-	ctx       context.Context
-	cancel    context.CancelFunc
-	log       *log.Helper
-	stats     Stats // 统计信息（线程安全）
+	mu           sync.RWMutex
+	id           string
+	game         base.IGame
+	config       *v1.TaskConfig
+	status       v1.TaskStatus
+	createdAt    time.Time
+	startAt      time.Time // 实际开始执行时间
+	finishAt     time.Time //
+	record       string    // S3 HTML 图表 URL
+	orderWarning string    // 订单等待超时警告
+	ctx          context.Context
+	cancel       context.CancelFunc
+	log          *log.Helper
+	stats        Stats // 统计信息（线程安全）
 }
 
 // Stats TaskStats 任务统计信息（线程安全）
 type Stats struct {
 	Target    int64 // 目标请求数
 	Process   int64 // 已完成局数
-	Step      int64 // 总请求数
-	Duration  int64 // 总耗时（纳秒）
+	Step      int64 // 下注请求数（写入订单）
+	BonusStep int64 // bonus 请求数（不写入订单）
+	Duration  int64 // 总耗时（纳秒，bet + bonus）
 	Active    int64 // 活跃成员数
 	Completed int64 // 成功完成的成员数
 	Failed    int64 // 失败的成员数
@@ -132,6 +134,18 @@ func (t *Task) GetRecordUrl() string {
 	return t.record
 }
 
+func (t *Task) setOrderWarning(msg string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.orderWarning = msg
+}
+
+func (t *Task) getOrderWarning() string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.orderWarning
+}
+
 func (t *Task) Cancel() error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -176,7 +190,7 @@ func (t *Task) AddBetOrder(d time.Duration, spinOver bool) {
 }
 
 func (t *Task) AddBetBonus(d time.Duration) {
-	atomic.AddInt64(&t.stats.Step, 1)
+	atomic.AddInt64(&t.stats.BonusStep, 1)
 	atomic.AddInt64(&t.stats.Duration, d.Nanoseconds())
 }
 
@@ -185,6 +199,7 @@ func (t *Task) AddError() { atomic.AddInt64(&t.stats.Errors, 1) }
 type metricsData struct {
 	Process     int64
 	Step        int64
+	BonusStep   int64
 	Target      int64
 	Elapsed     time.Duration
 	QPS         float64
@@ -206,9 +221,10 @@ func (t *Task) calculateMetrics(now time.Time) metricsData {
 	}
 
 	m := metricsData{
-		Process: atomic.LoadInt64(&t.stats.Process),
-		Step:    atomic.LoadInt64(&t.stats.Step),
-		Target:  atomic.LoadInt64(&t.stats.Target),
+		Process:   atomic.LoadInt64(&t.stats.Process),
+		Step:      atomic.LoadInt64(&t.stats.Step),
+		BonusStep: atomic.LoadInt64(&t.stats.BonusStep),
+		Target:    atomic.LoadInt64(&t.stats.Target),
 	}
 	duration := atomic.LoadInt64(&t.stats.Duration)
 
@@ -223,7 +239,7 @@ func (t *Task) calculateMetrics(now time.Time) metricsData {
 		m.QPS = float64(m.Process) / sec
 	}
 
-	// 计算平均延迟
+	// 计算平均延迟 (betOrder次数，不含bonus次数)
 	totalDur := time.Duration(duration)
 	if m.Step > 0 {
 		m.AvgLatency = fmt.Sprintf("%.2fms", float64(totalDur.Nanoseconds())/float64(m.Step)/1e6)
@@ -263,6 +279,7 @@ func (t *Task) Snapshot(now time.Time) *v1.TaskCompletionReport {
 		Process:       m.Process,
 		Target:        m.Target,
 		Step:          m.Step,
+		BonusStep:     m.BonusStep,
 		ProgressPct:   m.ProgressPct,
 		Duration:      m.Elapsed.String(),
 		Qps:           m.QPS,
@@ -271,8 +288,6 @@ func (t *Task) Snapshot(now time.Time) *v1.TaskCompletionReport {
 		Completed:     completed,
 		Failed:        failed,
 		FailedReqs:    errors,
-		// OrderCount, TotalBet, TotalWin, RtpPct 由 上游 包补充
-		// 时间信息存储在其他地方或通过其他方式获取
 	}
 }
 
@@ -292,12 +307,12 @@ func (t *Task) LogProgress(isFinal bool) {
 	m := t.calculateMetrics(now)
 
 	if isFinal {
-		t.log.Infof("[%s] 任务结束: 进度:%d/%d, 总步数:%d, 耗时:%v, QPS:%.2f, 平均延迟:%s",
-			t.id, m.Process, m.Target, m.Step, m.Elapsed, m.QPS, m.AvgLatency)
+		t.log.Infof("[%s] 任务结束: 进度:%d/%d, 总步数:%d, 耗时:%v, QPS:%.2f, bonus总步数:%d, 平均延迟:%s",
+			t.id, m.Process, m.Target, m.Step, m.Elapsed, m.QPS, m.BonusStep, m.AvgLatency)
 	} else {
-		t.log.Infof("[%s]: 进度:%d/%d(%.2f%%), 用时:%s, 剩余:%s, QPS:%.2f, step:%.2f, 延迟:%s",
+		t.log.Infof("[%s]: 进度:%d/%d(%.2f%%), 用时:%s, 剩余:%s, QPS:%.2f, steps:%.2f, bonus:%d, 延迟:%s",
 			t.id, m.Process, m.Target, m.ProgressPct, xgo.ShortDuration(m.Elapsed),
-			xgo.ShortDuration(m.Remaining), m.QPS, float64(m.Step)/m.Elapsed.Seconds(), m.AvgLatency)
+			xgo.ShortDuration(m.Remaining), m.QPS, float64(m.Step)/m.Elapsed.Seconds(), m.BonusStep, m.AvgLatency)
 	}
 }
 

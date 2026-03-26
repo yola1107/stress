@@ -33,6 +33,11 @@ func (*Game) NeedBetBonus(freeData map[string]any) bool {
 	return false
 }
 
+func (*Game) PickBonusNum() int64 {
+	return 1
+	// return xgo.RandIntInclusive[int64](1, 12) // [1,12]
+}
+
 func (*Game) IsSpinOver(data map[string]any) bool {
 	isSpinOver := fmt.Sprintf("%v", data["isSpinOver"])
 	if isSpinOver == "true" {
@@ -58,9 +63,4 @@ func (g *Game) BonusNextState(data map[string]any) bool {
 		}
 	}
 	return false
-}
-
-// AsBonusInterface 实现 GameBonusInterface 接口
-func (g *Game) AsBonusInterface() base.GameBonusInterface {
-	return g
 }

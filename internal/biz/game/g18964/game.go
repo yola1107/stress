@@ -21,19 +21,11 @@ func New() base.IGame {
 	return &Game{Default: base.NewBaseGame(ID, Name)}
 }
 
-func (*Game) NeedBetBonus(freeData map[string]any) bool {
-	return false
-}
-
 func (*Game) IsSpinOver(data map[string]any) bool {
 	isSpinOver := fmt.Sprintf("%v", data["spinOver"])
 	if isSpinOver == "true" {
 		return true
 	}
-	return false
-}
-
-func (g *Game) BonusNextState(data map[string]any) bool {
 	return false
 }
 

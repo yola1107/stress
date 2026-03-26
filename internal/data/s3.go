@@ -78,13 +78,16 @@ func NewS3Bucket(c *conf.Data, logger log.Logger) (*S3Bucket, func(), error) {
 	}, cleanup, nil
 }
 
-// UploadBytes 上传字节数组到S3
+// UploadBytes 上传字节数组到S3，PUT 与 PresignGet 分阶段重试
 func (r *dataRepo) UploadBytes(ctx context.Context, bucket, key, contentType string, data []byte) (string, error) {
 	s := r.data.s3Bucket
 	if bucket == "" {
 		bucket = s.bucket
 	}
 
+	presignClient := s3.NewPresignClient(s.client)
+
+	// 阶段一：PUT 上传
 	var lastErr error
 	for i := 0; i < maxRetries; i++ {
 		if i > 0 {
@@ -94,7 +97,6 @@ func (r *dataRepo) UploadBytes(ctx context.Context, bucket, key, contentType str
 
 		uploadCtx, cancel := context.WithTimeout(ctx, uploadTimeout)
 
-		presignClient := s3.NewPresignClient(s.client)
 		presignPutResult, err := presignClient.PresignPutObject(
 			uploadCtx,
 			&s3.PutObjectInput{
@@ -138,6 +140,19 @@ func (r *dataRepo) UploadBytes(ctx context.Context, bucket, key, contentType str
 			continue
 		}
 
+		lastErr = nil
+		break
+	}
+	if lastErr != nil {
+		return "", fmt.Errorf("upload failed after %d attempts: %w", maxRetries, lastErr)
+	}
+
+	// 阶段二：PresignGet（PUT 已成功，仅重试签名 URL 生成）
+	for i := 0; i < maxRetries; i++ {
+		if i > 0 {
+			time.Sleep(retryDelay * time.Duration(i))
+		}
+
 		presignGetResult, err := presignClient.PresignGetObject(
 			context.Background(),
 			&s3.GetObjectInput{
@@ -148,7 +163,7 @@ func (r *dataRepo) UploadBytes(ctx context.Context, bucket, key, contentType str
 		)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to generate presigned GET URL: %w", err)
-			s.logger.Warnf("Failed to generate presigned GET URL: %v", err)
+			s.logger.Warnf("PresignGet attempt %d/%d failed: %v", i+1, maxRetries, err)
 			continue
 		}
 
@@ -156,5 +171,5 @@ func (r *dataRepo) UploadBytes(ctx context.Context, bucket, key, contentType str
 		return presignGetResult.URL, nil
 	}
 
-	return "", fmt.Errorf("upload failed after %d attempts: %w", maxRetries, lastErr)
+	return "", fmt.Errorf("presign GET failed after %d attempts (PUT succeeded): %w", maxRetries, lastErr)
 }

@@ -143,26 +143,11 @@ func (r *dataRepo) CleanGameOrderTable(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
-	// 获取清理前的记录数
-	if count, err := r.GetGameOrderCount(ctx); err == nil && count > 0 {
-		r.log.Infof("[Mysql] Truncating game_order table with %d records", count)
-	}
-
-	// 执行 TRUNCATE TABLE
+	count, _ := r.GetGameOrderCount(ctx)
 	if _, err := orderDB.Context(ctx).Exec("TRUNCATE TABLE game_order"); err != nil {
 		return fmt.Errorf("[Mysql] failed to truncate game_order table: %w", err)
 	}
-
-	// 验证清理结果
-	if finalCount, err := r.GetGameOrderCount(ctx); err != nil {
-		r.log.Warnf("[Mysql] Failed to verify cleanup: %v", err)
-	} else if finalCount > 0 {
-		r.log.Warnf("[Mysql] Table still has %d records after truncate", finalCount)
-	} else {
-		r.log.Info("[Mysql] Game order table truncated successfully")
-	}
-
+	r.log.Infof("[Mysql] Game order table truncated successfully, cleared records: %d", count)
 	return nil
 }
 

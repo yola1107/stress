@@ -1,0 +1,408 @@
+# Generated with protoc-gen-openapi
+# https://github.com/google/gnostic/tree/master/cmd/protoc-gen-openapi
+
+openapi: 3.0.3
+info:
+    title: StressService API
+    version: 0.0.1
+paths:
+    /stress/Bench:
+        post:
+            tags:
+                - StressService
+            description: 批量压测启动
+            operationId: StressService_Bench
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/stress.v1.BenchRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/stress.v1.BenchResponse'
+    /stress/CancelTask:
+        post:
+            tags:
+                - StressService
+            description: 取消任务
+            operationId: StressService_CancelTask
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/stress.v1.CancelTaskRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/stress.v1.CancelTaskResponse'
+    /stress/Cleanup:
+        post:
+            tags:
+                - StressService
+            description: 清理 Redis 和 MySQL 订单数据
+            operationId: StressService_Cleanup
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/stress.v1.CleanupRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/stress.v1.CleanupResponse'
+    /stress/CreateTask:
+        post:
+            tags:
+                - StressService
+            description: 创建压测任务
+            operationId: StressService_CreateTask
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/stress.v1.CreateTaskRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/stress.v1.CreateTaskResponse'
+    /stress/DeleteTask:
+        post:
+            tags:
+                - StressService
+            description: 删除任务
+            operationId: StressService_DeleteTask
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/stress.v1.DeleteTaskRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /stress/ListGames:
+        post:
+            tags:
+                - StressService
+            description: 获取游戏列表
+            operationId: StressService_ListGames
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/stress.v1.ListGamesRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/stress.v1.ListGamesResponse'
+    /stress/ListTasks:
+        post:
+            tags:
+                - StressService
+            description: 获取任务列表
+            operationId: StressService_ListTasks
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/stress.v1.ListTasksRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/stress.v1.ListTasksResponse'
+    /stress/TaskInfo:
+        post:
+            tags:
+                - StressService
+            description: 获取任务详情
+            operationId: StressService_TaskInfo
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/stress.v1.TaskInfoRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/stress.v1.TaskInfoResponse'
+    /stress/TaskRecord:
+        post:
+            tags:
+                - StressService
+            description: 获取任务结果
+            operationId: StressService_GetRecord
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/stress.v1.RecordRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/stress.v1.RecordResponse'
+    /stress/ping/{name}:
+        get:
+            tags:
+                - StressService
+            description: Sends a greeting
+            operationId: StressService_PingReq
+            parameters:
+                - name: name
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/stress.v1.PingReply'
+components:
+    schemas:
+        stress.v1.BenchRequest:
+            type: object
+            properties:
+                gameIds:
+                    type: array
+                    items:
+                        type: string
+                memberCount:
+                    type: integer
+                    format: int32
+                timesPerMember:
+                    type: integer
+                    format: int32
+            description: '--- 批量压测 ---'
+        stress.v1.BenchResponse:
+            type: object
+            properties:
+                code:
+                    type: integer
+                    format: int32
+                message:
+                    type: string
+                taskIds:
+                    type: string
+                fails:
+                    type: array
+                    items:
+                        type: string
+        stress.v1.BetOrderConfig:
+            type: object
+            properties:
+                baseMoney:
+                    type: number
+                    format: double
+                multiple:
+                    type: string
+                purchase:
+                    type: string
+            description: 下注配置
+        stress.v1.CancelTaskRequest:
+            type: object
+            properties:
+                taskId:
+                    type: string
+            description: '--- 取消任务 ---'
+        stress.v1.CancelTaskResponse:
+            type: object
+            properties:
+                code:
+                    type: integer
+                    format: int32
+                message:
+                    type: string
+        stress.v1.CleanupRequest:
+            type: object
+            properties: {}
+            description: '--- 清理环境 ---'
+        stress.v1.CleanupResponse:
+            type: object
+            properties:
+                code:
+                    type: integer
+                    format: int32
+                message:
+                    type: string
+                redisError:
+                    type: string
+                mysqlError:
+                    type: string
+        stress.v1.CreateTaskRequest:
+            type: object
+            properties:
+                config:
+                    $ref: '#/components/schemas/stress.v1.TaskConfig'
+            description: '--- 创建任务 ---'
+        stress.v1.CreateTaskResponse:
+            type: object
+            properties:
+                code:
+                    type: integer
+                    format: int32
+                message:
+                    type: string
+                task:
+                    $ref: '#/components/schemas/stress.v1.Task'
+        stress.v1.DeleteTaskRequest:
+            type: object
+            properties:
+                taskId:
+                    type: string
+            description: '--- 删除任务 ---'
+        stress.v1.Game:
+            type: object
+            properties:
+                gameId:
+                    type: string
+                gameName:
+                    type: string
+                betSize:
+                    type: array
+                    items:
+                        type: number
+                        format: double
+            description: 游戏信息
+        stress.v1.ListGamesRequest:
+            type: object
+            properties: {}
+            description: '--- 游戏列表 ---'
+        stress.v1.ListGamesResponse:
+            type: object
+            properties:
+                games:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/stress.v1.Game'
+                total:
+                    type: integer
+                    format: int32
+        stress.v1.ListTasksRequest:
+            type: object
+            properties: {}
+            description: '--- 任务列表 ---'
+        stress.v1.ListTasksResponse:
+            type: object
+            properties:
+                tasks:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/stress.v1.Task'
+                total:
+                    type: integer
+                    format: int32
+        stress.v1.PingReply:
+            type: object
+            properties:
+                message:
+                    type: string
+            description: The response message containing the greetings
+        stress.v1.RecordRequest:
+            type: object
+            properties:
+                taskId:
+                    type: string
+            description: '--- 获取任务结果 ---'
+        stress.v1.RecordResponse:
+            type: object
+            properties:
+                code:
+                    type: integer
+                    format: int32
+                message:
+                    type: string
+                url:
+                    type: string
+        stress.v1.Task:
+            type: object
+            properties:
+                taskId:
+                    type: string
+                description:
+                    type: string
+                status:
+                    type: integer
+                    format: int32
+                process:
+                    type: string
+                config:
+                    $ref: '#/components/schemas/stress.v1.TaskConfig'
+                recordUrl:
+                    type: string
+                createdAt:
+                    type: string
+                startAt:
+                    type: string
+                finishAt:
+                    type: string
+            description: 任务完整信息
+        stress.v1.TaskConfig:
+            type: object
+            properties:
+                gameId:
+                    type: string
+                description:
+                    type: string
+                memberCount:
+                    type: integer
+                    format: int32
+                timesPerMember:
+                    type: integer
+                    format: int32
+                betOrder:
+                    $ref: '#/components/schemas/stress.v1.BetOrderConfig'
+            description: 任务配置
+        stress.v1.TaskInfoRequest:
+            type: object
+            properties:
+                taskId:
+                    type: string
+            description: '--- 任务详情 ---'
+        stress.v1.TaskInfoResponse:
+            type: object
+            properties:
+                code:
+                    type: integer
+                    format: int32
+                message:
+                    type: string
+                task:
+                    $ref: '#/components/schemas/stress.v1.Task'
+tags:
+    - name: StressService

@@ -9,7 +9,7 @@ import (
 	"github.com/go-kratos/kratos/v2/errors"
 )
 
-// NextTaskID 实现 DataRepo：Redis Hash stress-pool:count:YYYY-MM-DD，field=gameID，过期为次日 0 点
+// NextTaskID 实现 DataRepo：Redis Hash stress-pool:count:YYYYMMDD，field=gameID，过期为次日 0 点
 func (r *dataRepo) NextTaskID(ctx context.Context, gameID int64) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()

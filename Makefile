@@ -50,7 +50,7 @@ api:
 .PHONY: build
 # build for linux amd64
 build:
-	mkdir -p bin/ && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=$(VERSION)" -o ./bin/ ./...
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=$(VERSION)" -o ./stress ./cmd/server
 
 .PHONY: wire
 # wire
@@ -65,10 +65,7 @@ generate:
 
 .PHONY: all
 # generate all
-all:
-	make api
-	make config
-	make wire
+all:  api config wire generate
 #	make generate
 
 # deploy config
@@ -83,9 +80,11 @@ SCP=sshpass -p '$(PASS)' scp -o StrictHostKeyChecking=no
 .PHONY: scp
 # deploy to remote server
 scp: build
-	$(SSH) mkdir -p $(DIR)/{bin,configs}
-	$(SCP) -r bin/* $(USER)@$(HOST):$(DIR)/bin/
+	$(SSH) mkdir -p $(DIR)/bin
+	$(SSH) mkdir -p $(DIR)/configs
+	$(SCP) -r ./stress $(USER)@$(HOST):$(DIR)/bin/
 	$(SCP) -r configs/* $(USER)@$(HOST):$(DIR)/configs/
+	rm -f ./stress
 
 # show help
 help:

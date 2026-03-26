@@ -23,31 +23,19 @@ const (
 	taskCleanupInterval = 1 * time.Hour  // 清理任务执行间隔
 )
 
-// DataRepo 数据层接口：成员/订单/清理/任务ID计数
+// DataRepo 数据层接口，嵌入 task.Repo（任务执行期子集）避免方法重复声明
 type DataRepo interface {
-	// 成员管理
+	task.Repo
+
+	// BatchUpsertMembers 批量创建或更新压测成员
 	BatchUpsertMembers(ctx context.Context, members []member.Info) error
-
-	// Redis清理
-	CleanRedisBySites(ctx context.Context, sites []string) error
-
-	// 订单表操作
-	CleanGameOrderTable(ctx context.Context) error
+	// DeleteOrdersByScope 按范围删除订单，返回删除行数
 	DeleteOrdersByScope(ctx context.Context, scope task.OrderScope) (int64, error)
-
-	// 订单统计查询
-	GetGameOrderCount(ctx context.Context) (int64, error)
+	// GetOrderCountByScope 按范围统计订单数
 	GetOrderCountByScope(ctx context.Context, scope task.OrderScope) (int64, error)
-	GetDetailedOrderAmounts(ctx context.Context, scope task.OrderScope) (totalBet, totalWin, betOrderCount, bonusOrderCount int64, err error)
-	QueryGameOrderPoints(ctx context.Context, scope task.OrderScope) ([]chart.Point, error)
-
-	// 任务ID生成
+	// NextTaskID 生成下一个任务 ID（Redis 自增）
 	NextTaskID(ctx context.Context, gameID int64) (string, error)
-
-	// S3 上传
-	UploadBytes(ctx context.Context, bucket, key, contentType string, data []byte) (string, error)
-
-	// GameBetSizes
+	// GetGameBetSize 从 DB 获取游戏下注档位
 	GetGameBetSize(ctx context.Context, gameIDs []int64) (map[int64][]float64, error)
 }
 
@@ -92,13 +80,7 @@ func NewUseCase(repo DataRepo, logger log.Logger, c *conf.Stress, notify notify.
 	// 启动调度器
 	go uc.scheduleLoop()
 
-	go uc.memberPool.StartAutoLoad(ctx, member.LoaderConfig{
-		AutoLoads:     c.Member.AutoLoads,
-		IntervalSec:   c.Member.IntervalSec,
-		MaxLoadTotal:  c.Member.MaxLoadTotal,
-		BatchLoadSize: c.Member.BatchLoadSize,
-		MemberPrefix:  c.Member.MemberPrefix,
-	}, repo, logger, uc.WakeScheduler)
+	go uc.memberPool.StartAutoLoad(ctx, c.Member, repo, logger, uc.WakeScheduler)
 
 	go uc.taskPool.StartAutoCleanup(ctx, logger, taskRetentionPeriod, taskCleanupInterval)
 

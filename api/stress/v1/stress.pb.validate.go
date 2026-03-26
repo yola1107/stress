@@ -2243,8 +2243,6 @@ func (m *Game) validate(all bool) error {
 
 	// no validation rules for GameName
 
-	// no validation rules for Description
-
 	if len(errors) > 0 {
 		return GameMultiError(errors)
 	}
@@ -2402,35 +2400,6 @@ func (m *TaskConfig) validate(all bool) error {
 		if err := v.Validate(); err != nil {
 			return TaskConfigValidationError{
 				field:  "BetOrder",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
-	if all {
-		switch v := interface{}(m.GetBetBonus()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, TaskConfigValidationError{
-					field:  "BetBonus",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, TaskConfigValidationError{
-					field:  "BetBonus",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetBetBonus()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return TaskConfigValidationError{
-				field:  "BetBonus",
 				reason: "embedded message failed validation",
 				cause:  err,
 			}
@@ -2647,110 +2616,6 @@ var _ interface {
 	ErrorName() string
 } = BetOrderConfigValidationError{}
 
-// Validate checks the field values on BetBonusConfig with the rules defined in
-// the proto definition for this message. If any rules are violated, the first
-// error encountered is returned, or nil if there are no violations.
-func (m *BetBonusConfig) Validate() error {
-	return m.validate(false)
-}
-
-// ValidateAll checks the field values on BetBonusConfig with the rules defined
-// in the proto definition for this message. If any rules are violated, the
-// result is a list of violation errors wrapped in BetBonusConfigMultiError,
-// or nil if none found.
-func (m *BetBonusConfig) ValidateAll() error {
-	return m.validate(true)
-}
-
-func (m *BetBonusConfig) validate(all bool) error {
-	if m == nil {
-		return nil
-	}
-
-	var errors []error
-
-	// no validation rules for Enable
-
-	// no validation rules for BonusNum
-
-	if len(errors) > 0 {
-		return BetBonusConfigMultiError(errors)
-	}
-
-	return nil
-}
-
-// BetBonusConfigMultiError is an error wrapping multiple validation errors
-// returned by BetBonusConfig.ValidateAll() if the designated constraints
-// aren't met.
-type BetBonusConfigMultiError []error
-
-// Error returns a concatenation of all the error messages it wraps.
-func (m BetBonusConfigMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
-	for _, err := range m {
-		msgs = append(msgs, err.Error())
-	}
-	return strings.Join(msgs, "; ")
-}
-
-// AllErrors returns a list of validation violation errors.
-func (m BetBonusConfigMultiError) AllErrors() []error { return m }
-
-// BetBonusConfigValidationError is the validation error returned by
-// BetBonusConfig.Validate if the designated constraints aren't met.
-type BetBonusConfigValidationError struct {
-	field  string
-	reason string
-	cause  error
-	key    bool
-}
-
-// Field function returns field value.
-func (e BetBonusConfigValidationError) Field() string { return e.field }
-
-// Reason function returns reason value.
-func (e BetBonusConfigValidationError) Reason() string { return e.reason }
-
-// Cause function returns cause value.
-func (e BetBonusConfigValidationError) Cause() error { return e.cause }
-
-// Key function returns key value.
-func (e BetBonusConfigValidationError) Key() bool { return e.key }
-
-// ErrorName returns error name.
-func (e BetBonusConfigValidationError) ErrorName() string { return "BetBonusConfigValidationError" }
-
-// Error satisfies the builtin error interface
-func (e BetBonusConfigValidationError) Error() string {
-	cause := ""
-	if e.cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.cause)
-	}
-
-	key := ""
-	if e.key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sBetBonusConfig.%s: %s%s",
-		key,
-		e.field,
-		e.reason,
-		cause)
-}
-
-var _ error = BetBonusConfigValidationError{}
-
-var _ interface {
-	Field() string
-	Reason() string
-	Key() bool
-	Cause() error
-	ErrorName() string
-} = BetBonusConfigValidationError{}
-
 // Validate checks the field values on Task with the rules defined in the proto
 // definition for this message. If any rules are violated, the first error
 // encountered is returned, or nil if there are no violations.
@@ -2953,6 +2818,10 @@ func (m *TaskCompletionReport) validate(all bool) error {
 	// no validation rules for ProgressPct
 
 	// no validation rules for Url
+
+	// no validation rules for OrderWarning
+
+	// no validation rules for BonusStep
 
 	if len(errors) > 0 {
 		return TaskCompletionReportMultiError(errors)

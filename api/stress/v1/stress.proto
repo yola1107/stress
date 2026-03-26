@@ -5,7 +5,7 @@ package stress.v1;
 import "google/api/annotations.proto";
 import "validate/validate.proto";
 import "google/protobuf/empty.proto";
-//import "google/protobuf/timestamp.proto";
+// import "google/protobuf/timestamp.proto";
 
 option go_package = "stress/api/stress/v1;v1";
 
@@ -204,8 +204,7 @@ message CleanupResponse {
 message Game {
     int64 game_id            = 1;  // 游戏ID
     string game_name         = 2;  // 游戏名称
-    string description       = 3;  // 游戏描述
-    repeated double bet_size = 4;  // 下注列表
+    repeated double bet_size = 3;  // 下注列表
 }
 
 // 任务配置
@@ -215,7 +214,6 @@ message TaskConfig {
     int32 member_count       = 3 [(validate.rules).int32 = { gte: 1, lte: 10000 }];  // 用户数量
     int32 times_per_member   = 4 [(validate.rules).int32 = { gte: 1, lte: 10000 }];  // 每个用户执行次数
     BetOrderConfig bet_order = 5;                                                    // 下注配置
-    BetBonusConfig bet_bonus = 6;                                                    // 奖励配置
 }
 
 // 下注配置
@@ -223,14 +221,6 @@ message BetOrderConfig {
     double base_money = 1 [(validate.rules).double = { gt: 0 }];  // 基础金额
     int64 multiple    = 2 [(validate.rules).int64 = { gt: 0 }];   // 倍数
     int64 purchase    = 3 [(validate.rules).int64 = { gte: 0 }];  // 购买次数
-}
-
-// 奖励配置
-message BetBonusConfig {
-    bool enable                   = 1;
-    int64 bonus_num               = 2;  // 指定奖励编号（0表示随机）
-    repeated int64 random_nums    = 3;  // 随机范围 [min, max]
-    repeated int64 bonus_sequence = 4;  // 奖励序列
 }
 
 // 任务完整信息
@@ -267,4 +257,6 @@ message TaskCompletionReport {
     int64 failed_reqs    = 17;  // 失败请求数
     double progress_pct  = 18;  // 进度 % (process/target*100, 上限 100)
     string url           = 19;  // 图表URL
+    string order_warning = 20;  // 订单等待超时警告（为空表示正常）
+    int64 bonus_step     = 21;  // bonus 请求数（不写入订单）
 }
