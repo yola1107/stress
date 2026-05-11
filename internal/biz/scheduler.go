@@ -73,6 +73,9 @@ func (uc *UseCase) WakeScheduler() {
 
 // runTask 执行任务，cleanup 后通过回调唤醒调度
 func (uc *UseCase) runTask(t *task.Task, allocated []task.MemberInfo) {
+	// 启动单任务清mysql+redis 对应于 internal/biz/task/task_exec.go 255行
+	_, _ = uc.Cleanup(context.Background())
+
 	// 任务开始运行，增加计数器
 	uc.taskPool.IncreaseRunningCount()
 

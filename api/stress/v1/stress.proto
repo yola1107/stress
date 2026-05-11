@@ -218,9 +218,10 @@ message TaskConfig {
 
 // 下注配置
 message BetOrderConfig {
-    double base_money = 1 [(validate.rules).double = { gt: 0 }];  // 基础金额
-    int64 multiple    = 2 [(validate.rules).int64 = { gt: 0 }];   // 倍数
-    int64 purchase    = 3 [(validate.rules).int64 = { gte: 0 }];  // 购买次数
+    double base_money        = 1 [(validate.rules).double = { gt: 0 }];  // 基础金额
+    int64 multiple           = 2 [(validate.rules).int64 = { gt: 0 }];   // 倍数
+    int64 purchase           = 3 [(validate.rules).int64 = { gte: 0 }];  // 购买次数
+    repeated int64 bonus_num = 4;                                        // bonus随机范围 [min, max]
 }
 
 // 任务完整信息

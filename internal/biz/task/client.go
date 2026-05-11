@@ -59,19 +59,10 @@ type APIClient struct {
 	betBonusURL  string
 	merchant     string
 	signRequired bool
-
-	env *SessionEnv
+	task         *Task
 }
 
-type SessionEnv struct {
-	ctx      context.Context
-	cfg      *v1.TaskConfig
-	game     base.IGame
-	task     *Task
-	protobuf base.ProtobufConverter
-}
-
-func NewAPIClient(capacity int, secretProvider base.SecretProvider, launchCfg *conf.Stress_Launch) *APIClient {
+func NewAPIClient(capacity int, secretProvider base.SecretProvider, launchCfg *conf.Stress_Launch, task *Task) *APIClient {
 	if capacity <= 0 {
 		capacity = 100
 	}
@@ -82,7 +73,7 @@ func NewAPIClient(capacity int, secretProvider base.SecretProvider, launchCfg *c
 	baseApiURL := strings.TrimRight(launchCfg.GetApiUrl(), "/")
 	baseLaunchURL := strings.TrimRight(launchCfg.GetLaunchUrl(), "/")
 
-	return &APIClient{
+	c := &APIClient{
 		http: &http.Client{
 			Timeout: 30 * time.Second,
 			Transport: &http.Transport{
@@ -111,33 +102,9 @@ func NewAPIClient(capacity int, secretProvider base.SecretProvider, launchCfg *c
 		betBonusURL:  baseApiURL + "/api/game/betbonus",
 		merchant:     launchCfg.Merchant,
 		signRequired: launchCfg.SignRequired,
+		task:         task,
 	}
-}
-
-func (c *APIClient) BindSessionEnv(t *Task) error {
-	if t == nil {
-		return errors.New("task is nil")
-	}
-	cfg := t.GetConfig()
-	if cfg == nil {
-		return errors.New("task config is nil")
-	}
-	g := t.GetGame()
-	env := &SessionEnv{
-		ctx:  t.Context(),
-		cfg:  cfg,
-		game: g,
-		task: t,
-	}
-	if g != nil {
-		env.protobuf = g.GetProtobufConverter()
-	}
-	c.env = env
-	return nil
-}
-
-func (c *APIClient) Env() *SessionEnv {
-	return c.env
+	return c
 }
 
 type launchParams struct {
@@ -207,7 +174,7 @@ func (c *APIClient) request(ctx context.Context, method, apiURL string, body any
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		io.CopyN(io.Discard, resp.Body, 1024) // 只丢弃前1KB，避免大响应体阻塞
+		_, _ = io.CopyN(io.Discard, resp.Body, 1024) // 只丢弃前1KB，避免大响应体阻塞
 		return nil, fmt.Errorf("http status %d", resp.StatusCode)
 	}
 
@@ -284,27 +251,6 @@ func (e *BetOrderError) Error() string {
 	return fmt.Sprintf("betorder error: code=%d msg=%s", e.Code, e.Msg)
 }
 
-func (c *APIClient) decodeProtobuf(cfg *v1.TaskConfig, bytesData string) (map[string]any, error) {
-	bytesTrimmed := strings.TrimSpace(bytesData)
-	if bytesTrimmed == "" {
-		return nil, fmt.Errorf("betorder api response bytes is empty for game %d", cfg.GameId)
-	}
-
-	if c.env == nil || c.env.protobuf == nil {
-		return nil, fmt.Errorf("protobuf converter is nil for game %d", cfg.GameId)
-	}
-	protoBytes, err := base64.StdEncoding.DecodeString(bytesTrimmed)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode base64 bytes: %v", err)
-	}
-
-	result, err := c.env.protobuf(protoBytes)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
 func (c *APIClient) BetOrder(ctx context.Context, cfg *v1.TaskConfig, token string) (map[string]any, error) {
 	params := map[string]any{"gameId": cfg.GameId}
 	if cfg.BetOrder != nil {
@@ -344,8 +290,20 @@ func (c *APIClient) BetOrder(ctx context.Context, cfg *v1.TaskConfig, token stri
 		return nil, e
 	}
 
-	if c.env != nil && c.env.protobuf != nil {
-		return c.decodeProtobuf(cfg, res.Bytes)
+	if fn := c.task.game.GetProtobufConverter(); fn != nil {
+		bytesTrimmed := strings.TrimSpace(res.Bytes)
+		if bytesTrimmed == "" {
+			return nil, fmt.Errorf("betorder api response bytes is empty for game %d", cfg.GameId)
+		}
+		protoBytes, err := base64.StdEncoding.DecodeString(bytesTrimmed)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode base64 bytes: %v", err)
+		}
+		result, err := fn(protoBytes)
+		if err != nil {
+			return nil, err
+		}
+		return result, nil
 	}
 
 	var data map[string]any
@@ -373,11 +331,7 @@ func (c *APIClient) BetBonus(ctx context.Context, cfg *v1.TaskConfig, token stri
 	if err := jsonAPI.Unmarshal(res.Data, &data); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal betbonus response: %w", err)
 	}
-	result := &BetBonusResult{Data: data}
-	if c.env != nil && c.env.game != nil {
-		result.NeedContinue = c.env.game.BonusNextState(data)
-	}
-	return result, nil
+	return &BetBonusResult{Data: data, NeedContinue: c.task.game.NeedBetBonus(data)}, nil
 }
 
 // Close 释放APIClient占用的资源
@@ -386,5 +340,5 @@ func (c *APIClient) Close() {
 		c.http.CloseIdleConnections()
 		c.http = nil
 	}
-	c.env = nil
+	c.task = nil
 }

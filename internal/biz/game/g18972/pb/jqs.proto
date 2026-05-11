@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+option go_package = "egame-grpc/game/jqs/pb";
+
+package jqs;
+
+// 金钱鼠 (GameID: 18972)
+// 盘面: 3x3
+// 特色: 倍数累积、免费游戏
+
+message jqs_BetOrderResponse {
+    optional string sn            = 1;   // 订单号
+    optional double balance       = 2;   // 当前余额
+    optional double baseBet       = 3;   // 请求 BaseMoney
+    optional int64 multiplier     = 4;   // 请求 Multiple
+    optional double betAmount     = 5;   // 下注金额（含线倍）
+    optional double curWin        = 6;   // 本步赢取（BonusAmount）
+    optional double freeWin       = 7;   // 免费局累计赢取
+    optional double totalWin      = 8;   // 总赢取
+    optional bool isFree          = 9;   // 是否免费/Re-spin 步
+    optional int64 review         = 10;  // 复盘
+    optional bool next            = 11;  // 是否仍有后续免费步
+    optional int64 state          = 12;  // 游戏状态
+    optional int64 lineMultiplier = 13;  // 本步线倍合计（stepMultiplier）
+    repeated int64 symGrid        = 14;  // 盘面
+    repeated int64 winGrid        = 15;  // 中奖盘面
+    repeated jqs_WinArr winArr    = 16;  // 中奖项列表
+}
+
+message jqs_WinArr {
+    optional int64 val     = 1;  // 符号
+    optional int64 roadNum = 2;  // 路线数量
+    optional int64 starNum = 3;  // 列数量
+    optional int64 odds    = 4;  // 赔率
+}

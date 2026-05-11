@@ -72,16 +72,7 @@ func (t *Task) Execute(members []MemberInfo, deps *ExecDeps) {
 
 	t.SetStartAt()
 
-	apiClient := NewAPIClient(len(members), NoopSecretProvider, deps.Conf.Launch)
-	if err := apiClient.BindSessionEnv(t); err != nil {
-		t.log.Errorf("[%s] bind session env failed: %v", t.GetID(), err)
-		t.SetStatus(v1.TaskStatus_TASK_FAILED)
-		t.SetFinishAt()
-		t.waitOrderWrite(deps)
-		t.finalize(deps)
-		t.cleanup(deps, apiClient)
-		return
-	}
+	apiClient := NewAPIClient(len(members), NoopSecretProvider, deps.Conf.Launch, t)
 
 	t.Monitor()
 
@@ -252,7 +243,7 @@ func (t *Task) finalize(deps *ExecDeps) {
 	t.SetStatus(v1.TaskStatus_TASK_PROCESSING)
 	t.uploadChart(deps, ctx, rpt, scope)
 	t.sendNotification(deps, ctx, rpt)
-	t.cleanupEnvironment(deps, ctx)
+	//t.cleanupEnvironment(deps, ctx)
 
 	switch pre {
 	case v1.TaskStatus_TASK_CANCELLED:

@@ -233,6 +233,10 @@ components:
                     type: string
                 purchase:
                     type: string
+                bonusNum:
+                    type: array
+                    items:
+                        type: string
             description: 下注配置
         stress.v1.CancelTaskRequest:
             type: object

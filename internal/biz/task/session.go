@@ -72,33 +72,27 @@ func (s *Session) setToken(token string) {
 	s.Token = token
 }
 
-func (s *Session) Execute(client *APIClient) error {
-	env := client.Env()
-	if env == nil {
-		return fmt.Errorf("session env is nil")
-	}
-
-	maxRetries := defaultMaxRetries
+func (s *Session) Execute(c *APIClient) error {
 	for {
 		if state := s.getState(); state == SessionStateCompleted || state == SessionStateFailed {
 			break
 		}
 
 		select {
-		case <-env.ctx.Done():
+		case <-c.task.Context().Done():
 			s.setState(SessionStateFailed)
-			return env.ctx.Err()
+			return c.task.Context().Err()
 		default:
 		}
 
-		if env.task.GetStatus() == v1.TaskStatus_TASK_CANCELLED {
+		if c.task.GetStatus() == v1.TaskStatus_TASK_CANCELLED {
 			s.setState(SessionStateFailed)
 			s.LastError = "task cancelled"
 			return nil
 		}
 
-		if err := s.executeStep(env, client); err != nil {
-			if !s.handleError(err, maxRetries, env) {
+		if err := s.executeStep(c); err != nil {
+			if !s.handleError(err, defaultMaxRetries, c.task) {
 				return err
 			}
 		}
@@ -106,12 +100,15 @@ func (s *Session) Execute(client *APIClient) error {
 	return nil
 }
 
-func (s *Session) executeStep(env *SessionEnv, client *APIClient) error {
+func (s *Session) executeStep(c *APIClient) error {
+	ctx := c.task.Context()
+	cfg := c.task.GetConfig()
+
 	atomic.AddInt32(&s.TryTimes, 1)
 
 	switch s.getState() {
 	case SessionStateIdle, SessionStateLaunching:
-		token, err := client.Launch(env.ctx, env.cfg, s.MemberName)
+		token, err := c.Launch(ctx, cfg, s.MemberName)
 		if err == nil {
 			s.setToken(token)
 			s.setState(SessionStateLoggingIn)
@@ -125,11 +122,11 @@ func (s *Session) executeStep(env *SessionEnv, client *APIClient) error {
 		return err
 
 	case SessionStateLoggingIn:
-		token, freeData, err := client.Login(env.ctx, env.cfg, s.getToken())
+		token, freeData, err := c.Login(ctx, cfg, s.getToken())
 		if err == nil {
 			s.setToken(token)
 			s.setState(SessionStateBetting)
-			if env.game.NeedBetBonus(freeData) {
+			if c.task.game.NeedBetBonus(freeData) {
 				s.setState(SessionStateBonusSelect)
 			}
 			atomic.StoreInt32(&s.TryTimes, 0)
@@ -138,31 +135,31 @@ func (s *Session) executeStep(env *SessionEnv, client *APIClient) error {
 
 	case SessionStateBetting:
 		start := time.Now()
-		data, err := client.BetOrder(env.ctx, env.cfg, s.getToken())
+		data, err := c.BetOrder(ctx, cfg, s.getToken())
 		if err == nil {
 			duration := time.Since(start)
-			spinOver := env.game.IsSpinOver(data)
-			if spinOver && atomic.AddInt32(&s.Process, 1) >= env.cfg.TimesPerMember {
+			spinOver := c.task.game.IsSpinOver(data)
+			if spinOver && atomic.AddInt32(&s.Process, 1) >= cfg.TimesPerMember {
 				s.setState(SessionStateCompleted)
-			} else if env.game.NeedBetBonus(data) {
+			} else if c.task.game.NeedBetBonus(data) {
 				s.setState(SessionStateBonusSelect)
 			}
-			env.task.AddBetOrder(duration, spinOver)
+			c.task.AddBetOrder(duration, spinOver)
 			atomic.StoreInt32(&s.TryTimes, 0)
 		} else {
-			err = s.handleBetOrderError(err, env)
+			err = s.handleBetOrderError(err, c.task)
 		}
 		return err
 
 	case SessionStateBonusSelect:
 		start := time.Now()
-		res, err := client.BetBonus(env.ctx, env.cfg, s.getToken(), env.game.PickBonusNum())
+		res, err := c.BetBonus(ctx, cfg, s.getToken(), c.task.game.PickBonusNum(cfg.BetOrder.BonusNum))
 		if err == nil {
 			duration := time.Since(start)
 			if !res.NeedContinue {
 				s.setState(SessionStateBetting)
 			}
-			env.task.AddBetBonus(duration)
+			c.task.AddBetBonus(duration)
 			atomic.StoreInt32(&s.TryTimes, 0)
 		}
 		return err
@@ -172,12 +169,12 @@ func (s *Session) executeStep(env *SessionEnv, client *APIClient) error {
 	}
 }
 
-func (s *Session) handleBetOrderError(err error, env *SessionEnv) error {
+func (s *Session) handleBetOrderError(err error, task *Task) error {
 	var betErr *BetOrderError
 	if !errors.As(err, &betErr) {
 		return err
 	}
-	if betErr.SleepDuration > 0 && !s.sleepOrCancel(betErr.SleepDuration, env) {
+	if betErr.SleepDuration > 0 && !s.sleepOrCancel(betErr.SleepDuration, task) {
 		return fmt.Errorf("bet order cancelled")
 	}
 	if betErr.NeedRelaunch {
@@ -189,9 +186,9 @@ func (s *Session) handleBetOrderError(err error, env *SessionEnv) error {
 	return betErr
 }
 
-func (s *Session) handleError(err error, maxRetries int, env *SessionEnv) bool {
+func (s *Session) handleError(err error, maxRetries int, task *Task) bool {
 	if s.LastError != err.Error() {
-		env.task.AddError()
+		task.AddError()
 	}
 	s.LastError = err.Error()
 
@@ -202,7 +199,7 @@ func (s *Session) handleError(err error, maxRetries int, env *SessionEnv) bool {
 
 	var apiErr *APIError
 	if errors.As(err, &apiErr) && apiErr.Op == "launch" {
-		if !s.sleepOrCancel(defaultSleepOnCancel, env) {
+		if !s.sleepOrCancel(defaultSleepOnCancel, task) {
 			return false
 		}
 		s.setState(SessionStateFailed)
@@ -211,13 +208,13 @@ func (s *Session) handleError(err error, maxRetries int, env *SessionEnv) bool {
 
 	var betErr *BetOrderError
 	if errors.As(err, &betErr) && !betErr.NeedRelaunch && !betErr.NeedRelogin {
-		return s.sleepOrCancel(betErr.SleepDuration, env)
+		return s.sleepOrCancel(betErr.SleepDuration, task)
 	}
 
-	return s.sleepOrCancel(defaultRetryDelay, env)
+	return s.sleepOrCancel(defaultRetryDelay, task)
 }
 
-func (s *Session) sleepOrCancel(duration time.Duration, env *SessionEnv) bool {
+func (s *Session) sleepOrCancel(duration time.Duration, task *Task) bool {
 	timer := time.NewTimer(duration)
 	defer func() {
 		if !timer.Stop() {
@@ -230,7 +227,7 @@ func (s *Session) sleepOrCancel(duration time.Duration, env *SessionEnv) bool {
 	select {
 	case <-timer.C:
 		return true
-	case <-env.ctx.Done():
+	case <-task.ctx.Done():
 		s.setState(SessionStateFailed)
 		return false
 	}

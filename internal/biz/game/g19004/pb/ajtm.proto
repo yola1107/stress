@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+option go_package = "egame-grpc/game/common/pb";
+
+package ajtm;
+
+// 埃及探秘 (GameID: 19004)
+// 盘面: 5x6
+// 玩法: Ways 消除 + 长符号转变
+
+message ajtm_BetOrderResponse {
+    optional string sn          = 1;   // 订单号
+    optional double balance     = 2;   // 当前余额
+    optional double betAmount   = 3;   // 本局下注金额
+    optional double curWin      = 4;   // 本步赢分
+    optional double freeWin     = 5;   // 免费模式累计赢分
+    optional double roundWin    = 7;   // 当前 round 累计赢分
+    optional int64 review       = 8;   // 复盘标记
+    optional bool isRoundOver   = 9;   // 当前 round 是否结束
+    optional bool isFree        = 10;  // 是否免费模式
+    optional int64 state        = 11;  // 当前阶段
+    optional int64 freeNum      = 12;  // 剩余免费次数
+    optional int64 freeTime     = 13;  // 已执行免费次数
+    optional int64 newFreeTimes = 14;  // 本步新增免费次数
+    repeated int64 symGrid      = 15;  // 当前盘面
+    repeated int64 winGrid      = 16;  // 中奖展示网格
+    repeated ajtm_WinArr winArr = 17;  // 本步中奖条目
+    repeated ajtm_WinMys winMys = 18;  // 长符号转变事件
+    optional int64 stepMul      = 19;  // 本步最终倍数
+    optional int64 mysMul       = 20;  // 当前神秘符号倍数
+    optional bool limit         = 21;  // 是否触发最大可赢封顶
+    optional int64 scatterCount = 22;  // 当前盘面夺宝数量
+}
+
+message ajtm_WinArr {
+    optional int64 roadNum = 1;  // 路数
+    optional int64 odds    = 2;  // 赔率
+}
+
+message ajtm_WinMys {
+    optional int64 col       = 1;  // 列号
+    optional int64 headRow   = 2;  // 头部行号
+    optional int64 tailRow   = 3;  // 尾部行号
+    optional int64 oldSymbol = 4;  // 转变前符号
+    optional int64 newSymbol = 5;  // 转变后符号
+}

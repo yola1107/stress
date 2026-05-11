@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+option go_package = "egame-grpc/game/sbyymx2/pb";
+
+package sbyymx;
+
+// 桑巴与亚马逊 (GameID: 8917)
+// 盘面: 3x3，1条中奖线（中间横线）
+// 特色: 重转至赢、百搭变大
+
+message sbyymx_BetOrderResponse {
+    optional string orderSN        = 1;   // 订单号
+    optional double balance        = 2;   // 玩家当前余额
+    optional double betAmount      = 3;   // 本局下注金额 (baseMoney * multiple * 10)
+    optional double currentWin     = 4;   // 本局赢取金额
+    optional double totalWin       = 5;   // 本回合总赢取
+    optional int64 review          = 6;   // 复盘标志 1=复盘 0=正常
+    repeated sbyymx_WinArr winArr  = 7;   // 本步各条中奖线详情
+    repeated int64 cards           = 8;   // 符号网格 3x3，按行优先 elements共9个
+    optional bool isRoundOver      = 9;   // 是否本局结束（false 时需继续请求免费重转步）
+    repeated int64 winGrid         = 10;  // 中奖位置网格 3x3
+    optional bool isRespinUntilWin = 11;  // 是否在重转至赢模式中 (有炸胡动画)
+    optional int64 wildMultiplier  = 12;  // 长条百搭倍数 (x2-x100)
+    optional int64 lineMultiplier  = 13;  // 线赔率合计（各中奖线基础赔率之和，未乘长条百搭）
+    optional int64 stepMultiple    = 14;  // 本步倍数 (lineMultiplier * wildMultiplier)
+    optional bool isInstrumentWin  = 15;  // 是否乐器符号中奖（吉他/鼓），用于前端表现
+}
+
+// sbyymx_WinArr 单条中奖线详情
+message sbyymx_WinArr {
+    optional int64 roadNum = 1;  // 支付线编号 0
+    optional int64 odds    = 2;  // 基础赔率 来自 pay_table
+}

@@ -10,7 +10,7 @@ type IGame interface {
 	IsSpinOver(data map[string]any) bool
 	NeedBetBonus(freeData map[string]any) bool
 	BonusNextState(data map[string]any) bool // 是否还需继续选奖励（多轮 bonus 时用）
-	PickBonusNum() int64                     // 选取 bonus 编号（压测用）
+	PickBonusNum(bonusNum []int64) int64     // 选取 bonus 编号（压测用）
 	GetProtobufConverter() ProtobufConverter // 返回 nil 表示不支持 protobuf，使用 JSON
 }
 
@@ -73,7 +73,7 @@ func (g *Default) BonusNextState(data map[string]any) bool {
 }
 
 // PickBonusNum 目前需要重写PickBonusNum的游戏有 18902 18920 18931 18946
-func (g *Default) PickBonusNum() int64 {
+func (g *Default) PickBonusNum(bonusNum []int64) int64 {
 	return -1
 }
 

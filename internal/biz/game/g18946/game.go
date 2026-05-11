@@ -38,7 +38,7 @@ func (*Game) NeedBetBonus(data map[string]any) bool {
 	return false
 }
 
-func (*Game) PickBonusNum() int64 {
+func (*Game) PickBonusNum(bonusNum []int64) int64 {
 	return 1
 	// return xgo.RandIntInclusive[int64](1, 3) // [1,3]
 }

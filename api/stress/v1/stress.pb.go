@@ -1186,9 +1186,10 @@ func (x *TaskConfig) GetBetOrder() *BetOrderConfig {
 // 下注配置
 type BetOrderConfig struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	BaseMoney     float64                `protobuf:"fixed64,1,opt,name=base_money,json=baseMoney,proto3" json:"base_money,omitempty"` // 基础金额
-	Multiple      int64                  `protobuf:"varint,2,opt,name=multiple,proto3" json:"multiple,omitempty"`                     // 倍数
-	Purchase      int64                  `protobuf:"varint,3,opt,name=purchase,proto3" json:"purchase,omitempty"`                     // 购买次数
+	BaseMoney     float64                `protobuf:"fixed64,1,opt,name=base_money,json=baseMoney,proto3" json:"base_money,omitempty"`    // 基础金额
+	Multiple      int64                  `protobuf:"varint,2,opt,name=multiple,proto3" json:"multiple,omitempty"`                        // 倍数
+	Purchase      int64                  `protobuf:"varint,3,opt,name=purchase,proto3" json:"purchase,omitempty"`                        // 购买次数
+	BonusNum      []int64                `protobuf:"varint,4,rep,packed,name=bonus_num,json=bonusNum,proto3" json:"bonus_num,omitempty"` // bonus随机范围 [min, max]
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1242,6 +1243,13 @@ func (x *BetOrderConfig) GetPurchase() int64 {
 		return x.Purchase
 	}
 	return 0
+}
+
+func (x *BetOrderConfig) GetBonusNum() []int64 {
+	if x != nil {
+		return x.BonusNum
+	}
+	return nil
 }
 
 // 任务完整信息
@@ -1631,12 +1639,13 @@ const file_stress_v1_stress_proto_rawDesc = "" +
 	"\xfaB\a\x1a\x05\x18\x90N(\x01R\vmemberCount\x124\n" +
 	"\x10times_per_member\x18\x04 \x01(\x05B\n" +
 	"\xfaB\a\x1a\x05\x18\x90N(\x01R\x0etimesPerMember\x126\n" +
-	"\tbet_order\x18\x05 \x01(\v2\x19.stress.v1.BetOrderConfigR\bbetOrder\"\x89\x01\n" +
+	"\tbet_order\x18\x05 \x01(\v2\x19.stress.v1.BetOrderConfigR\bbetOrder\"\xa6\x01\n" +
 	"\x0eBetOrderConfig\x12-\n" +
 	"\n" +
 	"base_money\x18\x01 \x01(\x01B\x0e\xfaB\v\x12\t!\x00\x00\x00\x00\x00\x00\x00\x00R\tbaseMoney\x12#\n" +
 	"\bmultiple\x18\x02 \x01(\x03B\a\xfaB\x04\"\x02 \x00R\bmultiple\x12#\n" +
-	"\bpurchase\x18\x03 \x01(\x03B\a\xfaB\x04\"\x02(\x00R\bpurchase\"\x98\x02\n" +
+	"\bpurchase\x18\x03 \x01(\x03B\a\xfaB\x04\"\x02(\x00R\bpurchase\x12\x1b\n" +
+	"\tbonus_num\x18\x04 \x03(\x03R\bbonusNum\"\x98\x02\n" +
 	"\x04Task\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x16\n" +

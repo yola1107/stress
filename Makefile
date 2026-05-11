@@ -68,23 +68,22 @@ generate:
 all:  api config wire generate
 #	make generate
 
-# deploy config
-HOST=192.168.10.72
-USER=aa
-PASS=ABC123
-DIR=/data/demo
-
-SSH=sshpass -p '$(PASS)' ssh -o StrictHostKeyChecking=no $(USER)@$(HOST)
-SCP=sshpass -p '$(PASS)' scp -o StrictHostKeyChecking=no
-
 .PHONY: scp
 # deploy to remote server
 scp: build
-	$(SSH) mkdir -p $(DIR)/bin
-	$(SSH) mkdir -p $(DIR)/configs
-	$(SCP) -r ./stress $(USER)@$(HOST):$(DIR)/bin/
-	$(SCP) -r configs/* $(USER)@$(HOST):$(DIR)/configs/
+	git pull
+	bash scripts/deploy.sh ./stress
 	rm -f ./stress
+
+.PHONY: task
+# create stress task
+task:
+	bash scripts/create_task.sh
+
+.PHONY: game
+# register game. eg: make game id=999999 name=大话西游
+game:
+	bash ./scripts/gen-game/gen-game.sh "$(id)" "$(name)"
 
 # show help
 help:

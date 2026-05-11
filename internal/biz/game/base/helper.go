@@ -1,7 +1,7 @@
 package base
 
 import (
-	"fmt"
+	"stress/pkg/xgo"
 
 	jsoniter "github.com/json-iterator/go"
 	"google.golang.org/protobuf/proto"
@@ -11,13 +11,24 @@ import (
 func ProtoToMapConverter(prototype proto.Message) ProtobufConverter {
 	msgType := prototype.ProtoReflect().Type()
 	return func(b []byte) (map[string]any, error) {
-		msg := msgType.New().Interface()
-		if err := proto.Unmarshal(b, msg); err != nil {
-			return nil, fmt.Errorf("unmarshal protobuf: %w", err)
+		out := msgType.New().Interface()
+		if err := proto.Unmarshal(b, out); err != nil {
+			return nil, err
 		}
-		raw, _ := jsoniter.Marshal(msg)
+		raw, _ := jsoniter.Marshal(out)
 		var m map[string]any
 		_ = jsoniter.Unmarshal(raw, &m)
 		return m, nil
+	}
+}
+
+func CalcBonusNum(bonusNum []int64) int64 {
+	switch len(bonusNum) {
+	case 0:
+		return -1
+	case 1:
+		return bonusNum[0]
+	default:
+		return bonusNum[xgo.RandInt(0, len(bonusNum))]
 	}
 }

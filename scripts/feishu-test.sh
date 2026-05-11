@@ -4,8 +4,11 @@
 #       ./scripts/feishu-test.sh --no-sign [消息内容]  # 无签名（需在飞书里关闭签名校验）
 # 配置: 可从 configs/config.yaml 的 notify.webhook_url、notify.signing_secret 同步
 
-WEBHOOK="${FEISHU_WEBHOOK:-https://open.feishu.cn/open-apis/bot/v2/hook/6223fc9e-58c6-4526-b463-140820b5e7c9}"
-SECRET="${FEISHU_SECRET:-HOyyTFJVwq05KjGwFR5isc}"
+#WEBHOOK="${FEISHU_WEBHOOK:-https://open.feishu.cn/open-apis/bot/v2/hook/6223fc9e-58c6-4526-b463-140820b5e7c9}"
+#SECRET="${FEISHU_SECRET:-HOyyTFJVwq05KjGwFR5isc}"
+
+WEBHOOK="${FEISHU_WEBHOOK:-https://open.feishu.cn/open-apis/bot/v2/hook/1252098a-2247-4e26-a300-e6ac6b8bce19}"
+SECRET="${FEISHU_SECRET:-53jFr0ansPcfLtLO5caZKf}"
 
 if [[ "$1" == "--no-sign" ]]; then
   shift

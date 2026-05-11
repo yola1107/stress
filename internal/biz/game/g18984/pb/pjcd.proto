@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+option go_package = "egame-grpc/game/pjcd/pb";
+
+package pjcd;
+
+// 破茧成蝶 (GameID: 18984)
+// 盘面: 4行5列主盘面，3行5列奖励区
+// 特色: 连续消除倍数、蝴蝶百搭
+
+// 4行5列主盘面，3行5列奖励区，支持普通/免费模式及连续消除倍数
+message pjcd_BetOrderResponse {
+    optional string sn               = 1;   // 订单号
+    optional double balance          = 2;   // 玩家当前余额
+    optional double betAmount        = 3;   // 本局下注金额 (baseMoney * multiple * 20)
+    optional double curWin           = 4;   // 本步赢取金额 (当前消除获得的奖金)
+    optional double freeWin          = 5;   // 免费游戏累计赢取
+    optional double roundWin         = 6;   // 一局所有回合总赢
+    optional bool isRoundOver        = 7;   // 是否本局结束
+    optional bool isFree             = 8;   // 是否处于免费模式
+    optional int64 freeNum           = 9;   // 剩余免费次数
+    optional int64 freeTimes         = 10;  // 已使用免费次数
+    optional int64 newFreeTimes      = 11;  // 增加的免费次数
+    repeated int64 symGrid           = 12;  // 符号网格 4行×5列 按行优先 elements共20个
+    repeated int64 winGrid           = 13;  // 中奖位置网格 4行×5列 1标记中奖位 0未中奖
+    optional int64 mulIndex          = 14;  // 当前消除轮次索引
+    repeated int64 baseMultipliers   = 15;  // 轮次倍数列表 [1,2,3,5]
+    repeated int64 freeMultipliers   = 16;  // 轮次倍数列表 [3,6,9,15]
+    optional int64 wildEliCount      = 17;  // 本步蝴蝶百搭个数
+    optional int64 totalWildEliCount = 18;  // 累积蝴蝶百搭个数
+    optional int64 wildEliMultiple   = 19;  // 蝴蝶百搭倍数
+    repeated pjcd_WinArr winArr      = 20;  // 中奖线详情
+}
+
+// Pjcd_WinArr 单条中奖线详情
+message pjcd_WinArr {
+    optional int64 roadNum = 1;  // 支付线编号 0~19
+    optional int64 odds    = 2;  // 基础赔率 来自 pay_table
+}

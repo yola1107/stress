@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+option go_package = "egame-grpc/game/ycj/pb";
+
+package ycj;
+
+// 印钞机 (GameID: 18926)
+// 盘面: 5x3（仅中间行判奖）
+// 特色: 推展模式、重转模式、夺宝模式
+// 推展（中间空且左右数字相同则中间下落一格补判，每扣费回合至多一次）、
+// 重转（免费局中间非空且左右数字不同则左右重转补判，每扣费回合至多一次）、夺宝（免费符号叠加次数）。
+
+message Ycj_BetOrderResponse {
+    optional string sn                = 1;   // 订单号
+    optional double balance           = 2;   // 当前余额
+    optional double baseBet           = 3;   // 基础下注
+    optional int64 multiplier         = 4;   // 下注倍数
+    optional double betAmount         = 5;   // 实际投注金额（baseBet * multiplier * 20）
+    optional double curWin            = 6;   // 本步结算赢取金额
+    optional double freeTotalWin      = 7;   // 免费游戏中累计赢取
+    optional double totalWin          = 8;   // 本回合总赢取
+    optional bool isFree              = 9;   // 是否处于免费模式
+    optional bool isRoundOver         = 10;  // 是否结束
+    optional int64 remainingFreeTimes = 11;  // 剩余免费次数
+    optional int64 freeTime           = 12;  // 已使用免费次数
+    optional int64 newFreeTimes       = 13;  // 本步新增的免费旋转次数
+    repeated int64 symGrid            = 14;  // 牌面
+    optional int64 pend               = 15;  // 0 无续步 1 推展 2 重转
+    optional double roundWin          = 16;  //
+}

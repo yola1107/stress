@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+option go_package = "egame-grpc/game/yhwy/pb";
+
+package yhwy;
+
+message yhwy_BetOrderResponse {
+    optional string sn          = 1;   // 订单号
+    optional double balance     = 2;   // 当前余额
+    optional double baseBet     = 3;   // 基础下注
+    optional int64 multiplier   = 4;   // 下注倍数
+    optional double betAmount   = 5;   // 实际投注金额（baseBet × multiplier）
+    optional double curWin      = 6;   // step：本次 betOrder 赢分
+    optional double roundWin    = 7;   // round：本回合累计赢（消除类多步累计）
+    optional double totalWin    = 8;   // spin：本 spin 总赢（含免费触发轮）
+    optional double freeWin     = 9;   // 免费局阶段累计总赢（不含触发轮）
+    optional bool isRoundOver   = 10;  // 本 round 是否结束
+    optional int64 collectLevel = 11;  // 当前樱花堆外观等级（0~3）
+    optional bool isFree        = 12;  // 当前是否处于免费游戏
+    optional int64 freeNum      = 13;  // 剩余免费次数
+    optional int64 freeTime     = 14;  // 已使用免费次数
+    optional int64 newFreeTimes = 15;  // 本步新增的免费旋转次数
+    repeated int64 symGrid      = 16;  // 牌面
+    repeated int64 mysGrid      = 17;  // 百变樱花盘面
+    repeated int64 winGrid      = 18;  // 中奖位置网格
+    repeated yhwy_WinArr winArr = 19;  // 本次命中的所有中奖线
+}
+
+message yhwy_WinArr {
+    optional int64 roadNum = 1;  // 中奖线编号，从 0 开始
+    optional int64 odds    = 2;  // 该中奖线赔率
+}

@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+option go_package = "egame-grpc/game/dzfy/pb";
+
+package dzfy;
+
+// 中奖详情响应
+message dzfy_BetOrderResponse {
+    optional string orderSn       = 1;   // 订单号
+    optional double balance       = 2;   // 余额
+    optional double baseBet       = 3;   // 基础下注
+    optional double betAmount     = 4;   // 下注金额
+    optional int64 multiplier     = 5;   // 下注倍数
+    optional bool isFree          = 6;   // 是否免费
+    repeated int64 cards          = 7;   // 盘面
+    repeated int64 winCards       = 8;   // 中奖牌面
+    optional bool spinOver        = 9;   // 游戏是否结束
+    optional float freeTotalMoney = 10;  // 免费总赢
+    optional float win            = 11;  // 赢分
+    repeated int64 winDetails     = 12;  // 中奖详情
+    optional int64 freeNum        = 13;  // 免费次数
+    optional bool roundOver       = 14;  // 轮次是否结束
+    optional bool triggerFree     = 15;  // 是否触发免费模式
+    optional int64 freeSelect     = 16;  // 免费档位
+    optional int64 normalMul      = 17;  // 普通档位
+    optional double totalWin      = 18;  // 单局总赢赏
+    optional uint64 addFreeNum    = 19;  // 增加免费次数
+    optional double roundWin      = 20;  // 轮次总赢
+}

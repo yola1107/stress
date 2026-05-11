@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"stress/internal/biz/game/base"
+	"stress/pkg/xgo"
 )
 
 const ID = 18920
@@ -38,8 +39,15 @@ func (*Game) NeedBetBonus(data map[string]any) bool {
 	return false
 }
 
-func (*Game) PickBonusNum() int64 {
-	return 1
+func (*Game) PickBonusNum(bonusNum []int64) int64 {
+	cnt := len(bonusNum)
+	if cnt == 0 {
+		return -1
+	}
+	if cnt == 1 {
+		return bonusNum[0]
+	}
+	return bonusNum[xgo.RandInt(0, cnt)]
 	// return xgo.RandIntInclusive[int64](1, 3) // [1,3]
 }
 

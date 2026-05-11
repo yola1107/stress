@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+option go_package = "egame-grpc/game/common/pb";
+
+package sjxj;
+
+// 世界小姐 (GameID: 18969)
+// 盘面: 8x5（Base/Free 同结构，Base仅显示下4行，Free显示8行）
+// 特色: 解锁行数、连续免费游戏
+
+message sjxj_BetOrderResponse {
+    optional string sn                = 1;   // 订单号
+    optional double balance           = 2;   // 玩家当前余额
+    optional double baseBet           = 3;   // 基础下注
+    optional int64 multiplier         = 4;   // 下注倍数
+    optional double betAmount         = 5;   // 本局下注金额 (baseMoney * multiple * 50)
+    optional double curWin            = 6;   // 本局赢取金额
+    optional double freeTotalWin      = 7;   // 免费游戏累计赢取
+    optional double totalWin          = 8;   // 本回合总赢取
+    optional bool isFree              = 9;   // 是否处于免费模式
+    optional int64 review             = 10;  // 复盘标志 1=复盘 0=正常
+    sjxj_WinInfo winInfo              = 11;  // 中奖详情（线奖列表、加次等）
+    repeated int64 cards              = 12;  // 符号网格 8×5，按行优先 elements共40个（服务端方向，不翻转）
+    optional int64 remainingFreeTimes = 13;  // 剩余免费次数
+    optional int64 totalFreeTimes     = 14;  // 已使用免费次数
+    repeated int64 winGrid            = 15;  // 中奖位置网格 8×5（仅标记底4行，1=中奖位 0=未中奖）
+    optional int64 newFreeTimes       = 16;  // 新增免费次数
+}
+
+// sgz_WinInfo 中奖详情
+message sjxj_WinInfo {
+    repeated sjxj_WinArr winArr = 1;  // 本步各条中奖线的详情
+    repeated int64 freeUnlockTh = 2;  // 免费剩余解锁行数量
+    repeated int64 scatterMul   = 3;  // 夺宝符号倍数列表（一维数组）
+}
+
+// sgz_WinArr 单条中奖线详情
+message sjxj_WinArr {
+    optional int64 roadNum = 1;  // 支付线编号 0~19
+    optional int64 odds    = 2;  // 基础赔率 来自 pay_table
+}
